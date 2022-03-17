@@ -24,6 +24,7 @@ import org.mozilla.javascript.ast.BigIntLiteral;
 import org.mozilla.javascript.ast.Block;
 import org.mozilla.javascript.ast.BreakStatement;
 import org.mozilla.javascript.ast.CatchClause;
+import org.mozilla.javascript.ast.ClassNode;
 import org.mozilla.javascript.ast.Comment;
 import org.mozilla.javascript.ast.ComputedPropertyKey;
 import org.mozilla.javascript.ast.ConditionalExpression;
@@ -609,6 +610,13 @@ public class Parser {
                     } catch (ParserException e) {
                         break;
                     }
+                } else if (tt == Token.CLASS) {
+                    consumeToken();
+                    n =
+                            classDefinition(
+                                    calledByCompileFunction
+                                            ? FunctionNode.FUNCTION_EXPRESSION
+                                            : FunctionNode.FUNCTION_STATEMENT);
                 } else if (tt == Token.COMMENT) {
                     n = scannedComments.get(scannedComments.size() - 1);
                     consumeToken();
@@ -965,6 +973,44 @@ public class Parser {
         return fnNode;
     }
 
+    private ClassNode classDefinition(int type) throws IOException {
+        int baseLineno = ts.lineno;
+        int classSourceStart = ts.tokenBeg;
+        Name name = null;
+
+        if (matchToken(Token.NAME, true)) {
+            name = createNameNode(true, Token.NAME);
+            if (!matchToken(Token.LC, true)) {
+                mustMatchToken(Token.LC, "msg.no.class.body", true);
+            }
+        } else if (matchToken(Token.LC, true)) {
+            // Anonymous class
+        } else {
+            mustMatchToken(Token.LC, "msg.no.class.body", true);
+        }
+
+        ClassNode classNode = new ClassNode(classSourceStart, name);
+        classNode.setFunctionType(type);
+
+        // For now, assume that a class is a list of functions
+        int nextTok = -1;
+        do {
+            nextTok = peekToken();
+            if (nextTok == Token.NAME) {
+                FunctionNode f = function(FunctionNode.FUNCTION_EXPRESSION_STATEMENT);
+                classNode.addClassFunction(f.getFunctionName().getIdentifier(), f);
+            } else {
+                mustMatchToken(Token.RC, "msg.no.class.body.end", true);
+            }
+        } while (nextTok != Token.EOF && nextTok != Token.RC);
+
+        classNode.setJsDocNode(getAndResetJsDoc());
+        classNode.setSourceName(sourceURI);
+        classNode.setBaseLineno(baseLineno);
+        classNode.setEndLineno(ts.lineno);
+        return classNode;
+    }
+
     private AstNode arrowFunction(AstNode params) throws IOException {
         int baseLineno = ts.lineno; // line number where source starts
         int functionSourceStart =
@@ -1249,6 +1295,10 @@ public class Parser {
             case Token.FUNCTION:
                 consumeToken();
                 return function(FunctionNode.FUNCTION_EXPRESSION_STATEMENT);
+
+            case Token.CLASS:
+                consumeToken();
+                return classDefinition(FunctionNode.FUNCTION_EXPRESSION_STATEMENT);
 
             case Token.DEFAULT:
                 pn = defaultXmlNamespace();
@@ -3109,6 +3159,10 @@ public class Parser {
             case Token.FUNCTION:
                 consumeToken();
                 return function(FunctionNode.FUNCTION_EXPRESSION);
+
+            case Token.CLASS:
+                consumeToken();
+                return classDefinition(FunctionNode.FUNCTION_EXPRESSION);
 
             case Token.LB:
                 consumeToken();

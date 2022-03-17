@@ -360,7 +360,7 @@ class TokenStream implements Parser.CurrentPositionReporter {
                 Id_break = Token.BREAK,
                 Id_case = Token.CASE,
                 Id_catch = Token.CATCH,
-                Id_class = Token.RESERVED,
+                Id_class = Token.CLASS,
                 Id_const = Token.CONST,
                 Id_continue = Token.CONTINUE,
                 Id_debugger = Token.DEBUGGER,

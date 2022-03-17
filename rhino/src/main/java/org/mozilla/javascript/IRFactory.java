@@ -9,6 +9,8 @@ package org.mozilla.javascript;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
 import org.mozilla.javascript.ast.ArrayComprehension;
 import org.mozilla.javascript.ast.ArrayComprehensionLoop;
 import org.mozilla.javascript.ast.ArrayLiteral;
@@ -19,7 +21,6 @@ import org.mozilla.javascript.ast.BigIntLiteral;
 import org.mozilla.javascript.ast.Block;
 import org.mozilla.javascript.ast.BreakStatement;
 import org.mozilla.javascript.ast.CatchClause;
-import org.mozilla.javascript.ast.ComputedPropertyKey;
 import org.mozilla.javascript.ast.ConditionalExpression;
 import org.mozilla.javascript.ast.ContinueStatement;
 import org.mozilla.javascript.ast.DestructuringForm;
@@ -143,6 +144,8 @@ public final class IRFactory {
                 return transformBreak((BreakStatement) node);
             case Token.CALL:
                 return transformFunctionCall((FunctionCall) node);
+            case Token.CLASS:
+                return transformClassDefinition((ClassNode) node);
             case Token.CONTINUE:
                 return transformContinue((ContinueStatement) node);
             case Token.DO:
@@ -600,6 +603,41 @@ public final class IRFactory {
             --parser.nestingOfFunction;
             savedVars.restore();
         }
+    }
+
+    private Node transformClassDefinition(ClassNode node) {
+        // Turn the class definition into a constructor function that will
+        // set everything up just as it should be.
+        FunctionNode constructor = new FunctionNode(node.getPosition(), node.getFunctionName());
+        constructor.setFunctionType(node.getFunctionType());
+        constructor.setSourceName(node.getSourceName());
+        constructor.setBaseLineno(node.getBaseLineno());
+        constructor.setEndLineno(node.getEndLineno());
+
+        AstNode constructorBody = new Block(node.getPosition());
+        FunctionNode constructorNode = null;
+        for (Map.Entry<String, FunctionNode> cf : node.getClassFunctions()) {
+            if ("constructor".equals(cf.getKey())) {
+                // "constructor" is a special name in this case but might not be a reserved word.
+                constructorNode = cf.getValue();
+            } else {
+                AstNode thiss = new KeywordLiteral(node.getPosition());
+                thiss.setType(Token.THIS);
+                AstNode prop = new Assignment(
+                    new PropertyGet(new PropertyGet(thiss, new Name(node.getPosition(), "prototype")),
+                        new Name(node.getPosition(), cf.getKey())),
+                    cf.getValue());
+                prop.setType(Token.ASSIGN);
+                constructorBody.addChild(prop);
+            }
+        }
+        if (constructorNode != null) {
+            // Add the constructor code after the other init stuff.
+            constructorBody.addChild(constructorNode.getBody());
+        }
+        constructor.setBody(constructorBody);
+        System.out.println("**** Transform *****" + constructor.debugPrint());
+        return transformFunction(constructor);
     }
 
     private Node transformFunctionCall(FunctionCall node) {
