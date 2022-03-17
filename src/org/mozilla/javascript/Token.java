@@ -24,7 +24,7 @@ public class Token {
     }
 
     // debug flags
-    public static final boolean printTrees = false;
+    public static final boolean printTrees = true;
     static final boolean printICode = false;
     static final boolean printNames = printTrees || printICode;
 
@@ -225,7 +225,8 @@ public class Token {
             TEMPLATE_CHARS = 171, // template literal - literal section
             TEMPLATE_LITERAL_SUBST = 172, // template literal - substitution
             TAGGED_TEMPLATE_LITERAL = 173, // template literal - tagged/handler
-            LAST_TOKEN = 173;
+            CLASS = 174, // ES6 class definition
+            LAST_TOKEN = CLASS;
 
     /**
      * Returns a name for the token. If Rhino is compiled with certain hardcoded debugging flags in
@@ -594,6 +595,8 @@ public class Token {
                 return "TEMPLATE_LITERAL_SUBST";
             case TAGGED_TEMPLATE_LITERAL:
                 return "TAGGED_TEMPLATE_LITERAL";
+            case CLASS:
+                return "CLASS";
         }
 
         // Token without name
@@ -673,6 +676,8 @@ public class Token {
                 return "throw";
             case Token.TRY:
                 return "try";
+            case Token.CLASS:
+                return "class";
             default:
                 return null;
         }
