@@ -23,6 +23,9 @@ public interface SlotMap extends Iterable<Slot> {
     /** Return whether the map is empty. */
     boolean isEmpty();
 
+    /** Return whether the map has reached its maximum capacity. */
+    boolean maxCapacity();
+
     /**
      * Return the Slot that matches EITHER "key" or "index". (It will use "key" if it is not null,
      * and otherwise "index".) If no slot exists, then create a default slot class.

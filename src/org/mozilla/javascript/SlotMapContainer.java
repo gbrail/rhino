@@ -14,13 +14,6 @@ import java.util.Iterator;
  */
 class SlotMapContainer implements SlotMap {
 
-    /**
-     * Once the object has this many properties in it, we will replace the EmbeddedSlotMap with
-     * HashSlotMap. We can adjust this parameter to balance performance for typical objects versus
-     * performance for huge objects with many collisions.
-     */
-    private static final int LARGE_HASH_SIZE = 2000;
-
     private static final int DEFAULT_SIZE = 10;
 
     protected SlotMap map;
@@ -30,7 +23,7 @@ class SlotMapContainer implements SlotMap {
     }
 
     SlotMapContainer(int initialSize) {
-        if (initialSize > LARGE_HASH_SIZE) {
+        if (initialSize > EmbeddedSlotMap.LARGE_HASH_SIZE) {
             map = new HashSlotMap();
         } else {
             map = new EmbeddedSlotMap();
@@ -49,6 +42,11 @@ class SlotMapContainer implements SlotMap {
     @Override
     public boolean isEmpty() {
         return map.isEmpty();
+    }
+
+    @Override
+    public boolean maxCapacity() {
+        return map.maxCapacity();
     }
 
     @Override
@@ -97,7 +95,7 @@ class SlotMapContainer implements SlotMap {
      * map to a HashMap that is more robust against large numbers of hash collisions.
      */
     protected void checkMapSize() {
-        if ((map instanceof EmbeddedSlotMap) && map.size() >= LARGE_HASH_SIZE) {
+        if ((map instanceof EmbeddedSlotMap) && map.maxCapacity()) {
             SlotMap newMap = new HashSlotMap();
             for (Slot s : map) {
                 newMap.add(s);
