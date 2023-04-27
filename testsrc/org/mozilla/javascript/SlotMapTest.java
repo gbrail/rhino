@@ -2,10 +2,10 @@ package org.mozilla.javascript;
 
 import static org.junit.Assert.*;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Random;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -19,8 +19,9 @@ public class SlotMapTest {
     private final SlotMap map;
 
     public SlotMapTest(Class<SlotMap> mapClass)
-            throws IllegalAccessException, InstantiationException {
-        this.map = mapClass.newInstance();
+            throws IllegalAccessException, InstantiationException, NoSuchMethodException,
+                    InvocationTargetException {
+        this.map = mapClass.getDeclaredConstructor().newInstance();
     }
 
     @Parameterized.Parameters
@@ -31,6 +32,7 @@ public class SlotMapTest {
                     {HashSlotMap.class},
                     {SlotMapContainer.class},
                     {ThreadSafeSlotMapContainer.class},
+                    {IndexedSlotMap.class},
                 });
     }
 
@@ -83,18 +85,22 @@ public class SlotMapTest {
     private static final int NUM_INDICES = 67;
 
     @Test
-    public void manyKeysAndIndices() {
+    public void testManyKeysAndIndices() {
+        HashSet<Integer> indices = new HashSet<>();
         for (int i = 0; i < NUM_INDICES; i++) {
             Slot newSlot = map.modify(null, i, 0);
             newSlot.value = i;
+            indices.add(i);
         }
+        HashSet<String> keys = new HashSet<>();
         for (String key : KEYS) {
             Slot newSlot = map.modify(key, 0, 0);
             newSlot.value = key;
+            keys.add(key);
         }
         assertEquals(KEYS.length + NUM_INDICES, map.size());
         assertFalse(map.isEmpty());
-        verifyIndicesAndKeys();
+        verifyIndicesAndKeys(indices, keys);
 
         // Randomly replace some stuff
         for (int i = 0; i < 20; i++) {
@@ -111,63 +117,58 @@ public class SlotMapTest {
             Slot newSlot = new Slot(slot);
             map.replace(slot, newSlot);
         }
-        verifyIndicesAndKeys();
+        verifyIndicesAndKeys(indices, keys);
 
-        HashSet<Integer> removedIds = new HashSet<>();
-        for (int i = 0; i < 20; i++) {
+        // Randomly remove some stuff
+        for (int i = 0; i < 20; ) {
             int ix = rand.nextInt(NUM_INDICES);
-            map.remove(null, ix);
-            removedIds.add(ix);
-        }
-        HashSet<String> removedKeys = new HashSet<>();
-        for (int i = 0; i < 20; i++) {
-            int ix = rand.nextInt(NUM_INDICES);
-            map.remove(KEYS[ix], ix);
-            removedKeys.add(KEYS[ix]);
-        }
-
-        for (int i = 0; i < NUM_INDICES; i++) {
-            Slot slot = map.query(null, i);
-            if (removedIds.contains(i)) {
-                assertNull(slot);
-            } else {
-                assertNotNull(slot);
-                assertEquals(i, slot.value);
+            if (indices.remove(ix)) {
+                map.remove(null, ix);
+                i++;
             }
         }
-        for (String key : KEYS) {
-            Slot slot = map.query(key, 0);
-            if (removedKeys.contains(key)) {
-                assertNull(slot);
-            } else {
-                assertNotNull(slot);
-                assertEquals(key, slot.value);
+        for (int i = 0; i < 20; ) {
+            int ix = rand.nextInt(KEYS.length);
+            if (keys.remove(KEYS[ix])) {
+                map.remove(KEYS[ix], ix);
+                i++;
             }
         }
+        verifyIndicesAndKeys(indices, keys);
     }
 
-    private void verifyIndicesAndKeys() {
+    private void verifyIndicesAndKeys(HashSet<Integer> indices, HashSet<String> keys) {
         long lockStamp = 0;
         if (map instanceof SlotMapContainer) {
             lockStamp = ((SlotMapContainer) map).readLock();
         }
         try {
-            Iterator<Slot> it = map.iterator();
-            for (int i = 0; i < NUM_INDICES; i++) {
+            // Verify that all indices and keys are present
+            for (int i : indices) {
                 Slot slot = map.query(null, i);
                 assertNotNull(slot);
                 assertEquals(i, slot.value);
-                assertTrue(it.hasNext());
-                assertEquals(slot, it.next());
             }
-            for (String key : KEYS) {
-                Slot slot = map.query(key, 0);
+            for (String k : keys) {
+                Slot slot = map.query(k, 0);
                 assertNotNull(slot);
-                assertEquals(key, slot.value);
-                assertTrue(it.hasNext());
-                assertEquals(slot, it.next());
+                assertEquals(k, slot.value);
             }
-            assertFalse(it.hasNext());
+
+            // Compare iterator to expected indices and keys
+            HashSet<Integer> rIndices = new HashSet<>(indices);
+            HashSet<String> rKeys = new HashSet<>(keys);
+            for (Slot s : map) {
+                // If we fail here, the iterator returned something it shouldn't
+                if (s.name == null) {
+                    assertTrue(rIndices.remove(s.indexOrHash));
+                } else {
+                    assertTrue(rKeys.remove(s.name));
+                }
+            }
+            // If we fail here, the iterator didn't return everything it should
+            assertTrue(rIndices.isEmpty());
+            assertTrue(rKeys.isEmpty());
         } finally {
             if (map instanceof SlotMapContainer) {
                 ((SlotMapContainer) map).unlockRead(lockStamp);

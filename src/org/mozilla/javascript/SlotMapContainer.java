@@ -14,7 +14,10 @@ import java.util.Iterator;
  */
 class SlotMapContainer implements SlotMap {
 
+    private static final boolean indexedMap = true;
+
     private static final int DEFAULT_SIZE = 10;
+    private static final int LARGE_HASH_SIZE = 2000;
 
     protected SlotMap map;
 
@@ -23,7 +26,9 @@ class SlotMapContainer implements SlotMap {
     }
 
     SlotMapContainer(int initialSize) {
-        if (initialSize > EmbeddedSlotMap.LARGE_HASH_SIZE) {
+        if (indexedMap) {
+            map = new IndexedSlotMap();
+        } else if (initialSize > LARGE_HASH_SIZE) {
             map = new HashSlotMap();
         } else {
             map = new EmbeddedSlotMap();
@@ -42,11 +47,6 @@ class SlotMapContainer implements SlotMap {
     @Override
     public boolean isEmpty() {
         return map.isEmpty();
-    }
-
-    @Override
-    public boolean maxCapacity() {
-        return map.maxCapacity();
     }
 
     @Override
@@ -95,7 +95,7 @@ class SlotMapContainer implements SlotMap {
      * map to a HashMap that is more robust against large numbers of hash collisions.
      */
     protected void checkMapSize() {
-        if ((map instanceof EmbeddedSlotMap) && map.maxCapacity()) {
+        if ((map instanceof EmbeddedSlotMap) && map.size() >= LARGE_HASH_SIZE) {
             SlotMap newMap = new HashSlotMap();
             for (Slot s : map) {
                 newMap.add(s);

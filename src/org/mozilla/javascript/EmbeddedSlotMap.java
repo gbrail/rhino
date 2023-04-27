@@ -19,13 +19,6 @@ import java.util.Objects;
 
 public class EmbeddedSlotMap implements SlotMap {
 
-    /**
-     * Once the object has this many properties in it, we will replace the EmbeddedSlotMap with
-     * HashSlotMap. We can adjust this parameter to balance performance for typical objects versus
-     * performance for huge objects with many collisions.
-     */
-    static final int LARGE_HASH_SIZE = 2000;
-
     private Slot[] slots;
 
     // gateways into the definition-order linked list of slots
@@ -70,11 +63,6 @@ public class EmbeddedSlotMap implements SlotMap {
     @Override
     public boolean isEmpty() {
         return count == 0;
-    }
-
-    @Override
-    public boolean maxCapacity() {
-        return count >= LARGE_HASH_SIZE;
     }
 
     @Override

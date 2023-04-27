@@ -30,11 +30,6 @@ public class HashSlotMap implements SlotMap {
     }
 
     @Override
-    public boolean maxCapacity() {
-        return false;
-    }
-
-    @Override
     public Slot query(Object key, int index) {
         Object name = makeKey(key, index);
         return map.get(name);

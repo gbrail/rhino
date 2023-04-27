@@ -62,17 +62,6 @@ class ThreadSafeSlotMapContainer extends SlotMapContainer {
     }
 
     @Override
-    public boolean maxCapacity() {
-        // Will we ever really use this?
-        long stamp = lock.readLock();
-        try {
-            return map.maxCapacity();
-        } finally {
-            lock.unlockRead(stamp);
-        }
-    }
-
-    @Override
     public Slot modify(Object key, int index, int attributes) {
         final long stamp = lock.writeLock();
         try {
