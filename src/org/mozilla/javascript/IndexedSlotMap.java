@@ -1,6 +1,9 @@
 package org.mozilla.javascript;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.NoSuchElementException;
 
 /**
  * This class implements the SlotMap using a PropertyMap for the first 10 keys, and then uses a

@@ -1,7 +1,7 @@
 package org.mozilla.javascript;
 
-import java.util.HashMap;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This class implements a map of property keys to indices. It's used to implement the fast-path
@@ -13,7 +13,7 @@ public class PropertyMap {
     private final Object key;
     private final int level;
     private final PropertyMap parent;
-    private final HashMap<Object, PropertyMap> children = new HashMap<>();
+    private final ConcurrentHashMap<Object, PropertyMap> children = new ConcurrentHashMap<>();
 
     private PropertyMap(Object key, int level, PropertyMap parent) {
         this.key = key;

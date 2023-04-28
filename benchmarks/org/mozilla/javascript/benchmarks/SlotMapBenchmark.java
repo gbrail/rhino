@@ -1,10 +1,7 @@
 package org.mozilla.javascript.benchmarks;
 
 import java.util.Random;
-import org.mozilla.javascript.EmbeddedSlotMap;
-import org.mozilla.javascript.HashSlotMap;
-import org.mozilla.javascript.Slot;
-import org.mozilla.javascript.SlotMap;
+import org.mozilla.javascript.*;
 import org.openjdk.jmh.annotations.*;
 
 public class SlotMapBenchmark {
@@ -39,7 +36,20 @@ public class SlotMapBenchmark {
 
     @Benchmark
     @OperationsPerInvocation(100)
-    public Object embeddedInsert1Key(EmbeddedState state) {
+    public Object embeddedInsert10Keys(EmbeddedState state) {
+        Slot newSlot = null;
+        for (int i = 0; i < 10; i++) {
+            newSlot = state.emptyMap.modify(state.randomKeys[i], 0, 0);
+        }
+        if (newSlot == null) {
+            throw new AssertionError();
+        }
+        return newSlot;
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(100)
+    public Object embeddedInsert100Keys(EmbeddedState state) {
         Slot newSlot = null;
         for (int i = 0; i < 100; i++) {
             newSlot = state.emptyMap.modify(state.randomKeys[i], 0, 0);
@@ -51,7 +61,7 @@ public class SlotMapBenchmark {
     }
 
     @Benchmark
-    @OperationsPerInvocation(100)
+    @OperationsPerInvocation(1000)
     public Object embeddedQueryKey10Entries(EmbeddedState state) {
         Slot slot = null;
         for (int i = 0; i < 100; i++) {
@@ -77,10 +87,10 @@ public class SlotMapBenchmark {
     }
 
     @State(Scope.Thread)
-    public static class HashState {
-        final HashSlotMap emptyMap = new HashSlotMap();
-        final HashSlotMap size10Map = new HashSlotMap();
-        final HashSlotMap size100Map = new HashSlotMap();
+    public static class IndexedState {
+        final IndexedSlotMap emptyMap = new IndexedSlotMap();
+        final IndexedSlotMap size10Map = new IndexedSlotMap();
+        final IndexedSlotMap size100Map = new IndexedSlotMap();
         final String[] randomKeys = new String[100];
         String size100LastKey;
         String size10LastKey;
@@ -104,7 +114,20 @@ public class SlotMapBenchmark {
 
     @Benchmark
     @OperationsPerInvocation(100)
-    public Object hashInsert1Key(HashState state) {
+    public Object indexedInsert10Keys(IndexedState state) {
+        Slot newSlot = null;
+        for (int i = 0; i < 10; i++) {
+            newSlot = state.emptyMap.modify(state.randomKeys[i], 0, 0);
+        }
+        if (newSlot == null) {
+            throw new AssertionError();
+        }
+        return newSlot;
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(100)
+    public Object indexedInsert100Keys(IndexedState state) {
         Slot newSlot = null;
         for (int i = 0; i < 100; i++) {
             newSlot = state.emptyMap.modify(state.randomKeys[i], 0, 0);
@@ -116,8 +139,8 @@ public class SlotMapBenchmark {
     }
 
     @Benchmark
-    @OperationsPerInvocation(100)
-    public Object hashQueryKey10Entries(HashState state) {
+    @OperationsPerInvocation(1000)
+    public Object indexedQueryKey10Entries(IndexedState state) {
         Slot slot = null;
         for (int i = 0; i < 100; i++) {
             slot = state.size10Map.query(state.size10LastKey, 0);
@@ -130,7 +153,7 @@ public class SlotMapBenchmark {
 
     @Benchmark
     @OperationsPerInvocation(100)
-    public Object hashQueryKey100Entries(HashState state) {
+    public Object indexedQueryKey100Entries(IndexedState state) {
         Slot slot = null;
         for (int i = 0; i < 100; i++) {
             slot = state.size100Map.query(state.size100LastKey, 0);
