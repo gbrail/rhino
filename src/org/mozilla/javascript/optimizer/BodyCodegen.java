@@ -3983,42 +3983,19 @@ class BodyCodegen {
     private void visitGetProp(Node node, Node child) {
         generateExpression(child, node); // object
         Node nameChild = child.getNext();
-        generateExpression(nameChild, node); // the name
+        cfw.addALoad(contextLocal);
+        cfw.addALoad(variableObjectLocal);
+
         if (node.getType() == Token.GETPROPNOWARN) {
-            cfw.addALoad(contextLocal);
-            cfw.addALoad(variableObjectLocal);
-            addScriptRuntimeInvoke(
-                    "getObjectPropNoWarn",
-                    "(Ljava/lang/Object;"
-                            + "Ljava/lang/String;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + "Lorg/mozilla/javascript/Scriptable;"
-                            + ")Ljava/lang/Object;");
-            return;
-        }
-        /*
-            for 'this.foo' we call getObjectProp(Scriptable...) which can
-            skip some casting overhead.
-        */
-        int childType = child.getType();
-        if (childType == Token.THIS && nameChild.getType() == Token.STRING) {
-            cfw.addALoad(contextLocal);
-            addScriptRuntimeInvoke(
-                    "getObjectProp",
-                    "(Lorg/mozilla/javascript/Scriptable;"
-                            + "Ljava/lang/String;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + ")Ljava/lang/Object;");
+            cfw.addInvokeDynamic(
+                    "GETNOWARN:" + nameChild.getString(),
+                    DynamicRuntime.GET_PROP_SIGNATURE,
+                    DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
         } else {
-            cfw.addALoad(contextLocal);
-            cfw.addALoad(variableObjectLocal);
-            addScriptRuntimeInvoke(
-                    "getObjectProp",
-                    "(Ljava/lang/Object;"
-                            + "Ljava/lang/String;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + "Lorg/mozilla/javascript/Scriptable;"
-                            + ")Ljava/lang/Object;");
+            cfw.addInvokeDynamic(
+                    "GET:" + nameChild.getString(),
+                    DynamicRuntime.GET_PROP_SIGNATURE,
+                    DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
         }
     }
 
