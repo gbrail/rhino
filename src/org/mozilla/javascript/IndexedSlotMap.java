@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 
 /**
  * This class implements the SlotMap using a PropertyMap for the first 10 keys, and then uses a
@@ -47,6 +48,27 @@ public class IndexedSlotMap implements SlotMap {
             return null;
         }
         return slowSlots.get(key);
+    }
+
+    @Override
+    public FastKey getFastKey(Object k, int index) {
+        Object key = makeKey(k, index);
+        if (fastSlots != null) {
+            int ix = propertyMap.find(key);
+            if (ix >= 0) {
+                assert (ix < fastSlots.size());
+                return new FastKey(propertyMap, ix);
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public Slot queryFast(FastKey key) {
+        if (Objects.equals(key.map, propertyMap) && fastSlots != null) {
+            return fastSlots.get(key.index);
+        }
+        return SlotMap.NOT_A_FAST_PROPERTY;
     }
 
     /** When we modify, we switch to a new property map. */

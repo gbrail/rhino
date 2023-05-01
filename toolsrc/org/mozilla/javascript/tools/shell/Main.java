@@ -39,6 +39,7 @@ import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.SecurityController;
 import org.mozilla.javascript.commonjs.module.ModuleScope;
 import org.mozilla.javascript.commonjs.module.Require;
+import org.mozilla.javascript.optimizer.DynamicRuntime;
 import org.mozilla.javascript.tools.SourceReader;
 import org.mozilla.javascript.tools.ToolErrorReporter;
 
@@ -162,6 +163,7 @@ public class Main {
         IProxy iproxy = new IProxy(IProxy.PROCESS_FILES);
         iproxy.args = args;
         shellContextFactory.call(iproxy);
+        DynamicRuntime.printStats();
 
         return exitCode;
     }

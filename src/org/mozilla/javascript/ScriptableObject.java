@@ -242,6 +242,26 @@ public abstract class ScriptableObject
     }
 
     /**
+     * Return a key that may be used to fetch a property later in a more efficient way, or return
+     * null to indicate that such a fetch is not possible.
+     */
+    public SlotMap.FastKey getFastKey(String name) {
+        return slotMap.getFastKey(name, 0);
+    }
+
+    /**
+     * Return the value of the property using a fast key, or return SlotMap.NOT_A_FAST_PROPERTY if
+     * another method should be used.
+     */
+    public Object getFast(SlotMap.FastKey key, Scriptable start) {
+        Slot slot = slotMap.queryFast(key);
+        if (slot == SlotMap.NOT_A_FAST_PROPERTY) {
+            return SlotMap.NOT_A_FAST_PROPERTY;
+        }
+        return slot.getValue(start);
+    }
+
+    /**
      * Returns the value of the indexed property or NOT_FOUND.
      *
      * @param index the numeric index for the property

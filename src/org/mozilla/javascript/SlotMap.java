@@ -16,6 +16,7 @@ package org.mozilla.javascript;
  * substantial performance regressions so we are doing the best that we can.
  */
 public interface SlotMap extends Iterable<Slot> {
+    Slot NOT_A_FAST_PROPERTY = new Slot(null, 0, 0);
 
     /** Return the size of the map. */
     int size();
@@ -44,6 +45,18 @@ public interface SlotMap extends Iterable<Slot> {
      */
     Slot query(Object key, int index);
 
+    /**
+     * If the specified property is stored in a fast index, return a key that may be used to
+     * retrieve it later. Otherwise, return null.
+     */
+    FastKey getFastKey(Object key, int index);
+
+    /**
+     * Given a key from getFastKey, either return the property value, or return NOT_A_FAST_PROPERTY
+     * if this SlotMap has a different property map.
+     */
+    Slot queryFast(FastKey key);
+
     /** Replace "slot" with a new slot. This is used to change slot types. */
     void replace(Slot oldSlot, Slot newSlot);
 
@@ -60,4 +73,14 @@ public interface SlotMap extends Iterable<Slot> {
      * @param index if key is zero, then this will be used as the key instead.
      */
     void remove(Object key, int index);
+
+    final class FastKey {
+        PropertyMap map;
+        int index;
+
+        public FastKey(PropertyMap map, int index) {
+            this.map = map;
+            this.index = index;
+        }
+    }
 }
