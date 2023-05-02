@@ -125,7 +125,7 @@ task microBenchmark(type: JavaExec, description: 'JMH micro benchmark') {
     }
     classpath = sourceSets.jmh.runtimeClasspath
     mainClass = 'org.openjdk.jmh.Main'
-    args '-f', '1', '-bm', 'avgt', '-tu', 'ns', '-r', '5', benchmark
+    args '-f', '1', '-bm', 'avgt', '-tu', 'ns', '-r', '5', '-wi', '2', benchmark
 }
 
 task listBenchmarks(type: JavaExec, description: 'JMH benchmarks') {

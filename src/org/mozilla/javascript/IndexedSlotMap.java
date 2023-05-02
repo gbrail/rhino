@@ -1,6 +1,5 @@
 package org.mozilla.javascript;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.NoSuchElementException;
@@ -12,22 +11,21 @@ import java.util.Objects;
  */
 public class IndexedSlotMap implements SlotMap {
     /** The number of slots to index using the property map. */
-    static final int FAST_SLOT_SIZE = 10;
+    static final int FAST_SLOT_SIZE = 30;
 
-    private ArrayList<Slot> fastSlots = new ArrayList<>();
+    private final Slot[] fastSlots = new Slot[FAST_SLOT_SIZE];
+    private int fastSize = 0;
     private LinkedHashMap<Object, Slot> slowSlots = null;
     private PropertyMap propertyMap = PropertyMap.ROOT;
 
     @Override
     public int size() {
-        return (fastSlots == null ? 0 : fastSlots.size())
-                + (slowSlots == null ? 0 : slowSlots.size());
+        return fastSize + (slowSlots == null ? 0 : slowSlots.size());
     }
 
     @Override
     public boolean isEmpty() {
-        return (fastSlots == null || fastSlots.isEmpty())
-                && (slowSlots == null || slowSlots.isEmpty());
+        return fastSize == 0 && (slowSlots == null || slowSlots.isEmpty());
     }
 
     /**
@@ -37,11 +35,11 @@ public class IndexedSlotMap implements SlotMap {
     @Override
     public Slot query(Object k, int index) {
         Object key = makeKey(k, index);
-        if (fastSlots != null) {
+        if (fastSize > 0) {
             int ix = propertyMap.find(key);
             if (ix >= 0) {
-                assert (ix < fastSlots.size());
-                return fastSlots.get(ix);
+                assert (ix < fastSize);
+                return fastSlots[ix];
             }
         }
         if (slowSlots == null) {
@@ -53,10 +51,10 @@ public class IndexedSlotMap implements SlotMap {
     @Override
     public FastKey getFastKey(Object k, int index) {
         Object key = makeKey(k, index);
-        if (fastSlots != null) {
+        if (fastSize > 0) {
             int ix = propertyMap.find(key);
             if (ix >= 0) {
-                assert (ix < fastSlots.size());
+                assert (ix < fastSize);
                 return new FastKey(propertyMap, ix);
             }
         }
@@ -65,8 +63,8 @@ public class IndexedSlotMap implements SlotMap {
 
     @Override
     public Slot queryFast(FastKey key) {
-        if (Objects.equals(key.map, propertyMap) && fastSlots != null) {
-            return fastSlots.get(key.index);
+        if (Objects.equals(key.map, propertyMap) && (key.index < fastSize)) {
+            return fastSlots[key.index];
         }
         return SlotMap.NOT_A_FAST_PROPERTY;
     }
@@ -75,11 +73,11 @@ public class IndexedSlotMap implements SlotMap {
     @Override
     public Slot modify(Object k, int index, int attributes) {
         Object key = makeKey(k, index);
-        if (fastSlots != null) {
+        if (fastSize > 0) {
             int ix = propertyMap.find(key);
             if (ix >= 0) {
-                assert (ix < fastSlots.size());
-                return fastSlots.get(ix);
+                assert (ix < fastSize);
+                return fastSlots[ix];
             }
         }
         if (slowSlots != null) {
@@ -98,11 +96,11 @@ public class IndexedSlotMap implements SlotMap {
     @Override
     public void replace(Slot oldSlot, Slot newSlot) {
         Object key = makeKey(oldSlot.name, oldSlot.indexOrHash);
-        if (fastSlots != null) {
+        if (fastSize > 0) {
             int ix = propertyMap.find(key);
             if (ix >= 0) {
-                assert (ix < fastSlots.size());
-                fastSlots.set(ix, newSlot);
+                assert (ix < fastSize);
+                fastSlots[ix] = newSlot;
                 return;
             }
         }
@@ -124,14 +122,15 @@ public class IndexedSlotMap implements SlotMap {
         if (slowSlots == null) {
             slowSlots = new LinkedHashMap<>();
         }
-        if (fastSlots != null) {
+        if (fastSize > 0) {
             // Need to re-build the whole map so that insertion order is preserved.
             LinkedHashMap<Object, Slot> newSlots = new LinkedHashMap<>();
-            for (Slot s : fastSlots) {
+            for (int i = 0; i < fastSize; i++) {
+                Slot s = fastSlots[i];
                 Object key = makeKey(s.name, s.indexOrHash);
                 newSlots.put(key, s);
             }
-            fastSlots = null;
+            fastSize = 0;
             propertyMap = null;
             newSlots.putAll(slowSlots);
             slowSlots = newSlots;
@@ -160,10 +159,11 @@ public class IndexedSlotMap implements SlotMap {
     }
 
     private void insertNewSlot(Object key, Slot newSlot) {
-        if (fastSlots != null && fastSlots.size() < FAST_SLOT_SIZE) {
+        if (propertyMap != null && fastSize < FAST_SLOT_SIZE) {
             propertyMap = propertyMap.add(key);
-            fastSlots.add(newSlot);
-            assert (fastSlots.size() == propertyMap.getLevel() + 1);
+            fastSlots[fastSize] = newSlot;
+            fastSize++;
+            assert (fastSize == propertyMap.getLevel() + 1);
         } else {
             if (slowSlots == null) {
                 slowSlots = new LinkedHashMap<>();
@@ -180,39 +180,38 @@ public class IndexedSlotMap implements SlotMap {
     }
 
     private final class Iter implements Iterator<Slot> {
-        private Iterator<Slot> iter;
-        private boolean fastDone;
+        private Iterator<Slot> iter = null;
+        private int fastIx = 0;
+        private boolean done;
 
         Iter() {
-            if (fastSlots != null) {
-                iter = fastSlots.iterator();
-                fastDone = false;
-            } else if (slowSlots != null) {
-                iter = slowSlots.values().iterator();
-                fastDone = true;
-            } else {
-                iter = null;
-            }
+            done = (fastSize == 0) && (slowSlots == null || slowSlots.isEmpty());
         }
 
         @Override
         public boolean hasNext() {
-            return iter != null && iter.hasNext();
+            return !done;
         }
 
         @Override
         public Slot next() {
+            if (fastIx < fastSize) {
+                Slot s = fastSlots[fastIx];
+                fastIx++;
+                if (fastIx == fastSize && slowSlots == null) {
+                    done = true;
+                }
+                return s;
+            }
             if (iter == null) {
-                throw new NoSuchElementException();
+                if (slowSlots == null) {
+                    throw new NoSuchElementException();
+                }
+                iter = slowSlots.values().iterator();
             }
             Slot s = iter.next();
             if (!iter.hasNext()) {
-                if (!fastDone) {
-                    iter = slowSlots == null ? null : slowSlots.values().iterator();
-                    fastDone = true;
-                } else {
-                    iter = null;
-                }
+                done = true;
             }
             return s;
         }

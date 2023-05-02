@@ -19,11 +19,11 @@ import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.SlotMap;
 
 public class DynamicRuntime {
-    protected static LongAccumulator siteCount = new LongAccumulator(Long::sum, 0);
-    protected static LongAccumulator initFastCount = new LongAccumulator(Long::sum, 0);
-    protected static LongAccumulator initSlowCount = new LongAccumulator(Long::sum, 0);
-    protected static LongAccumulator invokeFastCount = new LongAccumulator(Long::sum, 0);
-    protected static LongAccumulator invokeFastFailCount = new LongAccumulator(Long::sum, 0);
+    protected static final LongAccumulator siteCount = new LongAccumulator(Long::sum, 0);
+    protected static final LongAccumulator initFastCount = new LongAccumulator(Long::sum, 0);
+    protected static final LongAccumulator initSlowCount = new LongAccumulator(Long::sum, 0);
+    protected static final LongAccumulator invokeFastCount = new LongAccumulator(Long::sum, 0);
+    protected static final LongAccumulator invokeFastFailCount = new LongAccumulator(Long::sum, 0);
 
     public static final String BOOTSTRAP_SIGNATURE =
             "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;";
@@ -135,5 +135,13 @@ public class DynamicRuntime {
         System.out.println("Slow inits:              " + initSlowCount.get());
         System.out.println("Fast invocations:        " + invokeFastCount.get());
         System.out.println("Failed fast invocations: " + invokeFastFailCount.get());
+    }
+
+    public static void clearStats() {
+        siteCount.reset();
+        initFastCount.reset();
+        initSlowCount.reset();
+        invokeFastCount.reset();
+        invokeFastFailCount.reset();
     }
 }

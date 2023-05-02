@@ -6,6 +6,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 import java.util.Random;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,6 +44,18 @@ public class SlotMapTest {
         assertTrue(map.isEmpty());
         assertNull(map.query("notfound", 0));
         assertNull(map.query(null, 123));
+
+        long lockStamp = 0;
+        if (map instanceof SlotMapContainer) {
+            lockStamp = ((SlotMapContainer) map).readLock();
+        }
+        try {
+            assertFalse(map.iterator().hasNext());
+        } finally {
+            if (map instanceof SlotMapContainer) {
+                ((SlotMapContainer) map).unlockRead(lockStamp);
+            }
+        }
     }
 
     @Test
@@ -57,10 +71,38 @@ public class SlotMapTest {
         Slot foundNewSlot = map.query("foo", 0);
         assertEquals("Testing", foundNewSlot.value);
         assertSame(foundNewSlot, newSlot);
+
+        long lockStamp = 0;
+        if (map instanceof SlotMapContainer) {
+            lockStamp = ((SlotMapContainer) map).readLock();
+        }
+        try {
+            Iterator<Slot> it = map.iterator();
+            assertTrue(it.hasNext());
+            Slot i1 = it.next();
+            assertEquals(i1.name, "foo");
+            assertFalse(it.hasNext());
+            assertThrows(NoSuchElementException.class, () -> it.next());
+        } finally {
+            if (map instanceof SlotMapContainer) {
+                ((SlotMapContainer) map).unlockRead(lockStamp);
+            }
+        }
         map.remove("foo", 0);
         assertNull(map.query("foo", 0));
         assertEquals(0, map.size());
         assertTrue(map.isEmpty());
+
+        if (map instanceof SlotMapContainer) {
+            lockStamp = ((SlotMapContainer) map).readLock();
+        }
+        try {
+            assertFalse(map.iterator().hasNext());
+        } finally {
+            if (map instanceof SlotMapContainer) {
+                ((SlotMapContainer) map).unlockRead(lockStamp);
+            }
+        }
     }
 
     @Test

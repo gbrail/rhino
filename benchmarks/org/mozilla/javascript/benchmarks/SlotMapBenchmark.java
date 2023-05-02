@@ -35,7 +35,7 @@ public class SlotMapBenchmark {
     }
 
     @Benchmark
-    @OperationsPerInvocation(100)
+    @OperationsPerInvocation(10)
     public Object embeddedInsert10Keys(EmbeddedState state) {
         Slot newSlot = null;
         for (int i = 0; i < 10; i++) {
@@ -64,7 +64,7 @@ public class SlotMapBenchmark {
     @OperationsPerInvocation(1000)
     public Object embeddedQueryKey10Entries(EmbeddedState state) {
         Slot slot = null;
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 1000; i++) {
             slot = state.size10Map.query(state.size10LastKey, 0);
         }
         if (slot == null) {
@@ -113,7 +113,7 @@ public class SlotMapBenchmark {
     }
 
     @Benchmark
-    @OperationsPerInvocation(100)
+    @OperationsPerInvocation(10)
     public Object indexedInsert10Keys(IndexedState state) {
         Slot newSlot = null;
         for (int i = 0; i < 10; i++) {
@@ -139,10 +139,10 @@ public class SlotMapBenchmark {
     }
 
     @Benchmark
-    @OperationsPerInvocation(1000)
+    @OperationsPerInvocation(10000)
     public Object indexedQueryKey10Entries(IndexedState state) {
         Slot slot = null;
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10000; i++) {
             slot = state.size10Map.query(state.size10LastKey, 0);
         }
         if (slot == null) {
