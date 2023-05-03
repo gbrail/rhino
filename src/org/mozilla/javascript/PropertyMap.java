@@ -111,4 +111,19 @@ public class PropertyMap {
             next = null;
         }
     }
+
+    public void print() {
+        StringBuilder indent = new StringBuilder();
+        for (int i = 0; i < level; i++) {
+            indent.append(' ');
+        }
+        System.out.println(indent.toString() + key + ": " + level);
+        for (PropertyMap child : children.values()) {
+            child.print();
+        }
+    }
+
+    public static void printTree() {
+        ROOT.print();
+    }
 }

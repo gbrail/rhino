@@ -164,6 +164,21 @@ public class SlotMapBenchmark {
         return slot;
     }
 
+    @Benchmark
+    @OperationsPerInvocation(1000000)
+    public Object indexedQueryFastKey10Entries(IndexedState state) {
+        SlotMap.FastKey key = state.size10Map.getFastKey(state.size10LastKey, 0);
+        assert (key != null);
+        Slot slot = null;
+        for (int i = 0; i < 1000000; i++) {
+            slot = state.size10Map.queryFast(key);
+        }
+        if (slot == null || slot == SlotMap.NOT_A_FAST_PROPERTY) {
+            throw new AssertionError();
+        }
+        return slot;
+    }
+
     /** Make a new string between 1 and 50 characters out of random lower-case letters. */
     private static String makeRandomString() {
         int len = rand.nextInt(49) + 1;

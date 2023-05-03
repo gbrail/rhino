@@ -4,6 +4,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.concurrent.atomic.LongAccumulator;
 
 /**
  * This class implements the SlotMap using a PropertyMap for the first 10 keys, and then uses a
@@ -17,6 +18,22 @@ public class IndexedSlotMap implements SlotMap {
     private int fastSize = 0;
     private LinkedHashMap<Object, Slot> slowSlots = null;
     private PropertyMap propertyMap = PropertyMap.ROOT;
+    private static final boolean accumulateStats;
+
+    private static final LongAccumulator mapCount = new LongAccumulator(Long::sum, 0);
+    private static final LongAccumulator mapsRemovedCount = new LongAccumulator(Long::sum, 0);
+    private static final LongAccumulator mapsGrownCount = new LongAccumulator(Long::sum, 0);
+
+    static {
+        String propVal = System.getProperty("RhinoSlotStats");
+        accumulateStats = propVal != null;
+    }
+
+    public IndexedSlotMap() {
+        if (accumulateStats) {
+            mapCount.accumulate(1);
+        }
+    }
 
     @Override
     public int size() {
@@ -123,6 +140,9 @@ public class IndexedSlotMap implements SlotMap {
             slowSlots = new LinkedHashMap<>();
         }
         if (fastSize > 0) {
+            if (accumulateStats) {
+                mapsRemovedCount.accumulate(1);
+            }
             // Need to re-build the whole map so that insertion order is preserved.
             LinkedHashMap<Object, Slot> newSlots = new LinkedHashMap<>();
             for (int i = 0; i < fastSize; i++) {
@@ -166,6 +186,9 @@ public class IndexedSlotMap implements SlotMap {
             assert (fastSize == propertyMap.getLevel() + 1);
         } else {
             if (slowSlots == null) {
+                if (accumulateStats) {
+                    mapsGrownCount.accumulate(1);
+                }
                 slowSlots = new LinkedHashMap<>();
             }
             slowSlots.put(key, newSlot);
@@ -214,6 +237,14 @@ public class IndexedSlotMap implements SlotMap {
                 done = true;
             }
             return s;
+        }
+    }
+
+    public static void printStats() {
+        if (accumulateStats) {
+            System.out.println("Indexed slot maps created:    " + mapCount.get());
+            System.out.println("De-optimized due to removals: " + mapsRemovedCount.get());
+            System.out.println("Grown past initial size:      " + mapsGrownCount.get());
         }
     }
 }

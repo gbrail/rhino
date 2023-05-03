@@ -14,12 +14,17 @@ import java.util.Iterator;
  */
 class SlotMapContainer implements SlotMap {
 
-    private static final boolean indexedMap = true;
+    private static final boolean indexedMap;
 
     private static final int DEFAULT_SIZE = 10;
     private static final int LARGE_HASH_SIZE = 2000;
 
     protected SlotMap map;
+
+    static {
+        String propVal = System.getProperty("RhinoOldMaps");
+        indexedMap = propVal == null;
+    }
 
     SlotMapContainer() {
         this(DEFAULT_SIZE);

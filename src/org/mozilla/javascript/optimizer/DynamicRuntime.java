@@ -25,6 +25,8 @@ public class DynamicRuntime {
     protected static final LongAccumulator invokeFastCount = new LongAccumulator(Long::sum, 0);
     protected static final LongAccumulator invokeFastFailCount = new LongAccumulator(Long::sum, 0);
 
+    protected static final boolean accumulateStats;
+
     public static final String BOOTSTRAP_SIGNATURE =
             "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;";
 
@@ -38,11 +40,18 @@ public class DynamicRuntime {
                     "bootstrapPropertyOp",
                     DynamicRuntime.BOOTSTRAP_SIGNATURE);
 
+    static {
+        String propVal = System.getProperty("RhinoIndyStats");
+        accumulateStats = propVal != null;
+    }
+
     @SuppressWarnings("unused")
     public static CallSite bootstrapPropertyOp(
             MethodHandles.Lookup lookup, String name, MethodType mType)
             throws NoSuchMethodException, IllegalAccessException {
-        siteCount.accumulate(1);
+        if (accumulateStats) {
+            siteCount.accumulate(1);
+        }
         if (name.startsWith("GET:")) {
             String propertyName = name.substring(4);
             return bootstrapGetProperty(lookup, propertyName, true, mType);
@@ -94,12 +103,16 @@ public class DynamicRuntime {
                 if (key != null) {
                     fastKey = key;
                     setTarget(invokeFast);
-                    initFastCount.accumulate(1);
+                    if (accumulateStats) {
+                        initFastCount.accumulate(1);
+                    }
                     return invokeFast(propertyName, allowWarn, obj, cx, scope);
                 }
             }
 
-            initSlowCount.accumulate(1);
+            if (accumulateStats) {
+                initSlowCount.accumulate(1);
+            }
             setTarget(fallback);
             return invokeFallback(propertyName, allowWarn, obj, cx, scope);
         }
@@ -111,12 +124,16 @@ public class DynamicRuntime {
                 ScriptableObject so = ((ScriptableObject) obj);
                 Object val = so.getFast(fastKey, so);
                 if (val != SlotMap.NOT_A_FAST_PROPERTY) {
-                    invokeFastCount.accumulate(1);
+                    if (accumulateStats) {
+                        invokeFastCount.accumulate(1);
+                    }
                     return val;
                 }
             }
 
-            invokeFastFailCount.accumulate(1);
+            if (accumulateStats) {
+                invokeFastFailCount.accumulate(1);
+            }
             return invokeFallback(propertyName, allowWarn, obj, cx, scope);
         }
 
@@ -130,11 +147,13 @@ public class DynamicRuntime {
     }
 
     public static void printStats() {
-        System.out.println("Call Sites:              " + siteCount.get());
-        System.out.println("Fast inits:              " + initFastCount.get());
-        System.out.println("Slow inits:              " + initSlowCount.get());
-        System.out.println("Fast invocations:        " + invokeFastCount.get());
-        System.out.println("Failed fast invocations: " + invokeFastFailCount.get());
+        if (accumulateStats) {
+            System.out.println("Call Sites:              " + siteCount.get());
+            System.out.println("Fast inits:              " + initFastCount.get());
+            System.out.println("Slow inits:              " + initSlowCount.get());
+            System.out.println("Fast invocations:        " + invokeFastCount.get());
+            System.out.println("Failed fast invocations: " + invokeFastFailCount.get());
+        }
     }
 
     public static void clearStats() {

@@ -29,9 +29,11 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.GeneratedClassLoader;
+import org.mozilla.javascript.IndexedSlotMap;
 import org.mozilla.javascript.JavaScriptException;
 import org.mozilla.javascript.Kit;
 import org.mozilla.javascript.NativeArray;
+import org.mozilla.javascript.PropertyMap;
 import org.mozilla.javascript.RhinoException;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
@@ -164,6 +166,8 @@ public class Main {
         iproxy.args = args;
         shellContextFactory.call(iproxy);
         DynamicRuntime.printStats();
+        IndexedSlotMap.printStats();
+        PropertyMap.printTree();
 
         return exitCode;
     }
