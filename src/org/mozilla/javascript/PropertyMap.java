@@ -38,6 +38,24 @@ public class PropertyMap {
         }
     }
 
+    /** Return the PropertyMap from the hierarchy at the specified level. */
+    public PropertyMap getMapForLevel(int level) {
+        PropertyMap p = this;
+        while (p.level > level) {
+            p = p.parent;
+        }
+        return p;
+    }
+
+    /** Return whether this map matches at the given level by traversing the parent chain. */
+    public boolean equalAtLevel(PropertyMap p, int level) {
+        PropertyMap m = p;
+        while (m != null && m.level > level) {
+            m = m.parent;
+        }
+        return Objects.equals(this, m);
+    }
+
     public int getLevel() {
         return level;
     }

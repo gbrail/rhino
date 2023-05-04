@@ -3,7 +3,6 @@ package org.mozilla.javascript;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.concurrent.atomic.LongAccumulator;
 
 /**
@@ -72,7 +71,8 @@ public class IndexedSlotMap implements SlotMap {
             int ix = propertyMap.find(key);
             if (ix >= 0) {
                 assert (ix < fastSize);
-                return new FastKey(propertyMap, ix);
+                PropertyMap lm = propertyMap.getMapForLevel(ix);
+                return new FastKey(lm, ix);
             }
         }
         return null;
@@ -80,7 +80,7 @@ public class IndexedSlotMap implements SlotMap {
 
     @Override
     public Slot queryFast(FastKey key) {
-        if (Objects.equals(key.map, propertyMap) && (key.index < fastSize)) {
+        if (key.map.equalAtLevel(propertyMap, key.index) && (key.index < fastSize)) {
             return fastSlots[key.index];
         }
         return SlotMap.NOT_A_FAST_PROPERTY;

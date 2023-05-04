@@ -80,11 +80,9 @@ public class IndexedSlotMapTest {
         assertEquals(m1.queryFast(k3).value, 3);
         assertEquals(m2.queryFast(k3), SlotMap.NOT_A_FAST_PROPERTY);
 
-        /*
-        // TODO: A FastKey should be sharable when maps share a root
+        // A FastKey should be sharable when maps share a root
         SlotMap.FastKey k1 = m1.getFastKey("one", 0);
         assertEquals(m1.queryFast(k1).value, 1);
         assertEquals(m2.queryFast(k1).value, 10);
-         */
     }
 }
