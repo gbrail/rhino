@@ -3,7 +3,7 @@ package org.mozilla.javascript;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.NoSuchElementException;
-import java.util.concurrent.atomic.LongAccumulator;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * This class implements the SlotMap using a PropertyMap for the first 10 keys, and then uses a
@@ -19,9 +19,9 @@ public class IndexedSlotMap implements SlotMap {
     private PropertyMap propertyMap = PropertyMap.ROOT;
     private static final boolean accumulateStats;
 
-    private static final LongAccumulator mapCount = new LongAccumulator(Long::sum, 0);
-    private static final LongAccumulator mapsRemovedCount = new LongAccumulator(Long::sum, 0);
-    private static final LongAccumulator mapsGrownCount = new LongAccumulator(Long::sum, 0);
+    private static final LongAdder mapCount = new LongAdder();
+    private static final LongAdder mapsRemovedCount = new LongAdder();
+    private static final LongAdder mapsGrownCount = new LongAdder();
 
     static {
         String propVal = System.getProperty("RhinoSlotStats");
@@ -30,7 +30,7 @@ public class IndexedSlotMap implements SlotMap {
 
     public IndexedSlotMap() {
         if (accumulateStats) {
-            mapCount.accumulate(1);
+            mapCount.increment();
         }
     }
 
@@ -141,7 +141,7 @@ public class IndexedSlotMap implements SlotMap {
         }
         if (fastSize > 0) {
             if (accumulateStats) {
-                mapsRemovedCount.accumulate(1);
+                mapsRemovedCount.increment();
             }
             // Need to re-build the whole map so that insertion order is preserved.
             LinkedHashMap<Object, Slot> newSlots = new LinkedHashMap<>();
@@ -187,7 +187,7 @@ public class IndexedSlotMap implements SlotMap {
         } else {
             if (slowSlots == null) {
                 if (accumulateStats) {
-                    mapsGrownCount.accumulate(1);
+                    mapsGrownCount.increment();
                 }
                 slowSlots = new LinkedHashMap<>();
             }
@@ -242,9 +242,9 @@ public class IndexedSlotMap implements SlotMap {
 
     public static void printStats() {
         if (accumulateStats) {
-            System.out.println("Indexed slot maps created:    " + mapCount.get());
-            System.out.println("De-optimized due to removals: " + mapsRemovedCount.get());
-            System.out.println("Grown past initial size:      " + mapsGrownCount.get());
+            System.out.println("Indexed slot maps created:    " + mapCount.sum());
+            System.out.println("De-optimized due to removals: " + mapsRemovedCount.sum());
+            System.out.println("Grown past initial size:      " + mapsGrownCount.sum());
         }
     }
 }

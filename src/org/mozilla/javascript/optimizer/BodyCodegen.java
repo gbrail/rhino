@@ -4001,50 +4001,28 @@ class BodyCodegen {
 
     private void visitSetProp(int type, Node node, Node child) {
         Node objectChild = child;
-        generateExpression(child, node);
+        generateExpression(objectChild, node);
         child = child.getNext();
+        Node nameChild = child;
         if (type == Token.SETPROP_OP) {
             cfw.add(ByteCode.DUP);
+            cfw.addALoad(contextLocal);
+            cfw.addALoad(variableObjectLocal);
+            cfw.addInvokeDynamic(
+                    "GET:" + nameChild.getString(),
+                    DynamicRuntime.GET_PROP_SIGNATURE,
+                    DynamicRuntime.PROP_BOOTSTRAP_HANDLE
+            );
         }
-        Node nameChild = child;
-        generateExpression(child, node);
         child = child.getNext();
-        if (type == Token.SETPROP_OP) {
-            // stack: ... object object name -> ... object name object name
-            cfw.add(ByteCode.DUP_X1);
-            // for 'this.foo += ...' we call thisGet which can skip some
-            // casting overhead.
-            if (objectChild.getType() == Token.THIS && nameChild.getType() == Token.STRING) {
-                cfw.addALoad(contextLocal);
-                addScriptRuntimeInvoke(
-                        "getObjectProp",
-                        "(Lorg/mozilla/javascript/Scriptable;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + ")Ljava/lang/Object;");
-            } else {
-                cfw.addALoad(contextLocal);
-                cfw.addALoad(variableObjectLocal);
-                addScriptRuntimeInvoke(
-                        "getObjectProp",
-                        "(Ljava/lang/Object;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;");
-            }
-        }
         generateExpression(child, node);
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        addScriptRuntimeInvoke(
-                "setObjectProp",
-                "(Ljava/lang/Object;"
-                        + "Ljava/lang/String;"
-                        + "Ljava/lang/Object;"
-                        + "Lorg/mozilla/javascript/Context;"
-                        + "Lorg/mozilla/javascript/Scriptable;"
-                        + ")Ljava/lang/Object;");
+        cfw.addInvokeDynamic(
+                "SET:" + nameChild.getString(),
+                DynamicRuntime.SET_PROP_SIGNATURE,
+                DynamicRuntime.PROP_BOOTSTRAP_HANDLE
+        );
     }
 
     private void visitSetElem(int type, Node node, Node child) {

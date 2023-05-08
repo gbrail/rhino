@@ -61,6 +61,19 @@ public class SlotMapBenchmark {
     }
 
     @Benchmark
+    @OperationsPerInvocation(100)
+    public Object embeddedModifyKey10Entries(EmbeddedState state) {
+        Slot slot = null;
+        for (int i = 0; i < 100; i++) {
+            slot = state.size10Map.modify(state.size10LastKey, 0, 0);
+        }
+        if (slot == null) {
+            throw new AssertionError();
+        }
+        return slot;
+    }
+
+    @Benchmark
     @OperationsPerInvocation(1000)
     public Object embeddedQueryKey10Entries(EmbeddedState state) {
         Slot slot = null;
@@ -136,6 +149,19 @@ public class SlotMapBenchmark {
             throw new AssertionError();
         }
         return newSlot;
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(100)
+    public Object indexedModifyKey10Entries(IndexedState state) {
+        Slot slot = null;
+        for (int i = 0; i < 100; i++) {
+            slot = state.size10Map.modify(state.size10LastKey, 0, 0);
+        }
+        if (slot == null) {
+            throw new AssertionError();
+        }
+        return slot;
     }
 
     @Benchmark

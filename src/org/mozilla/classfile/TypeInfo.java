@@ -75,7 +75,7 @@ final class TypeInfo {
                 case 'J':
                     return LONG;
                 default:
-                    throw new IllegalArgumentException("bad type");
+                    throw new IllegalArgumentException("bad type: " + type);
             }
         }
         return TypeInfo.OBJECT(type, pool);

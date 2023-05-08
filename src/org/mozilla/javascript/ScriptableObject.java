@@ -355,6 +355,24 @@ public abstract class ScriptableObject
     }
 
     /**
+     * Set the property using a key from getFastKey. Return false if the property cannot be set
+     * because the property is not a fast property with a matching key, or many other reasons.
+     * This optimization only works when directly setting a property on "this" and when
+     * the property is already on the object.
+     */
+    public boolean putFast(SlotMap.FastKey key, Object value, Scriptable scope) {
+        if (isSealed) {
+            return false;
+        }
+        Slot slot = slotMap.queryFast(key);
+        if (slot == SlotMap.NOT_A_FAST_PROPERTY) {
+            return false;
+        }
+        slot.setValue(value, this, this);
+        return true;
+    }
+
+    /**
      * Removes a named property from the object.
      *
      * <p>If the property is not found, or it has the PERMANENT attribute, no action is taken.
