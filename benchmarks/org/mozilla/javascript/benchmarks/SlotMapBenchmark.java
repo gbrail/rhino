@@ -140,6 +140,25 @@ public class SlotMapBenchmark {
 
     @Benchmark
     @OperationsPerInvocation(100)
+    public Object indexedInsert10FastKeys10Times(IndexedState state) {
+        SlotMap.FastKey[] fastSlots = new SlotMap.FastKey[10];
+        for (int i = 0; i < 10; i++) {
+            fastSlots[i] = state.emptyMap.modifyAndGetFastKey(state.randomKeys[i], 0, 0).getKey();
+        }
+        Slot newSlot = null;
+        for (int j = 0; j < 10; j++) {
+            for (int i = 0; i < 10; i++) {
+                newSlot = state.emptyMap.modifyFast(fastSlots[i]);
+            }
+        }
+        if (newSlot == null) {
+            throw new AssertionError();
+        }
+        return newSlot;
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(100)
     public Object indexedInsert100Keys(IndexedState state) {
         Slot newSlot = null;
         for (int i = 0; i < 100; i++) {

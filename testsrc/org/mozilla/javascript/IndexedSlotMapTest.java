@@ -40,6 +40,19 @@ public class IndexedSlotMapTest {
     }
 
     @Test
+    public void testFastPropModifyExisting() {
+        SlotMap map = new IndexedSlotMap();
+        Slot s1 = map.modify("one", 0, 0);
+        s1.value = 1;
+        SlotMap.FastModifyResult rr1 = map.modifyAndGetFastKey("one", 0, 0);
+        assertNotNull(rr1.key);
+        rr1.slot.value = 2;
+        assertEquals(map.query("one", 0).value, 2);
+        s1 = map.modifyFast(rr1.key);
+        assertNotEquals(s1, SlotMap.NOT_A_FAST_PROPERTY);
+    }
+
+    @Test
     public void testMatchingTrees() {
         SlotMap m1 = new IndexedSlotMap();
         m1.modify("one", 0, 0).value = 1;

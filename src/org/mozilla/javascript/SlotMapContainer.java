@@ -81,6 +81,16 @@ class SlotMapContainer implements SlotMap {
     }
 
     @Override
+    public FastModifyResult modifyAndGetFastKey(Object key, int index, int attributes) {
+        return map.modifyAndGetFastKey(key, index, attributes);
+    }
+
+    @Override
+    public Slot modifyFast(FastKey key) {
+        return map.modifyFast(key);
+    }
+
+    @Override
     public void add(Slot newSlot) {
         checkMapSize();
         map.add(newSlot);

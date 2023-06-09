@@ -4011,8 +4011,7 @@ class BodyCodegen {
             cfw.addInvokeDynamic(
                     "GET:" + nameChild.getString(),
                     DynamicRuntime.GET_PROP_SIGNATURE,
-                    DynamicRuntime.PROP_BOOTSTRAP_HANDLE
-            );
+                    DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
         }
         child = child.getNext();
         generateExpression(child, node);
@@ -4021,8 +4020,7 @@ class BodyCodegen {
         cfw.addInvokeDynamic(
                 "SET:" + nameChild.getString(),
                 DynamicRuntime.SET_PROP_SIGNATURE,
-                DynamicRuntime.PROP_BOOTSTRAP_HANDLE
-        );
+                DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
     }
 
     private void visitSetElem(int type, Node node, Node child) {

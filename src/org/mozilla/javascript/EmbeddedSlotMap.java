@@ -97,6 +97,16 @@ public class EmbeddedSlotMap implements SlotMap {
         return SlotMap.NOT_A_FAST_PROPERTY;
     }
 
+    @Override
+    public FastModifyResult modifyAndGetFastKey(Object key, int index, int attributes) {
+        return new FastModifyResult(modify(key, index, attributes));
+    }
+
+    @Override
+    public Slot modifyFast(FastKey key) {
+        return SlotMap.NOT_A_FAST_PROPERTY;
+    }
+
     /**
      * Locate the slot with given name or index, and create a new one if necessary.
      *

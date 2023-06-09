@@ -94,11 +94,9 @@ public class DynamicRuntime {
         SetObjectPropertySite site = new SetObjectPropertySite(mType);
         MethodType initType = mType.insertParameterTypes(0, String.class);
         site.invokeFast = lookup.findVirtual(SetObjectPropertySite.class, "invokeFast", initType);
-        site.invokeFast =
-                MethodHandles.insertArguments(site.invokeFast, 0, site, propertyName);
+        site.invokeFast = MethodHandles.insertArguments(site.invokeFast, 0, site, propertyName);
         site.fallback = lookup.findVirtual(SetObjectPropertySite.class, "invokeFallback", initType);
-        site.fallback =
-                MethodHandles.insertArguments(site.fallback, 0, site, propertyName);
+        site.fallback = MethodHandles.insertArguments(site.fallback, 0, site, propertyName);
 
         // The first method called is the "initialize" method, bound to the
         // call site itself so it can change its handle.
@@ -187,7 +185,8 @@ public class DynamicRuntime {
         public Object initialize(
                 String propertyName, Object obj, Object value, Context cx, Scriptable scope) {
             if (obj instanceof ScriptableObject) {
-                SlotMap.FastKey key = ((ScriptableObject) obj).getFastKey(propertyName);
+                ScriptableObject so = (ScriptableObject) obj;
+                SlotMap.FastKey key = so.putAndGetFastKey(propertyName, so, value);
                 if (key != null) {
                     fastKey = key;
                     setTarget(invokeFast);
@@ -210,7 +209,7 @@ public class DynamicRuntime {
                 String propertyName, Object obj, Object value, Context cx, Scriptable scope) {
             if (obj instanceof ScriptableObject) {
                 ScriptableObject so = ((ScriptableObject) obj);
-                if (so.putFast(fastKey, value, scope)) {
+                if (so.putFast(fastKey, so, value)) {
                     if (accumulateStats) {
                         invokeFastCount.increment();
                     }

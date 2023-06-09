@@ -354,21 +354,37 @@ public abstract class ScriptableObject
         ensureSymbolScriptable(start).put(key, start, value);
     }
 
+    public SlotMap.FastKey putAndGetFastKey(String key, Scriptable start, Object value) {
+        if (this == start && !isExtensible && !isSealed) {
+            SlotMap.FastModifyResult r = slotMap.modifyAndGetFastKey(key, 0, 0);
+            if (r.slot.setValue(value, this, start, Context.isCurrentContextStrict())) {
+                return r.key;
+            }
+        }
+        put(key, start, value);
+        return null;
+    }
+
     /**
      * Set the property using a key from getFastKey. Return false if the property cannot be set
-     * because the property is not a fast property with a matching key, or many other reasons.
-     * This optimization only works when directly setting a property on "this" and when
-     * the property is already on the object.
+     * because the property is not a fast property with a matching key, or many other reasons. This
+     * optimization only works when directly setting a property on "this" and when the property is
+     * already on the object.
      */
-    public boolean putFast(SlotMap.FastKey key, Object value, Scriptable scope) {
-        if (isSealed) {
+    public boolean putFast(SlotMap.FastKey key, Scriptable start, Object value) {
+        if (isSealed || this != start) {
             return false;
         }
-        Slot slot = slotMap.queryFast(key);
+        Slot slot = slotMap.modifyFast(key);
         if (slot == SlotMap.NOT_A_FAST_PROPERTY) {
             return false;
         }
-        slot.setValue(value, this, this);
+        if (!(slot instanceof AccessorSlot)
+                && (slot.getAttributes() & READONLY) != 0
+                && Context.isCurrentContextStrict()) {
+            throw ScriptRuntime.typeErrorById("msg.not.extensible");
+        }
+        slot.setValue(value, this, start);
         return true;
     }
 

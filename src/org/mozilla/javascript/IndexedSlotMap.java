@@ -111,6 +111,38 @@ public class IndexedSlotMap implements SlotMap {
     }
 
     @Override
+    public SlotMap.FastModifyResult modifyAndGetFastKey(Object k, int index, int attributes) {
+        Object key = makeKey(k, index);
+        if (fastSize > 0) {
+            int ix = propertyMap.find(key);
+            if (ix >= 0) {
+                assert (ix < fastSize);
+                PropertyMap lm = propertyMap.getMapForLevel(ix);
+                return new FastModifyResult(lm, ix, fastSlots[ix]);
+            }
+        }
+        if (slowSlots != null) {
+            Slot found = slowSlots.get(key);
+            if (found != null) {
+                return new FastModifyResult(found);
+            }
+        }
+        // If not there, switch to a new property map and append.
+        int indexOrHash = (k != null ? k.hashCode() : index);
+        Slot newSlot = new Slot(k, indexOrHash, attributes);
+        FastKey fk = insertNewSlot(key, newSlot);
+        return new FastModifyResult(fk, newSlot);
+    }
+
+    @Override
+    public Slot modifyFast(FastKey key) {
+        if (key.map.equalAtLevel(propertyMap, key.index) && (key.index < fastSize)) {
+            return fastSlots[key.index];
+        }
+        return SlotMap.NOT_A_FAST_PROPERTY;
+    }
+
+    @Override
     public void replace(Slot oldSlot, Slot newSlot) {
         Object key = makeKey(oldSlot.name, oldSlot.indexOrHash);
         if (fastSize > 0) {
@@ -178,21 +210,23 @@ public class IndexedSlotMap implements SlotMap {
         return new Iter();
     }
 
-    private void insertNewSlot(Object key, Slot newSlot) {
+    private FastKey insertNewSlot(Object key, Slot newSlot) {
         if (propertyMap != null && fastSize < FAST_SLOT_SIZE) {
             propertyMap = propertyMap.add(key);
+            FastKey fk = new FastKey(propertyMap, fastSize);
             fastSlots[fastSize] = newSlot;
             fastSize++;
             assert (fastSize == propertyMap.getLevel() + 1);
-        } else {
-            if (slowSlots == null) {
-                if (accumulateStats) {
-                    mapsGrownCount.increment();
-                }
-                slowSlots = new LinkedHashMap<>();
-            }
-            slowSlots.put(key, newSlot);
+            return fk;
         }
+        if (slowSlots == null) {
+            if (accumulateStats) {
+                mapsGrownCount.increment();
+            }
+            slowSlots = new LinkedHashMap<>();
+        }
+        slowSlots.put(key, newSlot);
+        return null;
     }
 
     private Object makeKey(Object key, int index) {
