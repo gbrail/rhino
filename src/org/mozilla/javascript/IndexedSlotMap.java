@@ -116,6 +116,7 @@ public class IndexedSlotMap implements SlotMap {
         if (fastSize > 0) {
             int ix = propertyMap.find(key);
             if (ix >= 0) {
+                // Modifying an existing fast slot -- return the key
                 assert (ix < fastSize);
                 PropertyMap lm = propertyMap.getMapForLevel(ix);
                 return new FastModifyResult(lm, ix, fastSlots[ix]);
@@ -124,10 +125,11 @@ public class IndexedSlotMap implements SlotMap {
         if (slowSlots != null) {
             Slot found = slowSlots.get(key);
             if (found != null) {
+                // Modifying an existing slot slot -- return no key
                 return new FastModifyResult(found);
             }
         }
-        // If not there, switch to a new property map and append.
+        // Otherwise, a new key, so insert and return the key if it was a fast property
         int indexOrHash = (k != null ? k.hashCode() : index);
         Slot newSlot = new Slot(k, indexOrHash, attributes);
         FastKey fk = insertNewSlot(key, newSlot);

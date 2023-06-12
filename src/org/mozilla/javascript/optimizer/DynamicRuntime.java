@@ -186,7 +186,7 @@ public class DynamicRuntime {
                 String propertyName, Object obj, Object value, Context cx, Scriptable scope) {
             if (obj instanceof ScriptableObject) {
                 ScriptableObject so = (ScriptableObject) obj;
-                SlotMap.FastKey key = so.putAndGetFastKey(propertyName, so, value);
+                SlotMap.FastKey key = so.getFastKey(propertyName);
                 if (key != null) {
                     fastKey = key;
                     setTarget(invokeFast);
@@ -209,7 +209,7 @@ public class DynamicRuntime {
                 String propertyName, Object obj, Object value, Context cx, Scriptable scope) {
             if (obj instanceof ScriptableObject) {
                 ScriptableObject so = ((ScriptableObject) obj);
-                if (so.putFast(fastKey, so, value)) {
+                if (!so.isSealed() && so.putFast(fastKey, so, value)) {
                     if (accumulateStats) {
                         invokeFastCount.increment();
                     }

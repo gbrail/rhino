@@ -354,14 +354,15 @@ public abstract class ScriptableObject
         ensureSymbolScriptable(start).put(key, start, value);
     }
 
-    public SlotMap.FastKey putAndGetFastKey(String key, Scriptable start, Object value) {
+    /**
+     * Get a key that may be used in a putFast request. It is a key for a property that may not yet
+     * exist.
+     */
+    public SlotMap.FastKey getOrCreateFastKey(String key, Scriptable start) {
         if (this == start && !isExtensible && !isSealed) {
             SlotMap.FastModifyResult r = slotMap.modifyAndGetFastKey(key, 0, 0);
-            if (r.slot.setValue(value, this, start, Context.isCurrentContextStrict())) {
-                return r.key;
-            }
+            return r.key;
         }
-        put(key, start, value);
         return null;
     }
 

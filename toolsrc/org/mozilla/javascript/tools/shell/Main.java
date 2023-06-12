@@ -29,11 +29,9 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.GeneratedClassLoader;
-import org.mozilla.javascript.IndexedSlotMap;
 import org.mozilla.javascript.JavaScriptException;
 import org.mozilla.javascript.Kit;
 import org.mozilla.javascript.NativeArray;
-import org.mozilla.javascript.PropertyMap;
 import org.mozilla.javascript.RhinoException;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
@@ -41,7 +39,6 @@ import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.SecurityController;
 import org.mozilla.javascript.commonjs.module.ModuleScope;
 import org.mozilla.javascript.commonjs.module.Require;
-import org.mozilla.javascript.optimizer.DynamicRuntime;
 import org.mozilla.javascript.tools.SourceReader;
 import org.mozilla.javascript.tools.ToolErrorReporter;
 
@@ -165,10 +162,11 @@ public class Main {
         IProxy iproxy = new IProxy(IProxy.PROCESS_FILES);
         iproxy.args = args;
         shellContextFactory.call(iproxy);
+        /*
         DynamicRuntime.printStats();
         IndexedSlotMap.printStats();
         PropertyMap.printTree();
-
+         */
         return exitCode;
     }
 

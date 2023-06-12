@@ -462,7 +462,6 @@ if (JavaVersion.current() > JavaVersion.VERSION_15
 }
 
 jacocoTestReport {
-    dependsOn test
     reports {
         csv.required = true
         html.required = true
