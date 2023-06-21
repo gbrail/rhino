@@ -250,6 +250,14 @@ public abstract class ScriptableObject
     }
 
     /**
+     * Get a key that may be used in a putFast request, or return null to indicate that a fast put
+     * is not possible.
+     */
+    public SlotMap.FastKey getFastKeyForUpdate(String name) {
+        return slotMap.getFastKeyForUpdate(name, 0);
+    }
+
+    /**
      * Return the value of the property using a fast key, or return SlotMap.NOT_A_FAST_PROPERTY if
      * another method should be used.
      */
@@ -355,21 +363,9 @@ public abstract class ScriptableObject
     }
 
     /**
-     * Get a key that may be used in a putFast request. It is a key for a property that may not yet
-     * exist. If the result contains a FastKey then it may be used later for a putFast request.
-     */
-    public SlotMap.FastKey putAndCreateFastKey(String key, Scriptable start) {
-        if (this == start && !isExtensible && !isSealed) {
-            return slotMap.modifyAndGetFastKey(key, 0, 0);
-        }
-        return null;
-    }
-
-    /**
      * Set the property using a key from getFastKey. Return false if the property cannot be set
      * because the property is not a fast property with a matching key, or many other reasons. This
-     * optimization only works when directly setting a property on "this" and when the property is
-     * already on the object.
+     * optimization only works when directly setting a property on "this."
      */
     public boolean putFast(SlotMap.FastKey fk, String key, Scriptable start, Object value) {
         if (isSealed || this != start) {
@@ -379,13 +375,21 @@ public abstract class ScriptableObject
         if (slot == SlotMap.NOT_A_FAST_PROPERTY) {
             return false;
         }
-        if (!(slot instanceof AccessorSlot)
-                && (slot.getAttributes() & READONLY) != 0
-                && Context.isCurrentContextStrict()) {
-            throw ScriptRuntime.typeErrorById("msg.not.extensible");
+        boolean isThrow = Context.isCurrentContextStrict();
+        if (!isExtensible) {
+            if (fk.isInsert) {
+                // Don't extend if extensible but optionally throw
+                if ((!(slot instanceof AccessorSlot) && ((slot.getAttributes() & READONLY) != 0))
+                        && isThrow) {
+                    throw ScriptRuntime.typeErrorById("msg.not.extensible");
+                }
+                return true;
+            }
         }
-        slot.setValue(value, this, start);
-        return true;
+        if (isSealed) {
+            checkNotSealed(key, 0);
+        }
+        return slot.setValue(value, this, start, isThrow);
     }
 
     /**

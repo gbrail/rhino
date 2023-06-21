@@ -58,11 +58,10 @@ public interface SlotMap extends Iterable<Slot> {
     Slot queryFast(FastKey key);
 
     /**
-     * Combine modifying a map and returning a fast key that can be used to efficiently make that
-     * same modification again. The "key" field of the result object will either be a valid key or
-     * null.
+     * Get a FastKey that may be used to modify an existing property, or which may be used to extend
+     * an object.
      */
-    FastModifyResult modifyAndGetFastKey(Object key, int index, int attributes);
+    FastKey getFastKeyForUpdate(Object key, int index);
 
     /**
      * Given a key from modifyAndGetFastKey, either return a slot, or return NOT_A_FAST_PROPERTY if
