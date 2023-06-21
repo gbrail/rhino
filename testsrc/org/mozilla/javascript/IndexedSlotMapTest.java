@@ -2,12 +2,19 @@ package org.mozilla.javascript;
 
 import static org.junit.Assert.*;
 
+import org.junit.Before;
 import org.junit.Test;
 
 public class IndexedSlotMapTest {
+    private SlotMap map;
+
+    @Before
+    public void init() {
+        map = new IndexedSlotMap();
+    }
+
     @Test
     public void testFastProp() {
-        SlotMap map = new IndexedSlotMap();
         Slot s1 = map.modify("one", 0, 0);
         s1.value = 1;
         Slot s2 = map.modify("two", 0, 0);
@@ -41,23 +48,77 @@ public class IndexedSlotMapTest {
 
     @Test
     public void testFastPropModifyExisting() {
-        SlotMap map = new IndexedSlotMap();
+        Slot s0 = map.modify("foo", 0, 0);
+        s0.value = 111;
+
+        // Modify existing property
         Slot s1 = map.modify("one", 0, 0);
         s1.value = 1;
         SlotMap.FastModifyResult rr1 = map.modifyAndGetFastKey("one", 0, 0);
-        assertNotNull(rr1.key);
+        SlotMap.FastKey fk = rr1.key;
+        assertNotNull(fk);
         rr1.slot.value = 2;
         assertEquals(map.query("one", 0).value, 2);
-        s1 = map.modifyFast(rr1.key);
+        Slot s2 = map.modifyFast(rr1.key, "one", 0, 0);
+        assertNotEquals(s2, SlotMap.NOT_A_FAST_PROPERTY);
+        s2.value = 3;
+        assertEquals(map.query("one", 0).value, 3);
+
+        // Fast modification should work on same property map when modifying an existing key
+        SlotMap map2 = new IndexedSlotMap();
+        s0 = map2.modify("foo", 0, 0);
+        s0.value = 111;
+        s1 = map2.modify("one", 0, 0);
+        s1.value = 2;
+        s2 = map2.modifyFast(fk, "one", 0, 0);
+        assertNotEquals(s2, SlotMap.NOT_A_FAST_PROPERTY);
+        s2.value = 3;
+        assertEquals(map2.query("one", 0).value, 3);
+
+        // Fast modification should fail on object with a different property map
+        SlotMap map3 = new IndexedSlotMap();
+        s0 = map3.modify("bar", 0, 0);
+        s0.value = 111;
+        s1 = map3.modify("one", 0, 0);
+        s1.value = 2;
+        s2 = map3.modifyFast(fk, "one", 0, 0);
+        assertEquals(s2, SlotMap.NOT_A_FAST_PROPERTY);
+    }
+
+    @Test
+    public void testFastPropModifyNewKey() {
+        Slot s0 = map.modify("foo", 0, 0);
+        s0.value = 111;
+
+        // Insert new property and get fast key
+        SlotMap.FastModifyResult rr1 = map.modifyAndGetFastKey("one", 0, 0);
+        SlotMap.FastKey fk = rr1.key;
+        assertNotNull(fk);
+        rr1.slot.value = 2;
+        assertEquals(map.query("one", 0).value, 2);
+
+        // Fast modification should work on same property map when modifying an existing key
+        SlotMap map2 = new IndexedSlotMap();
+        s0 = map2.modify("foo", 0, 0);
+        s0.value = 111;
+        Slot s1 = map2.modifyFast(fk, "one", 0, 0);
         assertNotEquals(s1, SlotMap.NOT_A_FAST_PROPERTY);
+        s1.value = 4;
+        assertEquals(map2.query("one", 0).value, 4);
+
+        // Fast modification should fail on object with a different property map
+        SlotMap map3 = new IndexedSlotMap();
+        s0 = map3.modify("bar", 0, 0);
+        s0.value = 111;
+        s1 = map3.modifyFast(fk, "one", 0, 0);
+        assertEquals(s1, SlotMap.NOT_A_FAST_PROPERTY);
     }
 
     @Test
     public void testMatchingTrees() {
-        SlotMap m1 = new IndexedSlotMap();
-        m1.modify("one", 0, 0).value = 1;
-        m1.modify("two", 0, 0).value = 2;
-        m1.modify("three", 0, 0).value = 3;
+        map.modify("one", 0, 0).value = 1;
+        map.modify("two", 0, 0).value = 2;
+        map.modify("three", 0, 0).value = 3;
 
         SlotMap m2 = new IndexedSlotMap();
         m2.modify("one", 0, 0).value = 10;
@@ -65,20 +126,19 @@ public class IndexedSlotMapTest {
         m2.modify("three", 0, 0).value = 30;
 
         // With two maps with the same key order, a FastKey can be shared
-        SlotMap.FastKey k1 = m1.getFastKey("one", 0);
-        assertEquals(m1.queryFast(k1).value, 1);
+        SlotMap.FastKey k1 = map.getFastKey("one", 0);
+        assertEquals(map.queryFast(k1).value, 1);
         assertEquals(m2.queryFast(k1).value, 10);
-        SlotMap.FastKey k3 = m1.getFastKey("three", 0);
-        assertEquals(m1.queryFast(k3).value, 3);
+        SlotMap.FastKey k3 = map.getFastKey("three", 0);
+        assertEquals(map.queryFast(k3).value, 3);
         assertEquals(m2.queryFast(k3).value, 30);
     }
 
     @Test
     public void testAlmostMatchingTrees() {
-        SlotMap m1 = new IndexedSlotMap();
-        m1.modify("one", 0, 0).value = 1;
-        m1.modify("two", 0, 0).value = 2;
-        m1.modify("three", 0, 0).value = 3;
+        map.modify("one", 0, 0).value = 1;
+        map.modify("two", 0, 0).value = 2;
+        map.modify("three", 0, 0).value = 3;
 
         SlotMap m2 = new IndexedSlotMap();
         m2.modify("one", 0, 0).value = 10;
@@ -86,16 +146,16 @@ public class IndexedSlotMapTest {
         m2.modify("two", 0, 0).value = 20;
 
         // A FastKey can't be shared when maps are in a different order
-        SlotMap.FastKey k2 = m1.getFastKey("two", 0);
-        assertEquals(m1.queryFast(k2).value, 2);
+        SlotMap.FastKey k2 = map.getFastKey("two", 0);
+        assertEquals(map.queryFast(k2).value, 2);
         assertEquals(m2.queryFast(k2), SlotMap.NOT_A_FAST_PROPERTY);
-        SlotMap.FastKey k3 = m1.getFastKey("three", 0);
-        assertEquals(m1.queryFast(k3).value, 3);
+        SlotMap.FastKey k3 = map.getFastKey("three", 0);
+        assertEquals(map.queryFast(k3).value, 3);
         assertEquals(m2.queryFast(k3), SlotMap.NOT_A_FAST_PROPERTY);
 
         // A FastKey should be sharable when maps share a root
-        SlotMap.FastKey k1 = m1.getFastKey("one", 0);
-        assertEquals(m1.queryFast(k1).value, 1);
+        SlotMap.FastKey k1 = map.getFastKey("one", 0);
+        assertEquals(map.queryFast(k1).value, 1);
         assertEquals(m2.queryFast(k1).value, 10);
     }
 }

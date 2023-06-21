@@ -68,7 +68,7 @@ public interface SlotMap extends Iterable<Slot> {
      * Given a key from modifyAndGetFastKey, either return a slot, or return NOT_A_FAST_PROPERTY if
      * this SlotMap has a different property map.
      */
-    Slot modifyFast(FastKey key);
+    Slot modifyFast(FastKey fk, Object key, int index, int attributes);
 
     /** Replace "slot" with a new slot. This is used to change slot types. */
     void replace(Slot oldSlot, Slot newSlot);
@@ -90,10 +90,12 @@ public interface SlotMap extends Iterable<Slot> {
     final class FastKey {
         final PropertyMap map;
         final int index;
+        final boolean isInsert;
 
-        public FastKey(PropertyMap map, int index) {
+        public FastKey(PropertyMap map, int index, boolean isInsert) {
             this.map = map;
             this.index = index;
+            this.isInsert = isInsert;
         }
     }
 
@@ -112,7 +114,7 @@ public interface SlotMap extends Iterable<Slot> {
         }
 
         public FastModifyResult(PropertyMap map, int index, Slot slot) {
-            this.key = new FastKey(map, index);
+            this.key = new FastKey(map, index, false);
             this.slot = slot;
         }
 

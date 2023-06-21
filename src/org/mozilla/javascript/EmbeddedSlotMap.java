@@ -103,7 +103,7 @@ public class EmbeddedSlotMap implements SlotMap {
     }
 
     @Override
-    public Slot modifyFast(FastKey key) {
+    public Slot modifyFast(FastKey fk, Object key, int index, int attributes) {
         return SlotMap.NOT_A_FAST_PROPERTY;
     }
 

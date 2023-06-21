@@ -373,6 +373,8 @@ public abstract class ScriptableObject
      * already on the object.
      */
     public boolean putFast(SlotMap.FastKey key, Scriptable start, Object value) {
+        throw new AssertionError("not implemented");
+        /*
         if (isSealed || this != start) {
             return false;
         }
@@ -387,6 +389,7 @@ public abstract class ScriptableObject
         }
         slot.setValue(value, this, start);
         return true;
+         */
     }
 
     /**
