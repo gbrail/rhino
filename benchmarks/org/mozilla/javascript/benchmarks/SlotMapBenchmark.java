@@ -148,7 +148,7 @@ public class SlotMapBenchmark {
         Slot newSlot = null;
         for (int j = 0; j < 10; j++) {
             for (int i = 0; i < 10; i++) {
-                newSlot = state.emptyMap.modifyFast(fastSlots[i]);
+                newSlot = state.emptyMap.modifyFast(fastSlots[i], state.randomKeys[i], 0, 0);
             }
         }
         if (newSlot == null) {

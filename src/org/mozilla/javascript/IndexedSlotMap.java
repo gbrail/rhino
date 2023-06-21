@@ -111,7 +111,7 @@ public class IndexedSlotMap implements SlotMap {
     }
 
     @Override
-    public SlotMap.FastModifyResult modifyAndGetFastKey(Object k, int index, int attributes) {
+    public SlotMap.FastModifyResult modifyAndGetFastKey(Object k, int index, int attributes,) {
         Object key = makeKey(k, index);
         if (fastSize > 0) {
             int ix = propertyMap.find(key);
@@ -138,7 +138,10 @@ public class IndexedSlotMap implements SlotMap {
 
     @Override
     public Slot modifyFast(FastKey fk, Object key, int index, int attributes) {
-        if (fk.isInsert && fk.map.equalAtLevel(propertyMap, fk.index - 1)) {
+        if (propertyMap == null) {
+            return SlotMap.NOT_A_FAST_PROPERTY;
+        }
+        if (fk.isInsert && propertyMap.equalAtLevel(fk.map, fk.index - 1)) {
             // For an insert, we can use fast key if previous property map is equivalent
             int indexOrHash = (key != null ? key.hashCode() : index);
             Slot newSlot = new Slot(key, indexOrHash, attributes);
@@ -147,7 +150,7 @@ public class IndexedSlotMap implements SlotMap {
             propertyMap = fk.map;
             return newSlot;
         }
-        if (fk.map.equalAtLevel(propertyMap, fk.index) && (fk.index < fastSize)) {
+        if (propertyMap.equalAtLevel(fk.map, fk.index) && (fk.index < fastSize)) {
             return fastSlots[fk.index];
         }
         return SlotMap.NOT_A_FAST_PROPERTY;

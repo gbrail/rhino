@@ -356,12 +356,11 @@ public abstract class ScriptableObject
 
     /**
      * Get a key that may be used in a putFast request. It is a key for a property that may not yet
-     * exist.
+     * exist. If the result contains a FastKey then it may be used later for a putFast request.
      */
-    public SlotMap.FastKey getOrCreateFastKey(String key, Scriptable start) {
+    public SlotMap.FastKey putAndCreateFastKey(String key, Scriptable start) {
         if (this == start && !isExtensible && !isSealed) {
-            SlotMap.FastModifyResult r = slotMap.modifyAndGetFastKey(key, 0, 0);
-            return r.key;
+            return slotMap.modifyAndGetFastKey(key, 0, 0);
         }
         return null;
     }
@@ -372,13 +371,11 @@ public abstract class ScriptableObject
      * optimization only works when directly setting a property on "this" and when the property is
      * already on the object.
      */
-    public boolean putFast(SlotMap.FastKey key, Scriptable start, Object value) {
-        throw new AssertionError("not implemented");
-        /*
+    public boolean putFast(SlotMap.FastKey fk, String key, Scriptable start, Object value) {
         if (isSealed || this != start) {
             return false;
         }
-        Slot slot = slotMap.modifyFast(key);
+        Slot slot = slotMap.modifyFast(fk, key, 0, 0);
         if (slot == SlotMap.NOT_A_FAST_PROPERTY) {
             return false;
         }
@@ -389,7 +386,6 @@ public abstract class ScriptableObject
         }
         slot.setValue(value, this, start);
         return true;
-         */
     }
 
     /**
