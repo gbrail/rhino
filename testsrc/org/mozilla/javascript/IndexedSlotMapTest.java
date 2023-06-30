@@ -54,13 +54,13 @@ public class IndexedSlotMapTest {
         // Modify existing property
         Slot s1 = map.modify("one", 0, 0);
         s1.value = 1;
-        SlotMap.FastKey fk = map.getFastKeyForUpdate("one", 0);
+        SlotMap.FastKey fk = map.getFastKey("one", 0);
         assertNotNull(fk);
-        Slot s2 = map.modifyFast(fk, "one", 0, 0);
+        Slot s2 = map.modifyFast(fk);
         assertNotEquals(s2, SlotMap.NOT_A_FAST_PROPERTY);
         s2.value = 2;
         assertEquals(map.query("one", 0).value, 2);
-        Slot s3 = map.modifyFast(fk, "one", 0, 0);
+        Slot s3 = map.modifyFast(fk);
         assertNotEquals(s3, SlotMap.NOT_A_FAST_PROPERTY);
         s3.value = 3;
         assertEquals(map.query("one", 0).value, 3);
@@ -71,7 +71,7 @@ public class IndexedSlotMapTest {
         s0.value = 111;
         s1 = map2.modify("one", 0, 0);
         s1.value = 2;
-        s2 = map2.modifyFast(fk, "one", 0, 0);
+        s2 = map2.modifyFast(fk);
         assertNotEquals(s2, SlotMap.NOT_A_FAST_PROPERTY);
         s2.value = 3;
         assertEquals(map2.query("one", 0).value, 3);
@@ -82,37 +82,8 @@ public class IndexedSlotMapTest {
         s0.value = 111;
         s1 = map3.modify("one", 0, 0);
         s1.value = 2;
-        s2 = map3.modifyFast(fk, "one", 0, 0);
+        s2 = map3.modifyFast(fk);
         assertEquals(s2, SlotMap.NOT_A_FAST_PROPERTY);
-    }
-
-    @Test
-    public void testFastPropModifyNewKey() {
-        Slot s0 = map.modify("foo", 0, 0);
-        s0.value = 111;
-
-        // Insert new property and get fast key
-        SlotMap.FastKey fk = map.getFastKeyForUpdate("one", 0);
-        assertNotNull(fk);
-        Slot s1 = map.modifyFast(fk, "one", 0, 0);
-        s1.value = 2;
-        assertEquals(map.query("one", 0).value, 2);
-
-        // Fast modification should work on same property map when modifying an existing key
-        SlotMap map2 = new IndexedSlotMap();
-        s0 = map2.modify("foo", 0, 0);
-        s0.value = 111;
-        s1 = map2.modifyFast(fk, "one", 0, 0);
-        assertNotEquals(s1, SlotMap.NOT_A_FAST_PROPERTY);
-        s1.value = 4;
-        assertEquals(map2.query("one", 0).value, 4);
-
-        // Fast modification should fail on object with a different property map
-        SlotMap map3 = new IndexedSlotMap();
-        s0 = map3.modify("bar", 0, 0);
-        s0.value = 111;
-        s1 = map3.modifyFast(fk, "one", 0, 0);
-        assertEquals(s1, SlotMap.NOT_A_FAST_PROPERTY);
     }
 
     @Test

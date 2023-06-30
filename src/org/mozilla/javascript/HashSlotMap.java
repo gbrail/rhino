@@ -46,12 +46,7 @@ public class HashSlotMap implements SlotMap {
     }
 
     @Override
-    public FastKey getFastKeyForUpdate(Object key, int index) {
-        return null;
-    }
-
-    @Override
-    public Slot modifyFast(FastKey fk, Object key, int index, int attribute) {
+    public Slot modifyFast(FastKey fk) {
         return SlotMap.NOT_A_FAST_PROPERTY;
     }
 

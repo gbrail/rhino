@@ -98,12 +98,7 @@ public class EmbeddedSlotMap implements SlotMap {
     }
 
     @Override
-    public FastKey getFastKeyForUpdate(Object key, int index) {
-        return null;
-    }
-
-    @Override
-    public Slot modifyFast(FastKey fk, Object key, int index, int attributes) {
+    public Slot modifyFast(FastKey fk) {
         return SlotMap.NOT_A_FAST_PROPERTY;
     }
 

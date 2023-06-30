@@ -136,26 +136,16 @@ class ThreadSafeSlotMapContainer extends SlotMapContainer {
     }
 
     @Override
-    public FastKey getFastKeyForUpdate(Object key, int index) {
-        long stamp = lock.writeLock();
-        try {
-            return map.getFastKeyForUpdate(key, index);
-        } finally {
-            lock.unlockWrite(stamp);
-        }
-    }
-
-    @Override
-    public Slot modifyFast(FastKey fk, Object key, int index, int attribute) {
+    public Slot modifyFast(FastKey fk) {
         long stamp = lock.tryOptimisticRead();
-        Slot s = map.modifyFast(fk, key, index, attribute);
+        Slot s = map.modifyFast(fk);
         if (lock.validate(stamp)) {
             return s;
         }
 
         stamp = lock.readLock();
         try {
-            return map.modifyFast(fk, key, index, attribute);
+            return map.modifyFast(fk);
         } finally {
             lock.unlockRead(stamp);
         }

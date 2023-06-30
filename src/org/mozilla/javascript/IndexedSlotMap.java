@@ -72,7 +72,7 @@ public class IndexedSlotMap implements SlotMap {
             if (ix >= 0) {
                 assert (ix < fastSize);
                 PropertyMap lm = propertyMap.getMapForLevel(ix);
-                return new FastKey(lm, ix, false);
+                return new FastKey(lm, ix);
             }
         }
         return null;
@@ -111,36 +111,9 @@ public class IndexedSlotMap implements SlotMap {
     }
 
     @Override
-    public SlotMap.FastKey getFastKeyForUpdate(Object k, int index) {
-        Object key = makeKey(k, index);
-        if (fastSize > 0) {
-            int ix = propertyMap.find(key);
-            if (ix >= 0) {
-                assert (ix < fastSize);
-                PropertyMap lm = propertyMap.getMapForLevel(ix);
-                return new FastKey(lm, ix, false);
-            }
-        }
-        if (propertyMap != null && slowSlots == null) {
-            PropertyMap newMap = propertyMap.add(key);
-            return new FastKey(newMap, fastSize, true);
-        }
-        return null;
-    }
-
-    @Override
-    public Slot modifyFast(FastKey fk, Object key, int index, int attributes) {
+    public Slot modifyFast(FastKey fk) {
         if (propertyMap == null) {
             return SlotMap.NOT_A_FAST_PROPERTY;
-        }
-        if (fk.isInsert && propertyMap.equalAtLevel(fk.map, fk.index - 1)) {
-            // For an insert, we can use fast key if previous property map is equivalent
-            int indexOrHash = (key != null ? key.hashCode() : index);
-            Slot newSlot = new Slot(key, indexOrHash, attributes);
-            fastSlots[fastSize] = newSlot;
-            fastSize++;
-            propertyMap = fk.map;
-            return newSlot;
         }
         if (propertyMap.equalAtLevel(fk.map, fk.index) && (fk.index < fastSize)) {
             return fastSlots[fk.index];
@@ -219,7 +192,7 @@ public class IndexedSlotMap implements SlotMap {
     private FastKey insertNewSlot(Object key, Slot newSlot) {
         if (propertyMap != null && fastSize < FAST_SLOT_SIZE) {
             propertyMap = propertyMap.add(key);
-            FastKey fk = new FastKey(propertyMap, fastSize, true);
+            FastKey fk = new FastKey(propertyMap, fastSize);
             fastSlots[fastSize] = newSlot;
             fastSize++;
             assert (fastSize == propertyMap.getLevel() + 1);

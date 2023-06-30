@@ -250,14 +250,6 @@ public abstract class ScriptableObject
     }
 
     /**
-     * Get a key that may be used in a putFast request, or return null to indicate that a fast put
-     * is not possible.
-     */
-    public SlotMap.FastKey getFastKeyForUpdate(String name) {
-        return slotMap.getFastKeyForUpdate(name, 0);
-    }
-
-    /**
      * Return the value of the property using a fast key, or return SlotMap.NOT_A_FAST_PROPERTY if
      * another method should be used.
      */
@@ -368,27 +360,14 @@ public abstract class ScriptableObject
      * optimization only works when directly setting a property on "this."
      */
     public boolean putFast(SlotMap.FastKey fk, String key, Scriptable start, Object value) {
-        if (isSealed || this != start) {
+        if (this != start || !isExtensible || isSealed) {
             return false;
         }
-        Slot slot = slotMap.modifyFast(fk, key, 0, 0);
+        Slot slot = slotMap.modifyFast(fk);
         if (slot == SlotMap.NOT_A_FAST_PROPERTY) {
             return false;
         }
         boolean isThrow = Context.isCurrentContextStrict();
-        if (!isExtensible) {
-            if (fk.isInsert) {
-                // Don't extend if extensible but optionally throw
-                if ((!(slot instanceof AccessorSlot) && ((slot.getAttributes() & READONLY) != 0))
-                        && isThrow) {
-                    throw ScriptRuntime.typeErrorById("msg.not.extensible");
-                }
-                return true;
-            }
-        }
-        if (isSealed) {
-            checkNotSealed(key, 0);
-        }
         return slot.setValue(value, this, start, isThrow);
     }
 
