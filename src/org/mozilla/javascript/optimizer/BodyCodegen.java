@@ -4000,9 +4000,9 @@ class BodyCodegen {
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
         cfw.addInvokeDynamic(
-                "GET:" + nameChild.getString(),
+                nameChild.getString(),
                 DynamicRuntime.GET_PROP_SIGNATURE,
-                DynamicRuntime.BOOTSTRAP);
+                DynamicRuntime.GET_PROP_BOOTSTRAP);
     }
 
     private void visitSetProp(int type, Node node, Node child) {
@@ -4015,18 +4015,18 @@ class BodyCodegen {
             cfw.addALoad(contextLocal);
             cfw.addALoad(variableObjectLocal);
             cfw.addInvokeDynamic(
-                    "GET:" + nameChild.getString(),
+                    nameChild.getString(),
                     DynamicRuntime.GET_PROP_SIGNATURE,
-                    DynamicRuntime.BOOTSTRAP);
+                    DynamicRuntime.GET_PROP_BOOTSTRAP);
         }
         child = child.getNext();
         generateExpression(child, node);
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
         cfw.addInvokeDynamic(
-                "SET:" + nameChild.getString(),
+                nameChild.getString(),
                 DynamicRuntime.SET_PROP_SIGNATURE,
-                DynamicRuntime.BOOTSTRAP);
+                DynamicRuntime.SET_PROP_BOOTSTRAP);
     }
 
     private void visitSetElem(int type, Node node, Node child) {
