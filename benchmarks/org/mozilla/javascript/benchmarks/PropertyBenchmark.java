@@ -18,9 +18,13 @@ public class PropertyBenchmark {
         Function create;
         Function createFieldByField;
         Function getName;
+        Function getThisName;
         Function check;
+        Function checkThis;
+        Function setName;
+        Function setThisName;
 
-        Object object;
+        Scriptable object;
 
         @Setup(Level.Trial)
         public void setup() throws IOException {
@@ -37,9 +41,14 @@ public class PropertyBenchmark {
             createFieldByField =
                     (Function) ScriptableObject.getProperty(scope, "createObjectFieldByField");
             getName = (Function) ScriptableObject.getProperty(scope, "getName");
+            getThisName = (Function) ScriptableObject.getProperty(scope, "getThisName");
             check = (Function) ScriptableObject.getProperty(scope, "check");
+            checkThis = (Function) ScriptableObject.getProperty(scope, "checkThis");
+            setName = (Function) ScriptableObject.getProperty(scope, "setName");
+            setThisName = (Function) ScriptableObject.getProperty(scope, "setThisName");
 
-            object = create.call(cx, scope, null, new Object[] {"testing"});
+            object =
+                    (Scriptable) createFieldByField.call(cx, scope, null, new Object[] {"testing"});
         }
 
         @TearDown(Level.Trial)
@@ -87,7 +96,51 @@ public class PropertyBenchmark {
     }
 
     @Benchmark
+    public Object getThisOneProperty(PropertyBenchmark.PropertyState state) {
+        String name =
+                ScriptRuntime.toString(
+                        state.getThisName.call(
+                                state.cx, state.scope, state.object, ScriptRuntime.emptyArgs));
+        if (!"testing".equals(name)) {
+            throw new AssertionError("Expected testing");
+        }
+        return name;
+    }
+
+    @Benchmark
     public Object addTwoProperties(PropertyBenchmark.PropertyState state) {
         return state.check.call(state.cx, state.scope, null, new Object[] {state.object});
+    }
+
+    @Benchmark
+    public Object addThisTwoProperties(PropertyBenchmark.PropertyState state) {
+        return state.checkThis.call(state.cx, state.scope, state.object, ScriptRuntime.emptyArgs);
+    }
+
+    @Benchmark
+    public Object setProperty(PropertyBenchmark.PropertyState state) {
+        String name =
+                ScriptRuntime.toString(
+                        state.setName.call(
+                                state.cx,
+                                state.scope,
+                                null,
+                                new Object[] {state.object, "newName"}));
+        if (!"newName".equals(name)) {
+            throw new AssertionError("Expected newName");
+        }
+        return name;
+    }
+
+    @Benchmark
+    public Object setThisProperty(PropertyBenchmark.PropertyState state) {
+        String name =
+                ScriptRuntime.toString(
+                        state.setThisName.call(
+                                state.cx, state.scope, state.object, new Object[] {"newName"}));
+        if (!"newName".equals(name)) {
+            throw new AssertionError("Expected newName");
+        }
+        return name;
     }
 }
