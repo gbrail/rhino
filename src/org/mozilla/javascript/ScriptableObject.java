@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -103,11 +104,8 @@ public abstract class ScriptableObject
     /** The parent scope of this object. */
     private Scriptable parentScopeObject;
 
-    /**
-     * This holds all the slots. It may or may not be thread-safe, and may expand itself to a
-     * different data structure depending on the size of the object.
-     */
-    private transient SlotMapContainer slotMap;
+    /** This holds all the slots. */
+    private transient LinkedHashMap<Object, Slot> slots;
 
     // Where external array data is stored.
     private transient ExternalArrayData externalData;
@@ -160,7 +158,7 @@ public abstract class ScriptableObject
     }
 
     public ScriptableObject() {
-        slotMap = createSlotMap(0);
+        slots = new LinkedHashMap<>();
     }
 
     public ScriptableObject(Scriptable scope, Scriptable prototype) {
@@ -168,7 +166,7 @@ public abstract class ScriptableObject
 
         parentScopeObject = scope;
         prototypeObject = prototype;
-        slotMap = createSlotMap(0);
+        slots = new LinkedHashMap<>();
     }
 
     /**
@@ -199,7 +197,7 @@ public abstract class ScriptableObject
      */
     @Override
     public boolean has(String name, Scriptable start) {
-        return null != slotMap.query(name, 0);
+        return slots.containsKey(name);
     }
 
     /**
@@ -214,13 +212,13 @@ public abstract class ScriptableObject
         if (externalData != null) {
             return (index < externalData.getArrayLength());
         }
-        return null != slotMap.query(null, index);
+        return slots.containsKey(Integer.valueOf(index));
     }
 
     /** A version of "has" that supports symbols. */
     @Override
     public boolean has(Symbol key, Scriptable start) {
-        return null != slotMap.query(key, 0);
+        return slots.containsKey(key);
     }
 
     /**
@@ -234,7 +232,7 @@ public abstract class ScriptableObject
      */
     @Override
     public Object get(String name, Scriptable start) {
-        Slot slot = slotMap.query(name, 0);
+        Slot slot = slots.get(name);
         if (slot == null) {
             return Scriptable.NOT_FOUND;
         }
@@ -257,7 +255,7 @@ public abstract class ScriptableObject
             return Scriptable.NOT_FOUND;
         }
 
-        Slot slot = slotMap.query(null, index);
+        Slot slot = slots.get(Integer.valueOf(index));
         if (slot == null) {
             return Scriptable.NOT_FOUND;
         }
@@ -267,7 +265,7 @@ public abstract class ScriptableObject
     /** Another version of Get that supports Symbol keyed properties. */
     @Override
     public Object get(Symbol key, Scriptable start) {
-        Slot slot = slotMap.query(key, 0);
+        Slot slot = slots.get(key);
         if (slot == null) {
             return Scriptable.NOT_FOUND;
         }
@@ -344,7 +342,7 @@ public abstract class ScriptableObject
     @Override
     public void delete(String name) {
         checkNotSealed(name, 0);
-        slotMap.remove(name, 0);
+        removeImpl(name);
     }
 
     /**
@@ -357,14 +355,29 @@ public abstract class ScriptableObject
     @Override
     public void delete(int index) {
         checkNotSealed(null, index);
-        slotMap.remove(null, index);
+        removeImpl(Integer.valueOf(index));
     }
 
     /** Removes an object like the others, but using a Symbol as the key. */
     @Override
     public void delete(Symbol key) {
         checkNotSealed(key, 0);
-        slotMap.remove(key, 0);
+        removeImpl(key);
+    }
+
+    private void removeImpl(Object key) {
+        Slot slot = slots.get(key);
+        if (slot != null) {
+            if ((slot.getAttributes() & ScriptableObject.PERMANENT) != 0) {
+                Context cx = Context.getContext();
+                if (cx.isStrictMode()) {
+                    throw ScriptRuntime.typeErrorById(
+                            "msg.delete.property.with.configurable.false", key);
+                }
+            } else {
+                slots.remove(key);
+            }
+        }
     }
 
     /**
@@ -405,7 +418,7 @@ public abstract class ScriptableObject
      */
     @Override
     public boolean isConst(String name) {
-        Slot slot = slotMap.query(name, 0);
+        Slot slot = slots.get(name);
         if (slot == null) {
             return false;
         }
@@ -508,8 +521,8 @@ public abstract class ScriptableObject
      */
     public void setAttributes(String name, int attributes) {
         checkNotSealed(name, 0);
-        Slot attrSlot = slotMap.modify(name, 0, 0);
-        attrSlot.setAttributes(attributes);
+        Slot slot = modifySlot(name, name, 0, attributes);
+        slot.setAttributes(attributes);
     }
 
     /**
@@ -526,15 +539,15 @@ public abstract class ScriptableObject
      */
     public void setAttributes(int index, int attributes) {
         checkNotSealed(null, index);
-        Slot attrSlot = slotMap.modify(null, index, 0);
-        attrSlot.setAttributes(attributes);
+        Slot slot = modifySlot(Integer.valueOf(index), null, index, attributes);
+        slot.setAttributes(attributes);
     }
 
     /** Set attributes of a Symbol-keyed property. */
     public void setAttributes(Symbol key, int attributes) {
         checkNotSealed(key, 0);
-        Slot attrSlot = slotMap.modify(key, 0, 0);
-        attrSlot.setAttributes(attributes);
+        Slot slot = modifySlot(key, key, 0, attributes);
+        slot.setAttributes(attributes);
     }
 
     /** Implement the legacy "__defineGetter__" and "__defineSetter__" methods. */
@@ -543,17 +556,19 @@ public abstract class ScriptableObject
         if (name != null && index != 0) throw new IllegalArgumentException(name);
         checkNotSealed(name, index);
 
+        Object slotKey = makeSlotKey(name, index);
         AccessorSlot aSlot;
         if (isExtensible()) {
-            Slot slot = slotMap.modify(name, index, 0);
+            Slot slot = modifySlot(slotKey, name, index, 0);
             if (slot instanceof AccessorSlot) {
                 aSlot = (AccessorSlot) slot;
             } else {
+                // TODO will this preserve the order? I don't think so.
                 aSlot = new AccessorSlot(slot);
-                slotMap.replace(slot, aSlot);
+                slots.replace(slotKey, aSlot);
             }
         } else {
-            Slot slot = slotMap.query(name, index);
+            Slot slot = slots.get(slotKey);
             if (slot instanceof AccessorSlot) {
                 aSlot = (AccessorSlot) slot;
             } else {
@@ -599,7 +614,7 @@ public abstract class ScriptableObject
      */
     public Object getGetterOrSetter(String name, int index, Scriptable scope, boolean isSetter) {
         if (name != null && index != 0) throw new IllegalArgumentException(name);
-        Slot slot = slotMap.query(name, index);
+        Slot slot = slots.get(makeSlotKey(name, index));
         if (slot == null) return null;
         Function getterOrSetter =
                 isSetter
@@ -635,20 +650,21 @@ public abstract class ScriptableObject
      * @return whether the property is a getter or a setter
      */
     protected boolean isGetterOrSetter(String name, int index, boolean setter) {
-        Slot slot = slotMap.query(name, index);
+        Slot slot = slots.get(makeSlotKey(name, index));
         return (slot != null && slot.isSetterSlot());
     }
 
     void addLazilyInitializedValue(String name, int index, LazilyLoadedCtor init, int attributes) {
         if (name != null && index != 0) throw new IllegalArgumentException(name);
         checkNotSealed(name, index);
-        Slot slot = slotMap.modify(name, index, 0);
+        Object slotKey = makeSlotKey(name, index);
+        Slot slot = modifySlot(slotKey, name, index, 0);
         LazyLoadSlot lslot;
         if (slot instanceof LazyLoadSlot) {
             lslot = (LazyLoadSlot) slot;
         } else {
             lslot = new LazyLoadSlot(slot);
-            slotMap.replace(slot, lslot);
+            slots.replace(slotKey, lslot);
         }
 
         lslot.setAttributes(attributes);
@@ -1508,13 +1524,13 @@ public abstract class ScriptableObject
             }
         }
 
-        Slot slot = slotMap.modify(propertyName, 0, 0);
+        Slot slot = modifySlot(propertyName, propertyName, 0, 0);
         AccessorSlot aSlot;
         if (slot instanceof AccessorSlot) {
             aSlot = (AccessorSlot) slot;
         } else {
             aSlot = new AccessorSlot(slot);
-            slotMap.replace(slot, aSlot);
+            slots.replace(propertyName, aSlot);
         }
 
         aSlot.setAttributes(attributes);
@@ -1584,7 +1600,7 @@ public abstract class ScriptableObject
             }
         }
 
-        Slot slot = slotMap.query(key, index);
+        Slot slot = slots.get(id);
         boolean isNew = slot == null;
 
         if (checkValid) {
@@ -1596,7 +1612,8 @@ public abstract class ScriptableObject
         final int attributes;
 
         if (slot == null) {
-            slot = slotMap.modify(key, index, 0);
+            slot = new Slot(key, index, 0);
+            slots.put(id, slot);
             attributes = applyDescriptorToAttributeBitset(DONTENUM | READONLY | PERMANENT, desc);
         } else {
             attributes = applyDescriptorToAttributeBitset(slot.getAttributes(), desc);
@@ -1609,7 +1626,7 @@ public abstract class ScriptableObject
                 fslot = (AccessorSlot) slot;
             } else {
                 fslot = new AccessorSlot(slot);
-                slotMap.replace(slot, fslot);
+                slots.replace(id, fslot);
             }
 
             Object getter = getProperty(desc, "get");
@@ -1626,7 +1643,7 @@ public abstract class ScriptableObject
         } else {
             if (!slot.isValueSlot() && isDataDescriptor(desc)) {
                 Slot newSlot = new Slot(slot);
-                slotMap.replace(slot, newSlot);
+                slots.replace(id, newSlot);
                 slot = newSlot;
             }
             Object value = getProperty(desc, "value");
@@ -1655,19 +1672,19 @@ public abstract class ScriptableObject
      */
     public void defineProperty(
             String name, Supplier<Object> getter, Consumer<Object> setter, int attributes) {
-        Slot slot = slotMap.modify(name, 0, attributes);
+        Slot slot = modifySlot(name, name, 0, attributes);
 
         LambdaSlot lSlot;
         if (slot instanceof LambdaSlot) {
             lSlot = (LambdaSlot) slot;
         } else {
             lSlot = new LambdaSlot(slot);
-            slotMap.replace(slot, lSlot);
+            slots.replace(name, lSlot);
         }
 
         lSlot.getter = getter;
         lSlot.setter = setter;
-        setAttributes(name, attributes);
+        lSlot.setAttributes(attributes);
     }
 
     protected void checkPropertyDefinition(ScriptableObject desc) {
@@ -1966,23 +1983,18 @@ public abstract class ScriptableObject
      */
     public void sealObject() {
         if (!isSealed) {
-            final long stamp = slotMap.readLock();
-            try {
-                for (Slot slot : slotMap) {
-                    Object value = slot.value;
-                    if (value instanceof LazilyLoadedCtor) {
-                        LazilyLoadedCtor initializer = (LazilyLoadedCtor) value;
-                        try {
-                            initializer.init();
-                        } finally {
-                            slot.value = initializer.getValue();
-                        }
+            for (Slot slot : slots.values()) {
+                Object value = slot.value;
+                if (value instanceof LazilyLoadedCtor) {
+                    LazilyLoadedCtor initializer = (LazilyLoadedCtor) value;
+                    try {
+                        initializer.init();
+                    } finally {
+                        slot.value = initializer.getValue();
                     }
                 }
-                isSealed = true;
-            } finally {
-                slotMap.unlockRead(stamp);
             }
+            isSealed = true;
         }
     }
 
@@ -2472,8 +2484,9 @@ public abstract class ScriptableObject
         // This method is very hot (basically called on each assignment)
         // so we inline the extensible/sealed checks below.
         Slot slot;
+        Object slotKey = makeSlotKey(key, index);
         if (this != start) {
-            slot = slotMap.query(key, index);
+            slot = slots.get(slotKey);
             if (!isExtensible
                     && (slot == null
                             || (!(slot instanceof AccessorSlot)
@@ -2485,7 +2498,7 @@ public abstract class ScriptableObject
                 return false;
             }
         } else if (!isExtensible) {
-            slot = slotMap.query(key, index);
+            slot = slots.get(slotKey);
             if ((slot == null
                             || (!(slot instanceof AccessorSlot)
                                     && (slot.getAttributes() & READONLY) != 0))
@@ -2499,7 +2512,7 @@ public abstract class ScriptableObject
             if (isSealed) {
                 checkNotSealed(key, index);
             }
-            slot = slotMap.modify(key, index, 0);
+            slot = modifySlot(slotKey, key, index, 0);
         }
         return slot.setValue(value, this, start, isThrow);
     }
@@ -2516,6 +2529,7 @@ public abstract class ScriptableObject
      */
     private boolean putConstImpl(
             String name, int index, Scriptable start, Object value, int constFlag) {
+        Object slotKey = makeSlotKey(name, index);
         assert (constFlag != EMPTY);
         if (!isExtensible) {
             Context cx = Context.getContext();
@@ -2525,19 +2539,19 @@ public abstract class ScriptableObject
         }
         Slot slot;
         if (this != start) {
-            slot = slotMap.query(name, index);
+            slot = slots.get(slotKey);
             if (slot == null) {
                 return false;
             }
         } else if (!isExtensible()) {
-            slot = slotMap.query(name, index);
+            slot = slots.get(slotKey);
             if (slot == null) {
                 return true;
             }
         } else {
             checkNotSealed(name, index);
             // either const hoisted declaration or initialization
-            slot = slotMap.modify(name, index, CONST);
+            slot = modifySlot(slotKey, name, index, CONST);
             int attr = slot.getAttributes();
             if ((attr & READONLY) == 0)
                 throw Context.reportRuntimeErrorById("msg.var.redecl", name);
@@ -2553,7 +2567,7 @@ public abstract class ScriptableObject
     }
 
     private Slot getAttributeSlot(String name, int index) {
-        Slot slot = slotMap.query(name, index);
+        Slot slot = slots.get(makeSlotKey(name, index));
         if (slot == null) {
             String str = (name != null ? name : Integer.toString(index));
             throw Context.reportRuntimeErrorById("msg.prop.not.found", str);
@@ -2562,7 +2576,7 @@ public abstract class ScriptableObject
     }
 
     private Slot getAttributeSlot(Symbol key) {
-        Slot slot = slotMap.query(key, 0);
+        Slot slot = slots.get(key);
         if (slot == null) {
             throw Context.reportRuntimeErrorById("msg.prop.not.found", key);
         }
@@ -2581,29 +2595,24 @@ public abstract class ScriptableObject
                 a[i] = Integer.valueOf(i);
             }
         }
-        if (slotMap.isEmpty()) {
+        if (slots.isEmpty()) {
             return a;
         }
 
         int c = externalLen;
-        final long stamp = slotMap.readLock();
-        try {
-            for (Slot slot : slotMap) {
-                if ((getNonEnumerable || (slot.getAttributes() & DONTENUM) == 0)
-                        && (getSymbols || !(slot.name instanceof Symbol))) {
-                    if (c == externalLen) {
-                        // Special handling to combine external array with additional properties
-                        Object[] oldA = a;
-                        a = new Object[slotMap.dirtySize() + externalLen];
-                        if (oldA != null) {
-                            System.arraycopy(oldA, 0, a, 0, externalLen);
-                        }
+        for (Slot slot : slots.values()) {
+            if ((getNonEnumerable || (slot.getAttributes() & DONTENUM) == 0)
+                    && (getSymbols || !(slot.name instanceof Symbol))) {
+                if (c == externalLen) {
+                    // Special handling to combine external array with additional properties
+                    Object[] oldA = a;
+                    a = new Object[slots.size() + externalLen];
+                    if (oldA != null) {
+                        System.arraycopy(oldA, 0, a, 0, externalLen);
                     }
-                    a[c++] = slot.name != null ? slot.name : Integer.valueOf(slot.indexOrHash);
                 }
+                a[c++] = slot.name != null ? slot.name : Integer.valueOf(slot.indexOrHash);
             }
-        } finally {
-            slotMap.unlockRead(stamp);
         }
 
         Object[] result;
@@ -2623,21 +2632,32 @@ public abstract class ScriptableObject
         return result;
     }
 
+    private static Object makeSlotKey(Object key, int index) {
+        return key == null ? Integer.valueOf(index) : key;
+    }
+
+    /**
+     * Return the existing entry in the slot map with the key "key", or create a new slot using
+     * "name", and "index" to identify it.
+     */
+    private Slot modifySlot(Object key, Object name, int index, int attributes) {
+        return slots.computeIfAbsent(
+                key,
+                k -> {
+                    return new Slot(name, index, attributes);
+                });
+    }
+
     private void writeObject(ObjectOutputStream out) throws IOException {
         out.defaultWriteObject();
-        final long stamp = slotMap.readLock();
-        try {
-            int objectsCount = slotMap.dirtySize();
-            if (objectsCount == 0) {
-                out.writeInt(0);
-            } else {
-                out.writeInt(objectsCount);
-                for (Slot slot : slotMap) {
-                    out.writeObject(slot);
-                }
+        int objectsCount = slots.size();
+        if (objectsCount == 0) {
+            out.writeInt(0);
+        } else {
+            out.writeInt(objectsCount);
+            for (Slot slot : slots.values()) {
+                out.writeObject(slot);
             }
-        } finally {
-            slotMap.unlockRead(stamp);
         }
     }
 
@@ -2645,10 +2665,10 @@ public abstract class ScriptableObject
         in.defaultReadObject();
 
         int tableSize = in.readInt();
-        slotMap = createSlotMap(tableSize);
+        slots = new LinkedHashMap<>(tableSize);
         for (int i = 0; i < tableSize; i++) {
             Slot slot = (Slot) in.readObject();
-            slotMap.add(slot);
+            slots.put(makeSlotKey(slot.name, slot.indexOrHash), slot);
         }
     }
 
@@ -2659,25 +2679,18 @@ public abstract class ScriptableObject
     }
 
     protected Slot querySlot(Context cx, Object id) {
-        if (id instanceof Symbol) {
-            return slotMap.query(id, 0);
-        }
-        StringIdOrIndex s = ScriptRuntime.toStringIdOrIndex(id);
-        if (s.stringId == null) {
-            return slotMap.query(null, s.index);
-        }
-        return slotMap.query(s.stringId, 0);
+        return slots.get(id);
     }
 
     // Partial implementation of java.util.Map. See NativeObject for
     // a subclass that implements java.util.Map.
 
     public int size() {
-        return slotMap.size();
+        return slots.size();
     }
 
     public boolean isEmpty() {
-        return slotMap.isEmpty();
+        return slots.isEmpty();
     }
 
     public Object get(Object key) {
