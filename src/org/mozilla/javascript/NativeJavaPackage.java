@@ -73,6 +73,11 @@ public class NativeJavaPackage extends ScriptableObject {
     }
 
     @Override
+    public Object get(StringKey identifier, Scriptable start) {
+        return getPkgProperty(identifier.toString(), start, true);
+    }
+
+    @Override
     public Object get(int index, Scriptable start) {
         return NOT_FOUND;
     }

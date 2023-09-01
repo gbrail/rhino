@@ -1672,6 +1672,15 @@ public class ScriptRuntime {
         return getObjectProp(sobj, property, cx);
     }
 
+    public static Object getObjectProp(
+            Object obj, StringKey identifier, Context cx, Scriptable scope) {
+        Scriptable sobj = toObjectOrNull(cx, obj, scope);
+        if (sobj == null) {
+            throw undefReadError(obj, identifier.toString());
+        }
+        return getObjectProp(sobj, identifier, cx);
+    }
+
     public static Object getObjectProp(Scriptable obj, String property, Context cx) {
 
         Object result = ScriptableObject.getProperty(obj, property);
@@ -1679,6 +1688,21 @@ public class ScriptRuntime {
             if (cx.hasFeature(Context.FEATURE_STRICT_MODE)) {
                 Context.reportWarning(
                         ScriptRuntime.getMessageById("msg.ref.undefined.prop", property));
+            }
+            result = Undefined.instance;
+        }
+
+        return result;
+    }
+
+    public static Object getObjectProp(Scriptable obj, StringKey identifier, Context cx) {
+
+        Object result = ScriptableObject.getProperty(obj, identifier);
+        if (result == Scriptable.NOT_FOUND) {
+            if (cx.hasFeature(Context.FEATURE_STRICT_MODE)) {
+                Context.reportWarning(
+                        ScriptRuntime.getMessageById(
+                                "msg.ref.undefined.prop", identifier.toString()));
             }
             result = Undefined.instance;
         }
@@ -1803,8 +1827,30 @@ public class ScriptRuntime {
         return setObjectProp(sobj, property, value, cx);
     }
 
+    public static Object setObjectProp(
+            Object obj, StringKey identifier, Object value, Context cx, Scriptable scope) {
+        if (!(obj instanceof Scriptable)
+                && cx.isStrictMode()
+                && cx.getLanguageVersion() >= Context.VERSION_1_8) {
+            throw undefWriteError(obj, identifier.toString(), value);
+        }
+
+        Scriptable sobj = toObjectOrNull(cx, obj, scope);
+        if (sobj == null) {
+            throw undefWriteError(obj, identifier.toString(), value);
+        }
+
+        return setObjectProp(sobj, identifier, value, cx);
+    }
+
     public static Object setObjectProp(Scriptable obj, String property, Object value, Context cx) {
         ScriptableObject.putProperty(obj, property, value);
+        return value;
+    }
+
+    public static Object setObjectProp(
+            Scriptable obj, StringKey identifier, Object value, Context cx) {
+        ScriptableObject.putProperty(obj, identifier, value);
         return value;
     }
 

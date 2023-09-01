@@ -91,10 +91,24 @@ public class ImporterTopLevel extends TopLevel {
     }
 
     @Override
+    public boolean has(StringKey identifier, Scriptable start) {
+        return super.has(identifier, start)
+                || getPackageProperty(identifier.toString(), start) != NOT_FOUND;
+    }
+
+    @Override
     public Object get(String name, Scriptable start) {
         Object result = super.get(name, start);
         if (result != NOT_FOUND) return result;
         result = getPackageProperty(name, start);
+        return result;
+    }
+
+    @Override
+    public Object get(StringKey identifier, Scriptable start) {
+        Object result = super.get(identifier, start);
+        if (result != NOT_FOUND) return result;
+        result = getPackageProperty(identifier.toString(), start);
         return result;
     }
 

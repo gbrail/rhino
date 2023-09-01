@@ -202,6 +202,10 @@ public abstract class ScriptableObject
         return null != slotMap.query(new StringKey(name), 0);
     }
 
+    public boolean has(StringKey identifier, Scriptable start) {
+        return null != slotMap.query(identifier, 0);
+    }
+
     /**
      * Returns true if the property index is defined.
      *
@@ -235,6 +239,23 @@ public abstract class ScriptableObject
     @Override
     public Object get(String name, Scriptable start) {
         Slot slot = slotMap.query(new StringKey(name), 0);
+        if (slot == null) {
+            return Scriptable.NOT_FOUND;
+        }
+        return slot.getValue(start);
+    }
+
+    /**
+     * Returns the value of the named property or NOT_FOUND.
+     *
+     * <p>If the property was created using defineProperty, the appropriate getter method is called.
+     *
+     * @param identifier an identifier of the property created by Identifiers
+     * @param start the object in which the lookup began
+     * @return the value of the property (may be null), or NOT_FOUND
+     */
+    public Object get(StringKey identifier, Scriptable start) {
+        Slot slot = slotMap.query(identifier, 0);
         if (slot == null) {
             return Scriptable.NOT_FOUND;
         }
@@ -292,6 +313,25 @@ public abstract class ScriptableObject
 
         if (start == this) throw Kit.codeBug();
         start.put(name, start, value);
+    }
+
+    /**
+     * Sets the value of the named property, creating it if need be.
+     *
+     * <p>If the property was created using defineProperty, the appropriate setter method is called.
+     *
+     * <p>If the property's attributes include READONLY, no action is taken. This method will
+     * actually set the property in the start object.
+     *
+     * @param identifier the property ID, created by Identifiers
+     * @param start the object whose property is being set
+     * @param value value to set the property to
+     */
+    public void put(StringKey identifier, Scriptable start, Object value) {
+        if (putImpl(identifier, 0, start, value)) return;
+
+        if (start == this) throw Kit.codeBug();
+        start.put(identifier.toString(), start, value);
     }
 
     /**
@@ -2032,6 +2072,21 @@ public abstract class ScriptableObject
         return result;
     }
 
+    public static Object getProperty(Scriptable obj, StringKey identifier) {
+        Scriptable start = obj;
+        Object result;
+        do {
+            if (obj instanceof ScriptableObject) {
+                result = ((ScriptableObject) obj).get(identifier, start);
+            } else {
+                result = obj.get(identifier.toString(), start);
+            }
+            if (result != Scriptable.NOT_FOUND) break;
+            obj = obj.getPrototype();
+        } while (obj != null);
+        return result;
+    }
+
     /** This is a version of getProperty that works with Symbols. */
     public static Object getProperty(Scriptable obj, Symbol key) {
         Scriptable start = obj;
@@ -2197,6 +2252,16 @@ public abstract class ScriptableObject
         Scriptable base = getBase(obj, name);
         if (base == null) base = obj;
         base.put(name, obj, value);
+    }
+
+    public static void putProperty(Scriptable obj, StringKey identifier, Object value) {
+        Scriptable base = getBase(obj, identifier);
+        if (base == null) base = obj;
+        if (base instanceof ScriptableObject) {
+            ((ScriptableObject) base).put(identifier, obj, value);
+        } else {
+            base.put(identifier.toString(), obj, value);
+        }
     }
 
     /** This is a version of putProperty for Symbol keys. */
@@ -2374,6 +2439,18 @@ public abstract class ScriptableObject
         Scriptable obj = start;
         do {
             if (obj.has(name, start)) break;
+            obj = obj.getPrototype();
+        } while (obj != null);
+        return obj;
+    }
+
+    static Scriptable getBase(Scriptable start, StringKey identifier) {
+        Scriptable obj = start;
+        do {
+            if (obj instanceof ScriptableObject
+                    && ((ScriptableObject) obj).has(identifier, start)) {
+                break;
+            } else if (obj.has(identifier.toString(), start)) break;
             obj = obj.getPrototype();
         } while (obj != null);
         return obj;

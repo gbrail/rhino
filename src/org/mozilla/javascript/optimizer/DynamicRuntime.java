@@ -7,7 +7,9 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import org.mozilla.classfile.ByteCode;
 import org.mozilla.classfile.ClassFileWriter;
+import org.mozilla.javascript.Identifiers;
 import org.mozilla.javascript.ScriptRuntime;
+import org.mozilla.javascript.StringKey;
 
 public class DynamicRuntime {
     public static final String BOOTSTRAP_SIGNATURE =
@@ -36,10 +38,10 @@ public class DynamicRuntime {
             MethodHandles.Lookup lookup, String name, MethodType mType)
             throws NoSuchMethodException, IllegalAccessException {
         // Insert a String parameter to the list of parameters we're going to call
-        MethodType getType = mType.insertParameterTypes(1, String.class);
+        MethodType getType = mType.insertParameterTypes(1, StringKey.class);
         MethodHandle getProp = lookup.findStatic(ScriptRuntime.class, "getObjectProp", getType);
         // Always call with the "name" as the string parameter
-        getProp = MethodHandles.insertArguments(getProp, 1, name);
+        getProp = MethodHandles.insertArguments(getProp, 1, Identifiers.get().create(name));
         return new ConstantCallSite(getProp);
     }
 
@@ -48,10 +50,10 @@ public class DynamicRuntime {
             MethodHandles.Lookup lookup, String name, MethodType mType)
             throws NoSuchMethodException, IllegalAccessException {
         // Insert a String parameter to the list of parameters we're going to call
-        MethodType getType = mType.insertParameterTypes(1, String.class);
+        MethodType getType = mType.insertParameterTypes(1, StringKey.class);
         MethodHandle getProp = lookup.findStatic(ScriptRuntime.class, "setObjectProp", getType);
         // Always call with the "name" as the string parameter
-        getProp = MethodHandles.insertArguments(getProp, 1, name);
+        getProp = MethodHandles.insertArguments(getProp, 1, Identifiers.get().create(name));
         return new ConstantCallSite(getProp);
     }
 }

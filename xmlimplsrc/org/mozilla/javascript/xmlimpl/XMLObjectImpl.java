@@ -14,6 +14,7 @@ import org.mozilla.javascript.Node;
 import org.mozilla.javascript.Ref;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.StringKey;
 import org.mozilla.javascript.Undefined;
 import org.mozilla.javascript.xml.XMLObject;
 
@@ -239,6 +240,13 @@ abstract class XMLObjectImpl extends XMLObject {
         Context cx = Context.getCurrentContext();
         return hasXMLProperty(lib.toXMLNameFromString(cx, name));
     }
+
+    @Override
+    public boolean has(StringKey identifier, Scriptable start) {
+        Context cx = Context.getCurrentContext();
+        return hasXMLProperty(lib.toXMLNameFromString(cx, identifier.toString()));
+    }
+
     /** Implementation of ECMAScript [[Get]] */
     @Override
     public final Object get(Context cx, Object id) {
@@ -261,6 +269,13 @@ abstract class XMLObjectImpl extends XMLObject {
         Context cx = Context.getCurrentContext();
         return getXMLProperty(lib.toXMLNameFromString(cx, name));
     }
+
+    @Override
+    public Object get(StringKey identifier, Scriptable start) {
+        Context cx = Context.getCurrentContext();
+        return getXMLProperty(lib.toXMLNameFromString(cx, identifier.toString()));
+    }
+
     /** Implementation of ECMAScript [[Put]] */
     @Override
     public final void put(Context cx, Object id, Object value) {
@@ -280,6 +295,13 @@ abstract class XMLObjectImpl extends XMLObject {
         Context cx = Context.getCurrentContext();
         putXMLProperty(lib.toXMLNameFromString(cx, name), value);
     }
+
+    @Override
+    public void put(StringKey identifier, Scriptable start, Object value) {
+        Context cx = Context.getCurrentContext();
+        putXMLProperty(lib.toXMLNameFromString(cx, identifier.toString()), value);
+    }
+
     /** Implementation of ECMAScript [[Delete]]. */
     @Override
     public final boolean delete(Context cx, Object id) {

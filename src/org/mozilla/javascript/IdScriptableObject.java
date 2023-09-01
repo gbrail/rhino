@@ -341,6 +341,26 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
     }
 
     @Override
+    public boolean has(StringKey identifier, Scriptable start) {
+        int info = findInstanceIdInfo(identifier.toString());
+        if (info != 0) {
+            int attr = (info >>> 16);
+            if ((attr & PERMANENT) != 0) {
+                return true;
+            }
+            int id = (info & 0xFFFF);
+            return NOT_FOUND != getInstanceIdValue(id);
+        }
+        if (prototypeValues != null) {
+            int id = prototypeValues.findId(identifier.toString());
+            if (id != 0) {
+                return prototypeValues.has(id);
+            }
+        }
+        return super.has(identifier, start);
+    }
+
+    @Override
     public boolean has(Symbol key, Scriptable start) {
         int info = findInstanceIdInfo(key);
         if (info != 0) {
@@ -376,6 +396,30 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
         }
         if (prototypeValues != null) {
             int id = prototypeValues.findId(name);
+            if (id != 0) {
+                value = prototypeValues.get(id);
+                if (value != NOT_FOUND) return value;
+            }
+        }
+        return NOT_FOUND;
+    }
+
+    @Override
+    public Object get(StringKey identifier, Scriptable start) {
+        // Check for slot first for performance. This is a very hot code
+        // path that should be further optimized.
+        Object value = super.get(identifier, start);
+        if (value != NOT_FOUND) {
+            return value;
+        }
+        int info = findInstanceIdInfo(identifier.toString());
+        if (info != 0) {
+            int id = (info & 0xFFFF);
+            value = getInstanceIdValue(id);
+            if (value != NOT_FOUND) return value;
+        }
+        if (prototypeValues != null) {
+            int id = prototypeValues.findId(identifier.toString());
             if (id != 0) {
                 value = prototypeValues.get(id);
                 if (value != NOT_FOUND) return value;
@@ -435,6 +479,38 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
             }
         }
         super.put(name, start, value);
+    }
+
+    @Override
+    public void put(StringKey identifier, Scriptable start, Object value) {
+        int info = findInstanceIdInfo(identifier.toString());
+        if (info != 0) {
+            if (start == this && isSealed()) {
+                throw Context.reportRuntimeErrorById("msg.modify.sealed", identifier.toString());
+            }
+            int attr = (info >>> 16);
+            if ((attr & READONLY) == 0) {
+                if (start == this) {
+                    int id = (info & 0xFFFF);
+                    setInstanceIdValue(id, value);
+                } else {
+                    start.put(identifier.toString(), start, value);
+                }
+            }
+            return;
+        }
+        if (prototypeValues != null) {
+            int id = prototypeValues.findId(identifier.toString());
+            if (id != 0) {
+                if (start == this && isSealed()) {
+                    throw Context.reportRuntimeErrorById(
+                            "msg.modify.sealed", identifier.toString());
+                }
+                prototypeValues.set(id, start, value);
+                return;
+            }
+        }
+        super.put(identifier, start, value);
     }
 
     @Override

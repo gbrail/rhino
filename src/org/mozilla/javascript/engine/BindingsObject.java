@@ -8,6 +8,7 @@ import javax.script.Bindings;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.StringKey;
 
 /**
  * This class makes the Bindings object into a Scriptable. That way, we can query and modify the
@@ -37,8 +38,21 @@ public class BindingsObject extends ScriptableObject {
     }
 
     @Override
+    public Object get(StringKey identifier, Scriptable start) {
+        if (!bindings.containsKey(identifier.toString())) {
+            return Scriptable.NOT_FOUND;
+        }
+        return Context.jsToJava(bindings.get(identifier.toString()), Object.class);
+    }
+
+    @Override
     public void put(String name, Scriptable start, Object value) {
         bindings.put(name, Context.javaToJS(value, start));
+    }
+
+    @Override
+    public void put(StringKey identifier, Scriptable start, Object value) {
+        bindings.put(identifier.toString(), Context.javaToJS(value, start));
     }
 
     @Override
@@ -49,6 +63,11 @@ public class BindingsObject extends ScriptableObject {
     @Override
     public boolean has(String name, Scriptable start) {
         return bindings.containsKey(name);
+    }
+
+    @Override
+    public boolean has(StringKey identifier, Scriptable start) {
+        return bindings.containsKey(identifier.toString());
     }
 
     @Override
