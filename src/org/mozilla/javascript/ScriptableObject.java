@@ -199,7 +199,7 @@ public abstract class ScriptableObject
      */
     @Override
     public boolean has(String name, Scriptable start) {
-        return null != slotMap.query(name, 0);
+        return null != slotMap.query(new StringKey(name), 0);
     }
 
     /**
@@ -234,7 +234,7 @@ public abstract class ScriptableObject
      */
     @Override
     public Object get(String name, Scriptable start) {
-        Slot slot = slotMap.query(name, 0);
+        Slot slot = slotMap.query(new StringKey(name), 0);
         if (slot == null) {
             return Scriptable.NOT_FOUND;
         }
@@ -344,7 +344,7 @@ public abstract class ScriptableObject
     @Override
     public void delete(String name) {
         checkNotSealed(name, 0);
-        slotMap.remove(name, 0);
+        slotMap.remove(new StringKey(name), 0);
     }
 
     /**
@@ -405,7 +405,7 @@ public abstract class ScriptableObject
      */
     @Override
     public boolean isConst(String name) {
-        Slot slot = slotMap.query(name, 0);
+        Slot slot = slotMap.query(new StringKey(name), 0);
         if (slot == null) {
             return false;
         }
@@ -508,7 +508,7 @@ public abstract class ScriptableObject
      */
     public void setAttributes(String name, int attributes) {
         checkNotSealed(name, 0);
-        Slot attrSlot = slotMap.modify(name, 0, 0);
+        Slot attrSlot = slotMap.modify(new StringKey(name), 0, 0);
         attrSlot.setAttributes(attributes);
     }
 
@@ -541,11 +541,12 @@ public abstract class ScriptableObject
     public void setGetterOrSetter(
             String name, int index, Callable getterOrSetter, boolean isSetter) {
         if (name != null && index != 0) throw new IllegalArgumentException(name);
-        checkNotSealed(name, index);
+        Object key = name == null ? null : new StringKey(name);
+        checkNotSealed(key, index);
 
         AccessorSlot aSlot;
         if (isExtensible()) {
-            Slot slot = slotMap.modify(name, index, 0);
+            Slot slot = slotMap.modify(key, index, 0);
             if (slot instanceof AccessorSlot) {
                 aSlot = (AccessorSlot) slot;
             } else {
@@ -553,7 +554,7 @@ public abstract class ScriptableObject
                 slotMap.replace(slot, aSlot);
             }
         } else {
-            Slot slot = slotMap.query(name, index);
+            Slot slot = slotMap.query(key, index);
             if (slot instanceof AccessorSlot) {
                 aSlot = (AccessorSlot) slot;
             } else {
@@ -599,7 +600,8 @@ public abstract class ScriptableObject
      */
     public Object getGetterOrSetter(String name, int index, Scriptable scope, boolean isSetter) {
         if (name != null && index != 0) throw new IllegalArgumentException(name);
-        Slot slot = slotMap.query(name, index);
+        Object key = name == null ? null : new StringKey(name);
+        Slot slot = slotMap.query(key, index);
         if (slot == null) return null;
         Function getterOrSetter =
                 isSetter
@@ -635,14 +637,16 @@ public abstract class ScriptableObject
      * @return whether the property is a getter or a setter
      */
     protected boolean isGetterOrSetter(String name, int index, boolean setter) {
-        Slot slot = slotMap.query(name, index);
+        Object key = name == null ? null : new StringKey(name);
+        Slot slot = slotMap.query(key, index);
         return (slot != null && slot.isSetterSlot());
     }
 
     void addLazilyInitializedValue(String name, int index, LazilyLoadedCtor init, int attributes) {
         if (name != null && index != 0) throw new IllegalArgumentException(name);
-        checkNotSealed(name, index);
-        Slot slot = slotMap.modify(name, index, 0);
+        Object key = name == null ? null : new StringKey(name);
+        checkNotSealed(key, index);
+        Slot slot = slotMap.modify(key, index, 0);
         LazyLoadSlot lslot;
         if (slot instanceof LazyLoadSlot) {
             lslot = (LazyLoadSlot) slot;
@@ -1508,7 +1512,7 @@ public abstract class ScriptableObject
             }
         }
 
-        Slot slot = slotMap.modify(propertyName, 0, 0);
+        Slot slot = slotMap.modify(new StringKey(propertyName), 0, 0);
         AccessorSlot aSlot;
         if (slot instanceof AccessorSlot) {
             aSlot = (AccessorSlot) slot;
@@ -1580,7 +1584,7 @@ public abstract class ScriptableObject
             if (s.stringId == null) {
                 index = s.index;
             } else {
-                key = s.stringId;
+                key = new StringKey(s.stringId);
             }
         }
 
@@ -1655,7 +1659,7 @@ public abstract class ScriptableObject
      */
     public void defineProperty(
             String name, Supplier<Object> getter, Consumer<Object> setter, int attributes) {
-        Slot slot = slotMap.modify(name, 0, attributes);
+        Slot slot = slotMap.modify(new StringKey(name), 0, attributes);
 
         LambdaSlot lSlot;
         if (slot instanceof LambdaSlot) {
@@ -2468,12 +2472,15 @@ public abstract class ScriptableObject
      * @return false if this != start and no slot was found. true if this == start or this != start
      *     and a READONLY slot was found.
      */
-    boolean putImpl(Object key, int index, Scriptable start, Object value, boolean isThrow) {
+    boolean putImpl(Object name, int index, Scriptable start, Object value, boolean isThrow) {
         // This method is very hot (basically called on each assignment)
         // so we inline the extensible/sealed checks below.
+        if (name instanceof String) {
+            name = new StringKey((String) name);
+        }
         Slot slot;
         if (this != start) {
-            slot = slotMap.query(key, index);
+            slot = slotMap.query(name, index);
             if (!isExtensible
                     && (slot == null
                             || (!(slot instanceof AccessorSlot)
@@ -2485,7 +2492,7 @@ public abstract class ScriptableObject
                 return false;
             }
         } else if (!isExtensible) {
-            slot = slotMap.query(key, index);
+            slot = slotMap.query(name, index);
             if ((slot == null
                             || (!(slot instanceof AccessorSlot)
                                     && (slot.getAttributes() & READONLY) != 0))
@@ -2497,9 +2504,9 @@ public abstract class ScriptableObject
             }
         } else {
             if (isSealed) {
-                checkNotSealed(key, index);
+                checkNotSealed(name, index);
             }
-            slot = slotMap.modify(key, index, 0);
+            slot = slotMap.modify(name, index, 0);
         }
         return slot.setValue(value, this, start, isThrow);
     }
@@ -2523,21 +2530,22 @@ public abstract class ScriptableObject
                 throw ScriptRuntime.typeErrorById("msg.not.extensible");
             }
         }
+        Object key = name == null ? null : new StringKey(name);
         Slot slot;
         if (this != start) {
-            slot = slotMap.query(name, index);
+            slot = slotMap.query(key, index);
             if (slot == null) {
                 return false;
             }
         } else if (!isExtensible()) {
-            slot = slotMap.query(name, index);
+            slot = slotMap.query(key, index);
             if (slot == null) {
                 return true;
             }
         } else {
             checkNotSealed(name, index);
             // either const hoisted declaration or initialization
-            slot = slotMap.modify(name, index, CONST);
+            slot = slotMap.modify(key, index, CONST);
             int attr = slot.getAttributes();
             if ((attr & READONLY) == 0)
                 throw Context.reportRuntimeErrorById("msg.var.redecl", name);
@@ -2553,7 +2561,8 @@ public abstract class ScriptableObject
     }
 
     private Slot getAttributeSlot(String name, int index) {
-        Slot slot = slotMap.query(name, index);
+        Object key = name == null ? null : new StringKey(name);
+        Slot slot = slotMap.query(key, index);
         if (slot == null) {
             String str = (name != null ? name : Integer.toString(index));
             throw Context.reportRuntimeErrorById("msg.prop.not.found", str);
@@ -2599,7 +2608,15 @@ public abstract class ScriptableObject
                             System.arraycopy(oldA, 0, a, 0, externalLen);
                         }
                     }
-                    a[c++] = slot.name != null ? slot.name : Integer.valueOf(slot.indexOrHash);
+                    Object id;
+                    if (slot.name == null) {
+                        id = Integer.valueOf(slot.indexOrHash);
+                    } else if (slot.name instanceof Symbol) {
+                        id = slot.name;
+                    } else {
+                        id = slot.name.toString();
+                    }
+                    a[c++] = id;
                 }
             }
         } finally {
@@ -2666,7 +2683,7 @@ public abstract class ScriptableObject
         if (s.stringId == null) {
             return slotMap.query(null, s.index);
         }
-        return slotMap.query(s.stringId, 0);
+        return slotMap.query(new StringKey(s.stringId), 0);
     }
 
     // Partial implementation of java.util.Map. See NativeObject for

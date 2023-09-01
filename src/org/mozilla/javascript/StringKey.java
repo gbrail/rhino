@@ -1,22 +1,37 @@
 package org.mozilla.javascript;
 
-/** A StringKey holds a property name in such a way that it is comparable with an identifier. */
-public class StringKey implements Comparable<StringKey> {
+import java.io.Serializable;
+import java.util.Objects;
+
+/**
+ * A StringKey is a key that may be a string, but it also may be a pre-defined identifier, created
+ * by the Identifiers class. In that second case, the key can be compared more quickly.
+ */
+public class StringKey implements Comparable<StringKey>, Serializable {
     private final String s;
+    private final long id;
     private final int hash;
 
     public StringKey(String s) {
         this.s = s;
-        this.hash = s.hashCode();
+        this.id = 0;
+        this.hash = s == null ? 0 : s.hashCode();
+    }
+
+    public StringKey(String s, long id) {
+        this.s = s;
+        this.id = id;
+        this.hash = s == null ? 0 : s.hashCode();
     }
 
     @Override
     public boolean equals(Object o) {
         if (o instanceof StringKey) {
-            return ((StringKey) o).s.equals(s);
-        }
-        if (o instanceof Identifier) {
-            return o.toString().equals(s);
+            StringKey sk = (StringKey) o;
+            if (id != 0 && sk.id != 0) {
+                return id == sk.id;
+            }
+            return Objects.equals(s, sk.s);
         }
         return false;
     }
@@ -33,6 +48,6 @@ public class StringKey implements Comparable<StringKey> {
 
     @Override
     public String toString() {
-        return s;
+        return s == null ? "null" : s;
     }
 }

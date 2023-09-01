@@ -10,7 +10,7 @@ import java.util.WeakHashMap;
 public class Identifiers {
     private static final Identifiers self = new Identifiers();
 
-    private final WeakHashMap<String, Identifier> identifiers = new WeakHashMap<>();
+    private final WeakHashMap<String, StringKey> identifiers = new WeakHashMap<>();
     private long lastId = 0;
 
     private Identifiers() {}
@@ -19,12 +19,12 @@ public class Identifiers {
         return self;
     }
 
-    public synchronized Identifier create(String name) {
+    public synchronized StringKey create(String name) {
         return identifiers.computeIfAbsent(
                 name,
                 n -> {
-                    long id = lastId++;
-                    return new Identifier(name, id);
+                    long id = ++lastId;
+                    return new StringKey(name, id);
                 });
     }
 }
