@@ -162,11 +162,6 @@ public class Main {
         IProxy iproxy = new IProxy(IProxy.PROCESS_FILES);
         iproxy.args = args;
         shellContextFactory.call(iproxy);
-        /*
-        DynamicRuntime.printStats();
-        IndexedSlotMap.printStats();
-        PropertyMap.printTree();
-         */
         return exitCode;
     }
 

@@ -3988,12 +3988,12 @@ class BodyCodegen {
 
         if (node.getType() == Token.GETPROPNOWARN) {
             cfw.addInvokeDynamic(
-                    "GETNOWARN:" + nameChild.getString(),
+                    "PROP:GETNOWARN:" + nameChild.getString(),
                     DynamicRuntime.GET_PROP_SIGNATURE,
                     DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
         } else {
             cfw.addInvokeDynamic(
-                    "GET:" + nameChild.getString(),
+                    "PROP:GET:" + nameChild.getString(),
                     DynamicRuntime.GET_PROP_SIGNATURE,
                     DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
         }
@@ -4009,7 +4009,7 @@ class BodyCodegen {
             cfw.addALoad(contextLocal);
             cfw.addALoad(variableObjectLocal);
             cfw.addInvokeDynamic(
-                    "GET:" + nameChild.getString(),
+                    "PROP:GET:" + nameChild.getString(),
                     DynamicRuntime.GET_PROP_SIGNATURE,
                     DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
         }
@@ -4018,7 +4018,7 @@ class BodyCodegen {
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
         cfw.addInvokeDynamic(
-                "SET:" + nameChild.getString(),
+                "PROP:SET:" + nameChild.getString(),
                 DynamicRuntime.SET_PROP_SIGNATURE,
                 DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
     }

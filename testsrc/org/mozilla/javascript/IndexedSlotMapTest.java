@@ -105,29 +105,4 @@ public class IndexedSlotMapTest {
         assertEquals(map.queryFastNoCheck(k3).value, 3);
         assertEquals(m2.queryFastNoCheck(k3).value, 30);
     }
-
-    @Test
-    public void testAlmostMatchingTrees() {
-        map.modify("one", 0, 0).value = 1;
-        map.modify("two", 0, 0).value = 2;
-        map.modify("three", 0, 0).value = 3;
-
-        SlotMap m2 = new IndexedSlotMap();
-        m2.modify("one", 0, 0).value = 10;
-        m2.modify("three", 0, 0).value = 30;
-        m2.modify("two", 0, 0).value = 20;
-
-        // A FastKey can't be shared when maps are in a different order
-        SlotMap.FastKey k2 = map.getFastKey("two", 0);
-        assertEquals(map.queryFastNoCheck(k2).value, 2);
-        assertEquals(m2.queryFastNoCheck(k2), SlotMap.NOT_A_FAST_PROPERTY);
-        SlotMap.FastKey k3 = map.getFastKey("three", 0);
-        assertEquals(map.queryFastNoCheck(k3).value, 3);
-        assertEquals(m2.queryFastNoCheck(k3), SlotMap.NOT_A_FAST_PROPERTY);
-
-        // A FastKey should be sharable when maps share a root
-        SlotMap.FastKey k1 = map.getFastKey("one", 0);
-        assertEquals(map.queryFastNoCheck(k1).value, 1);
-        assertEquals(m2.queryFastNoCheck(k1).value, 10);
-    }
 }

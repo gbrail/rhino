@@ -260,7 +260,7 @@ public abstract class ScriptableObject
      */
     public Object getFast(SlotMap.FastKey key, Scriptable start) {
         Slot slot = slotMap.queryFastNoCheck(key);
-        return slot == null ? Scriptable.NOT_FOUND : slot.getValue(start);
+        return slot.getValue(start);
     }
 
     /**

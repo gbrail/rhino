@@ -3,7 +3,6 @@ package org.mozilla.javascript;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.NoSuchElementException;
-import java.util.concurrent.atomic.LongAdder;
 
 /**
  * This class implements the SlotMap using a PropertyMap for the first 10 keys, and then uses a
@@ -17,22 +16,6 @@ public class IndexedSlotMap implements SlotMap {
     private int fastSize = 0;
     private LinkedHashMap<Object, Slot> slowSlots = null;
     private PropertyMap propertyMap = PropertyMap.ROOT;
-    private static final boolean accumulateStats;
-
-    private static final LongAdder mapCount = new LongAdder();
-    private static final LongAdder mapsRemovedCount = new LongAdder();
-    private static final LongAdder mapsGrownCount = new LongAdder();
-
-    static {
-        String propVal = System.getProperty("RhinoSlotStats");
-        accumulateStats = propVal != null;
-    }
-
-    public IndexedSlotMap() {
-        if (accumulateStats) {
-            mapCount.increment();
-        }
-    }
 
     @Override
     public int size() {
@@ -152,9 +135,6 @@ public class IndexedSlotMap implements SlotMap {
             slowSlots = new LinkedHashMap<>();
         }
         if (fastSize > 0) {
-            if (accumulateStats) {
-                mapsRemovedCount.increment();
-            }
             // Need to re-build the whole map so that insertion order is preserved.
             LinkedHashMap<Object, Slot> newSlots = new LinkedHashMap<>();
             for (int i = 0; i < fastSize; i++) {
@@ -200,9 +180,6 @@ public class IndexedSlotMap implements SlotMap {
             return fk;
         }
         if (slowSlots == null) {
-            if (accumulateStats) {
-                mapsGrownCount.increment();
-            }
             slowSlots = new LinkedHashMap<>();
         }
         slowSlots.put(key, newSlot);
@@ -251,14 +228,6 @@ public class IndexedSlotMap implements SlotMap {
                 done = true;
             }
             return s;
-        }
-    }
-
-    public static void printStats() {
-        if (accumulateStats) {
-            System.out.println("Indexed slot maps created:    " + mapCount.sum());
-            System.out.println("De-optimized due to removals: " + mapsRemovedCount.sum());
-            System.out.println("Grown past initial size:      " + mapsGrownCount.sum());
         }
     }
 }

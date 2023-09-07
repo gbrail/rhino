@@ -88,5 +88,10 @@ public interface SlotMap extends Iterable<Slot> {
             this.map = map;
             this.index = index;
         }
+
+        @Override
+        public String toString() {
+            return "{" + index + "}";
+        }
     }
 }

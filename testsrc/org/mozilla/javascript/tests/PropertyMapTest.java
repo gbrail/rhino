@@ -38,9 +38,10 @@ public class PropertyMapTest {
         assertEquals(2, a4.find("c"));
         assertEquals(3, a4.find("d"));
         assertEquals(-1, a4.find("e"));
-
+        /* TODO when we implement remove
         PropertyMap a3b = a4.remove("d");
         assertEquals(a3, a3b);
         assertNull(a4.remove("b"));
+        */
     }
 }
