@@ -197,7 +197,7 @@ public class SlotMapBenchmark {
         assert (key != null);
         Slot slot = null;
         for (int i = 0; i < 1000000; i++) {
-            slot = state.size10Map.queryFast(key);
+            slot = state.size10Map.queryFastNoCheck(key);
         }
         if (slot == null || slot == SlotMap.NOT_A_FAST_PROPERTY) {
             throw new AssertionError();

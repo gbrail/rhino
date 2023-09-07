@@ -51,11 +51,14 @@ public interface SlotMap extends Iterable<Slot> {
      */
     FastKey getFastKey(Object key, int index);
 
+    /** Ensure that the key from getFastKey is valid for this particular map. */
+    boolean isFastKeyValid(FastKey key);
+
     /**
-     * Given a key from getFastKey, either return the property value, or return NOT_A_FAST_PROPERTY
-     * if this SlotMap has a different property map.
+     * Return the value of the property stored at FastKey. If "isFastKeyValid" did not previously
+     * return true, then the result is undefined.
      */
-    Slot queryFast(FastKey key);
+    Slot queryFastNoCheck(FastKey key);
 
     /** Given a key from getFastKey, return a slot that may be modified. */
     Slot modifyFast(FastKey fk);

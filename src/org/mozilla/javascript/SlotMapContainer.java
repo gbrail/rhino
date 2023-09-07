@@ -76,8 +76,13 @@ class SlotMapContainer implements SlotMap {
     }
 
     @Override
-    public Slot queryFast(FastKey key) {
-        return map.queryFast(key);
+    public boolean isFastKeyValid(FastKey key) {
+        return map.isFastKeyValid(key);
+    }
+
+    @Override
+    public Slot queryFastNoCheck(FastKey key) {
+        return map.queryFastNoCheck(key);
     }
 
     @Override

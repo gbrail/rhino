@@ -71,8 +71,6 @@ public class IndexedSlotMap implements SlotMap {
             int ix = propertyMap.find(key);
             if (ix >= 0) {
                 assert (ix < fastSize);
-                // PropertyMap lm = propertyMap.getMapForLevel(ix);
-                // return new FastKey(lm, ix);
                 return new FastKey(propertyMap, ix);
             }
         }
@@ -80,14 +78,13 @@ public class IndexedSlotMap implements SlotMap {
     }
 
     @Override
-    public Slot queryFast(FastKey key) {
-        // if (key.map.equalAtLevel(propertyMap, key.index) && (key.index < fastSize)) {
-        //    return fastSlots[key.index];
-        // }
-        if (key.map == propertyMap) {
-            return fastSlots[key.index];
-        }
-        return SlotMap.NOT_A_FAST_PROPERTY;
+    public boolean isFastKeyValid(FastKey key) {
+        return (key.map == propertyMap);
+    }
+
+    @Override
+    public Slot queryFastNoCheck(FastKey key) {
+        return fastSlots[key.index];
     }
 
     /** When we modify, we switch to a new property map. */

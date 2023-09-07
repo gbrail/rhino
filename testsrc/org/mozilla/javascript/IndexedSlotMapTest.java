@@ -40,10 +40,10 @@ public class IndexedSlotMapTest {
         SlotMap.FastKey fm = map.getFastKey("missing", 0);
         assertNull(fm);
 
-        assertEquals(map.queryFast(f1).value, 1);
-        assertEquals(map.queryFast(f2).value, 2);
-        assertEquals(map.queryFast(f3).value, 3);
-        assertEquals(map.queryFast(f4).value, 4);
+        assertEquals(map.queryFastNoCheck(f1).value, 1);
+        assertEquals(map.queryFastNoCheck(f2).value, 2);
+        assertEquals(map.queryFastNoCheck(f3).value, 3);
+        assertEquals(map.queryFastNoCheck(f4).value, 4);
     }
 
     @Test
@@ -99,11 +99,11 @@ public class IndexedSlotMapTest {
 
         // With two maps with the same key order, a FastKey can be shared
         SlotMap.FastKey k1 = map.getFastKey("one", 0);
-        assertEquals(map.queryFast(k1).value, 1);
-        assertEquals(m2.queryFast(k1).value, 10);
+        assertEquals(map.queryFastNoCheck(k1).value, 1);
+        assertEquals(m2.queryFastNoCheck(k1).value, 10);
         SlotMap.FastKey k3 = map.getFastKey("three", 0);
-        assertEquals(map.queryFast(k3).value, 3);
-        assertEquals(m2.queryFast(k3).value, 30);
+        assertEquals(map.queryFastNoCheck(k3).value, 3);
+        assertEquals(m2.queryFastNoCheck(k3).value, 30);
     }
 
     @Test
@@ -119,15 +119,15 @@ public class IndexedSlotMapTest {
 
         // A FastKey can't be shared when maps are in a different order
         SlotMap.FastKey k2 = map.getFastKey("two", 0);
-        assertEquals(map.queryFast(k2).value, 2);
-        assertEquals(m2.queryFast(k2), SlotMap.NOT_A_FAST_PROPERTY);
+        assertEquals(map.queryFastNoCheck(k2).value, 2);
+        assertEquals(m2.queryFastNoCheck(k2), SlotMap.NOT_A_FAST_PROPERTY);
         SlotMap.FastKey k3 = map.getFastKey("three", 0);
-        assertEquals(map.queryFast(k3).value, 3);
-        assertEquals(m2.queryFast(k3), SlotMap.NOT_A_FAST_PROPERTY);
+        assertEquals(map.queryFastNoCheck(k3).value, 3);
+        assertEquals(m2.queryFastNoCheck(k3), SlotMap.NOT_A_FAST_PROPERTY);
 
         // A FastKey should be sharable when maps share a root
         SlotMap.FastKey k1 = map.getFastKey("one", 0);
-        assertEquals(map.queryFast(k1).value, 1);
-        assertEquals(m2.queryFast(k1).value, 10);
+        assertEquals(map.queryFastNoCheck(k1).value, 1);
+        assertEquals(m2.queryFastNoCheck(k1).value, 10);
     }
 }

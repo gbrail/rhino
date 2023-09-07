@@ -249,16 +249,18 @@ public abstract class ScriptableObject
         return slotMap.getFastKey(name, 0);
     }
 
+    /** Return true if the FastKey is still valid. */
+    public boolean isFastKeyValid(SlotMap.FastKey key) {
+        return slotMap.isFastKeyValid(key);
+    }
+
     /**
-     * Return the value of the property using a fast key, or return SlotMap.NOT_A_FAST_PROPERTY if
-     * another method should be used.
+     * Return the value of the property using a fast key, or fail in a terrible way if the key is
+     * not valid. This is intended for use in the optimized runtime only.
      */
     public Object getFast(SlotMap.FastKey key, Scriptable start) {
-        Slot slot = slotMap.queryFast(key);
-        if (slot == SlotMap.NOT_A_FAST_PROPERTY) {
-            return SlotMap.NOT_A_FAST_PROPERTY;
-        }
-        return slot.getValue(start);
+        Slot slot = slotMap.queryFastNoCheck(key);
+        return slot == null ? Scriptable.NOT_FOUND : slot.getValue(start);
     }
 
     /**

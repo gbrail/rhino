@@ -8,8 +8,6 @@ import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.lang.invoke.MutableCallSite;
-import java.util.concurrent.atomic.LongAdder;
 import jdk.dynalink.CallSiteDescriptor;
 import jdk.dynalink.DynamicLinker;
 import jdk.dynalink.DynamicLinkerFactory;
@@ -32,14 +30,6 @@ import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.SlotMap;
 
 public class DynamicRuntime {
-    protected static final LongAdder siteCount = new LongAdder();
-    protected static final LongAdder initFastCount = new LongAdder();
-    protected static final LongAdder initSlowCount = new LongAdder();
-    protected static final LongAdder invokeFastCount = new LongAdder();
-    protected static final LongAdder invokeFastFailCount = new LongAdder();
-
-    protected static final boolean accumulateStats;
-
     public enum RhinoOperation implements Operation {
         GETNOWARN,
     };
@@ -63,19 +53,13 @@ public class DynamicRuntime {
 
     static {
         DynamicLinkerFactory linkerFactory = new DynamicLinkerFactory();
-        linkerFactory.setPrioritizedLinker(new FallbackLinker());
+        linkerFactory.setPrioritizedLinkers(new FastLinker(), new FallbackLinker());
         LINKER = linkerFactory.createLinker();
-
-        String propVal = System.getProperty("RhinoIndyStats");
-        accumulateStats = propVal != null;
     }
 
     @SuppressWarnings("unused")
     public static CallSite bootstrap(MethodHandles.Lookup lookup, String name, MethodType mType)
             throws NoSuchMethodException, IllegalAccessException {
-        if (accumulateStats) {
-            siteCount.increment();
-        }
         return LINKER.link(
                 new SimpleRelinkableCallSite(
                         new CallSiteDescriptor(lookup, parseOperation(name), mType)));
@@ -100,6 +84,76 @@ public class DynamicRuntime {
         } else {
             throw new NoSuchMethodException(name);
         }
+    }
+
+    static class FastLinker implements GuardingDynamicLinker {
+        @Override
+        public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svcs)
+                throws NoSuchMethodException, IllegalAccessException {
+            Operation namedOp = req.getCallSiteDescriptor().getOperation();
+            if (!(namedOp instanceof NamedOperation)) {
+                throw new UnsupportedOperationException("Only named operations supported");
+            }
+            String propertyName = (String) ((NamedOperation) namedOp).getName();
+
+            Operation nsOp = ((NamedOperation) namedOp).getBaseOperation();
+            if (!(nsOp instanceof NamespaceOperation)) {
+                throw new UnsupportedOperationException("Only namespace operations supported");
+            }
+            if (((NamespaceOperation) nsOp).getNamespace(0) != StandardNamespace.PROPERTY) {
+                throw new UnsupportedOperationException(
+                        "Only property namespace operations supported");
+            }
+
+            MethodHandles.Lookup lookup = req.getCallSiteDescriptor().getLookup();
+            Operation op = ((NamespaceOperation) nsOp).getBaseOperation();
+
+            if (op == StandardOperation.GET && req.getReceiver() instanceof ScriptableObject) {
+                ScriptableObject so = (ScriptableObject) req.getReceiver();
+                SlotMap.FastKey key = so.getFastKey(propertyName);
+                if (key != null) {
+                    MethodType guardType =
+                            MethodType.methodType(
+                                    Boolean.TYPE,
+                                    SlotMap.FastKey.class,
+                                    Object.class,
+                                    Context.class,
+                                    Scriptable.class);
+                    MethodHandle rawGuard =
+                            lookup.findStatic(DynamicRuntime.class, "guardFastKey", guardType);
+                    MethodHandle guard = MethodHandles.insertArguments(rawGuard, 0, key);
+
+                    MethodType invokeType =
+                            MethodType.methodType(
+                                    Object.class,
+                                    SlotMap.FastKey.class,
+                                    Object.class,
+                                    Context.class,
+                                    Scriptable.class);
+                    MethodHandle rawInvoke =
+                            lookup.findStatic(DynamicRuntime.class, "invokeFastKey", invokeType);
+                    MethodHandle invoke = MethodHandles.insertArguments(rawInvoke, 0, key);
+
+                    return new GuardedInvocation(invoke, guard);
+                }
+            }
+
+            // Let another linker pick this up
+            return null;
+        }
+    }
+
+    public static boolean guardFastKey(
+            SlotMap.FastKey key, Object target, Context cx, Scriptable start) {
+        if (target instanceof ScriptableObject) {
+            return ((ScriptableObject) target).isFastKeyValid(key);
+        }
+        return false;
+    }
+
+    public static Object invokeFastKey(
+            SlotMap.FastKey key, Object target, Context cx, Scriptable start) {
+        return ((ScriptableObject) target).getFast(key, start);
     }
 
     static class FallbackLinker implements GuardingDynamicLinker {
@@ -141,184 +195,14 @@ public class DynamicRuntime {
 
             } else if (op == StandardOperation.SET) {
                 MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle getMethod = lookup.findStatic(ScriptRuntime.class, "setObjectProp", tt);
+                MethodHandle getMethod =
+                        lookup.findStatic(ScriptRuntime.class, "setObjectProp", tt);
                 MethodHandle mh = MethodHandles.insertArguments(getMethod, 1, propertyName);
                 return new GuardedInvocation(mh);
 
             } else {
                 throw new UnsupportedOperationException("Invalid operation " + op);
             }
-        }
-    }
-
-    public static CallSite bootstrapGetProperty(
-            MethodHandles.Lookup lookup, String propertyName, boolean allowNoWarn, MethodType mType)
-            throws NoSuchMethodException, IllegalAccessException {
-        GetObjectPropertySite site = new GetObjectPropertySite(mType);
-        MethodType initType = mType.insertParameterTypes(0, String.class, Boolean.TYPE);
-        site.invokeFast = lookup.findVirtual(GetObjectPropertySite.class, "invokeFast", initType);
-        site.invokeFast =
-                MethodHandles.insertArguments(site.invokeFast, 0, site, propertyName, allowNoWarn);
-        site.fallback = lookup.findVirtual(GetObjectPropertySite.class, "invokeFallback", initType);
-        site.fallback =
-                MethodHandles.insertArguments(site.fallback, 0, site, propertyName, allowNoWarn);
-
-        // The first method called is the "initialize" method, bound to the
-        // call site itself so it can change its handle.
-        MethodHandle init = lookup.findVirtual(GetObjectPropertySite.class, "initialize", initType);
-        init = MethodHandles.insertArguments(init, 0, site, propertyName, allowNoWarn);
-        site.setTarget(init);
-        return site;
-    }
-
-    public static CallSite bootstrapSetProperty(
-            MethodHandles.Lookup lookup, String propertyName, MethodType mType)
-            throws NoSuchMethodException, IllegalAccessException {
-        SetObjectPropertySite site = new SetObjectPropertySite(mType);
-        MethodType initType = mType.insertParameterTypes(0, String.class);
-        site.invokeFast = lookup.findVirtual(SetObjectPropertySite.class, "invokeFast", initType);
-        site.invokeFast = MethodHandles.insertArguments(site.invokeFast, 0, site, propertyName);
-        site.fallback = lookup.findVirtual(SetObjectPropertySite.class, "invokeFallback", initType);
-        site.fallback = MethodHandles.insertArguments(site.fallback, 0, site, propertyName);
-
-        // The first method called is the "initialize" method, bound to the
-        // call site itself so it can change its handle.
-        MethodHandle init = lookup.findVirtual(SetObjectPropertySite.class, "initialize", initType);
-        init = MethodHandles.insertArguments(init, 0, site, propertyName);
-        site.setTarget(init);
-        return site;
-    }
-
-    protected static final class GetObjectPropertySite extends MutableCallSite {
-        MethodHandle fallback;
-        MethodHandle invokeFast;
-        SlotMap.FastKey fastKey;
-
-        GetObjectPropertySite(MethodType mType) {
-            super(mType);
-        }
-
-        /**
-         * This is called first. If the target meets the requirements, it switches to a direct
-         * invocation, and otherwise falls back to the generic method.
-         */
-        public Object initialize(
-                String propertyName, boolean allowWarn, Object obj, Context cx, Scriptable scope) {
-            if (obj instanceof ScriptableObject) {
-                SlotMap.FastKey key = ((ScriptableObject) obj).getFastKey(propertyName);
-                if (key != null) {
-                    fastKey = key;
-                    setTarget(invokeFast);
-                    if (accumulateStats) {
-                        initFastCount.increment();
-                    }
-                    return invokeFast(propertyName, allowWarn, obj, cx, scope);
-                }
-            }
-
-            if (accumulateStats) {
-                initSlowCount.increment();
-            }
-            setTarget(fallback);
-            return invokeFallback(propertyName, allowWarn, obj, cx, scope);
-        }
-
-        /** This is called every time with a fast property key. */
-        public Object invokeFast(
-                String propertyName, boolean allowWarn, Object obj, Context cx, Scriptable scope) {
-            if (obj instanceof ScriptableObject) {
-                ScriptableObject so = ((ScriptableObject) obj);
-                Object val = so.getFast(fastKey, so);
-                if (val != SlotMap.NOT_A_FAST_PROPERTY) {
-                    if (accumulateStats) {
-                        invokeFastCount.increment();
-                    }
-                    return val;
-                }
-            }
-
-            if (accumulateStats) {
-                invokeFastFailCount.increment();
-            }
-            return invokeFallback(propertyName, allowWarn, obj, cx, scope);
-        }
-
-        public Object invokeFallback(
-                String propertyName, boolean allowWarn, Object obj, Context cx, Scriptable scope) {
-            if (allowWarn) {
-                return ScriptRuntime.getObjectProp(obj, propertyName, cx, scope);
-            }
-            return ScriptRuntime.getObjectPropNoWarn(obj, propertyName, cx, scope);
-        }
-    }
-
-    protected static final class SetObjectPropertySite extends MutableCallSite {
-        MethodHandle fallback;
-        MethodHandle invokeFast;
-        SlotMap.FastKey fastKey;
-
-        SetObjectPropertySite(MethodType mType) {
-            super(mType);
-        }
-
-        /**
-         * This is called first. If the target meets the requirements, it switches to a direct
-         * invocation, and otherwise falls back to the generic method.
-         */
-        public Object initialize(
-                String propertyName, Object obj, Object value, Context cx, Scriptable scope) {
-            if (obj instanceof ScriptableObject) {
-                ScriptableObject so = (ScriptableObject) obj;
-                SlotMap.FastKey key = so.getFastKey(propertyName);
-                if (key != null) {
-                    fastKey = key;
-                    setTarget(invokeFast);
-                    if (accumulateStats) {
-                        initFastCount.increment();
-                    }
-                    return invokeFast(propertyName, obj, value, cx, scope);
-                }
-            }
-
-            if (accumulateStats) {
-                initSlowCount.increment();
-            }
-            setTarget(fallback);
-            return invokeFallback(propertyName, obj, value, cx, scope);
-        }
-
-        /** This is called every time with a fast property key. */
-        public Object invokeFast(
-                String propertyName, Object obj, Object value, Context cx, Scriptable scope) {
-            if (obj instanceof ScriptableObject) {
-                ScriptableObject so = ((ScriptableObject) obj);
-                if (so.putFast(fastKey, propertyName, so, value)) {
-                    if (accumulateStats) {
-                        invokeFastCount.increment();
-                    }
-                    return value;
-                }
-            }
-
-            if (accumulateStats) {
-                invokeFastFailCount.increment();
-            }
-            return invokeFallback(propertyName, obj, value, cx, scope);
-        }
-
-        public Object invokeFallback(
-                String propertyName, Object obj, Object value, Context cx, Scriptable scope) {
-            return ScriptRuntime.setObjectProp(obj, propertyName, value, cx, scope);
-        }
-    }
-
-    public static void printStats() {
-        if (accumulateStats) {
-            System.out.println("Call Sites:              " + siteCount.sum());
-            System.out.println("Fast inits:              " + initFastCount.sum());
-            System.out.println("Slow inits:              " + initSlowCount.sum());
-            System.out.println("Fast invocations:        " + invokeFastCount.sum());
-            System.out.println("Failed fast invocations: " + invokeFastFailCount.sum());
         }
     }
 }

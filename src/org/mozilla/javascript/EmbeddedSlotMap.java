@@ -93,7 +93,12 @@ public class EmbeddedSlotMap implements SlotMap {
     }
 
     @Override
-    public Slot queryFast(FastKey key) {
+    public boolean isFastKeyValid(FastKey key) {
+        return false;
+    }
+
+    @Override
+    public Slot queryFastNoCheck(FastKey key) {
         return SlotMap.NOT_A_FAST_PROPERTY;
     }
 
