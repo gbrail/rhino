@@ -55,13 +55,13 @@ public class DynamicRuntime {
             siteCount.increment();
         }
         if (name.startsWith("GET:")) {
-            String propertyName = name.substring(4);
+            String propertyName = name.substring(4).intern();
             return bootstrapGetProperty(lookup, propertyName, true, mType);
         } else if (name.startsWith("GETNOWARN:")) {
-            String propertyName = name.substring(10);
+            String propertyName = name.substring(10).intern();
             return bootstrapGetProperty(lookup, propertyName, false, mType);
         } else if (name.startsWith("SET:")) {
-            String propertyName = name.substring(4);
+            String propertyName = name.substring(4).intern();
             return bootstrapSetProperty(lookup, propertyName, mType);
         } else {
             throw new NoSuchMethodException(name);
