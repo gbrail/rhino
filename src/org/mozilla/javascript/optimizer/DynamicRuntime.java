@@ -10,6 +10,19 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.MutableCallSite;
 import java.util.concurrent.atomic.LongAdder;
+import jdk.dynalink.CallSiteDescriptor;
+import jdk.dynalink.DynamicLinker;
+import jdk.dynalink.DynamicLinkerFactory;
+import jdk.dynalink.NamedOperation;
+import jdk.dynalink.NamespaceOperation;
+import jdk.dynalink.Operation;
+import jdk.dynalink.StandardNamespace;
+import jdk.dynalink.StandardOperation;
+import jdk.dynalink.linker.GuardedInvocation;
+import jdk.dynalink.linker.GuardingDynamicLinker;
+import jdk.dynalink.linker.LinkRequest;
+import jdk.dynalink.linker.LinkerServices;
+import jdk.dynalink.support.SimpleRelinkableCallSite;
 import org.mozilla.classfile.ByteCode;
 import org.mozilla.classfile.ClassFileWriter;
 import org.mozilla.javascript.Context;
@@ -27,6 +40,10 @@ public class DynamicRuntime {
 
     protected static final boolean accumulateStats;
 
+    public enum RhinoOperation implements Operation {
+        GETNOWARN,
+    };
+
     public static final String BOOTSTRAP_SIGNATURE =
             "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;";
 
@@ -39,32 +56,98 @@ public class DynamicRuntime {
             new ClassFileWriter.MHandle(
                     ByteCode.MH_INVOKESTATIC,
                     "org.mozilla.javascript.optimizer.DynamicRuntime",
-                    "bootstrapPropertyOp",
+                    "bootstrap",
                     DynamicRuntime.BOOTSTRAP_SIGNATURE);
 
+    private static final DynamicLinker LINKER;
+
     static {
+        DynamicLinkerFactory linkerFactory = new DynamicLinkerFactory();
+        linkerFactory.setPrioritizedLinker(new FallbackLinker());
+        LINKER = linkerFactory.createLinker();
+
         String propVal = System.getProperty("RhinoIndyStats");
         accumulateStats = propVal != null;
     }
 
     @SuppressWarnings("unused")
-    public static CallSite bootstrapPropertyOp(
-            MethodHandles.Lookup lookup, String name, MethodType mType)
+    public static CallSite bootstrap(MethodHandles.Lookup lookup, String name, MethodType mType)
             throws NoSuchMethodException, IllegalAccessException {
         if (accumulateStats) {
             siteCount.increment();
         }
+        return LINKER.link(
+                new SimpleRelinkableCallSite(
+                        new CallSiteDescriptor(lookup, parseOperation(name), mType)));
+    }
+
+    private static Operation parseOperation(String name) throws NoSuchMethodException {
         if (name.startsWith("GET:")) {
             String propertyName = name.substring(4).intern();
-            return bootstrapGetProperty(lookup, propertyName, true, mType);
+            return StandardOperation.GET
+                    .withNamespace(StandardNamespace.PROPERTY)
+                    .named(propertyName);
         } else if (name.startsWith("GETNOWARN:")) {
             String propertyName = name.substring(10).intern();
-            return bootstrapGetProperty(lookup, propertyName, false, mType);
+            return RhinoOperation.GETNOWARN
+                    .withNamespace(StandardNamespace.PROPERTY)
+                    .named(propertyName);
         } else if (name.startsWith("SET:")) {
             String propertyName = name.substring(4).intern();
-            return bootstrapSetProperty(lookup, propertyName, mType);
+            return StandardOperation.SET
+                    .withNamespace(StandardNamespace.PROPERTY)
+                    .named(propertyName);
         } else {
             throw new NoSuchMethodException(name);
+        }
+    }
+
+    static class FallbackLinker implements GuardingDynamicLinker {
+        @Override
+        public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svcs)
+                throws NoSuchMethodException, IllegalAccessException {
+            Operation namedOp = req.getCallSiteDescriptor().getOperation();
+            if (!(namedOp instanceof NamedOperation)) {
+                throw new UnsupportedOperationException("Only named operations supported");
+            }
+            String propertyName = (String) ((NamedOperation) namedOp).getName();
+
+            Operation nsOp = ((NamedOperation) namedOp).getBaseOperation();
+            if (!(nsOp instanceof NamespaceOperation)) {
+                throw new UnsupportedOperationException("Only namespace operations supported");
+            }
+            if (((NamespaceOperation) nsOp).getNamespace(0) != StandardNamespace.PROPERTY) {
+                throw new UnsupportedOperationException(
+                        "Only property namespace operations supported");
+            }
+
+            MethodType mType = req.getCallSiteDescriptor().getMethodType();
+            MethodHandles.Lookup lookup = req.getCallSiteDescriptor().getLookup();
+            Operation op = ((NamespaceOperation) nsOp).getBaseOperation();
+
+            if (op == StandardOperation.GET) {
+                MethodType tt = mType.insertParameterTypes(1, String.class);
+                MethodHandle getMethod =
+                        lookup.findStatic(ScriptRuntime.class, "getObjectProp", tt);
+                MethodHandle mh = MethodHandles.insertArguments(getMethod, 1, propertyName);
+                return new GuardedInvocation(mh);
+
+            } else if (op == RhinoOperation.GETNOWARN) {
+                MethodType tt = mType.insertParameterTypes(1, String.class);
+                MethodHandle getMethod =
+                        lookup.findStatic(ScriptRuntime.class, "getObjectPropNoWarn", tt);
+                MethodHandle mh = MethodHandles.insertArguments(getMethod, 1, propertyName);
+                return new GuardedInvocation(mh);
+
+            } else if (op == StandardOperation.SET) {
+                MethodType tt = mType.insertParameterTypes(1, String.class);
+                MethodHandle getMethod = lookup.findStatic(ScriptRuntime.class, "setObjectProp", tt);
+                MethodHandle mh = MethodHandles.insertArguments(getMethod, 1, propertyName);
+                return new GuardedInvocation(mh);
+
+            } else {
+                throw new UnsupportedOperationException("Invalid operation " + op);
+            }
         }
     }
 
