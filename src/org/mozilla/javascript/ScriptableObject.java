@@ -254,6 +254,11 @@ public abstract class ScriptableObject
         return slotMap.isFastKeyValid(key);
     }
 
+    /** Return true if the FastKey is still valid. */
+    public boolean isFastKeyValidForPut(SlotMap.FastKey key) {
+        return isFastKeyValid(key) && isExtensible && !isSealed;
+    }
+
     /**
      * Return the value of the property using a fast key, or fail in a terrible way if the key is
      * not valid. This is intended for use in the optimized runtime only.
@@ -359,18 +364,13 @@ public abstract class ScriptableObject
     /**
      * Set the property using a key from getFastKey. Return false if the property cannot be set
      * because the property is not a fast property with a matching key, or many other reasons. This
-     * optimization only works when directly setting a property on "this."
+     * optimization only works when directly setting a property on "this." This only works on
+     * existing properties.
      */
-    public boolean putFast(SlotMap.FastKey fk, String key, Scriptable start, Object value) {
-        if (this != start || !isExtensible || isSealed) {
-            return false;
-        }
-        Slot slot = slotMap.modifyFast(fk);
-        if (slot == SlotMap.NOT_A_FAST_PROPERTY) {
-            return false;
-        }
+    public void putFast(SlotMap.FastKey fk, Scriptable start, Object value) {
+        Slot slot = slotMap.queryFastNoCheck(fk);
         boolean isThrow = Context.isCurrentContextStrict();
-        return slot.setValue(value, this, start, isThrow);
+        slot.setValue(value, this, start, isThrow);
     }
 
     /**

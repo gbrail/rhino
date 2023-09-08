@@ -95,17 +95,6 @@ public class IndexedSlotMap implements SlotMap {
     }
 
     @Override
-    public Slot modifyFast(FastKey fk) {
-        if (propertyMap == null) {
-            return SlotMap.NOT_A_FAST_PROPERTY;
-        }
-        if (propertyMap.equalAtLevel(fk.map, fk.index) && (fk.index < fastSize)) {
-            return fastSlots[fk.index];
-        }
-        return SlotMap.NOT_A_FAST_PROPERTY;
-    }
-
-    @Override
     public void replace(Slot oldSlot, Slot newSlot) {
         Object key = makeKey(oldSlot.name, oldSlot.indexOrHash);
         if (fastSize > 0) {

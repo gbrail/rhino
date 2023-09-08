@@ -47,25 +47,39 @@ public class PropertyLinker implements GuardingDynamicLinker {
         MethodHandles.Lookup lookup = req.getCallSiteDescriptor().getLookup();
         Operation op = ((NamespaceOperation) nsOp).getBaseOperation();
 
-        if ((op == StandardOperation.GET || op == DynamicRuntime.RhinoOperation.GETNOWARN)
+        if ((op == StandardOperation.GET
+                        || op == DynamicRuntime.RhinoOperation.GETNOWARN
+                        || op == StandardOperation.SET)
                 && req.getReceiver() instanceof ScriptableObject) {
             ScriptableObject so = (ScriptableObject) req.getReceiver();
             SlotMap.FastKey key = so.getFastKey(propertyName);
-            if (key != null) {
+            if (key != null && (op != StandardOperation.SET || so.isFastKeyValidForPut(key))) {
                 MethodType guardType =
                         mType.changeReturnType(Boolean.TYPE)
                                 .insertParameterTypes(0, SlotMap.FastKey.class);
                 MethodHandle rawGuard =
-                        lookup.findStatic(PropertyLinker.class, "guardFastKey", guardType);
+                        lookup.findStatic(
+                                PropertyLinker.class,
+                                op == StandardOperation.SET ? "guardSetFastKey" : "guardGetFastKey",
+                                guardType);
                 MethodHandle guard = MethodHandles.insertArguments(rawGuard, 0, key);
 
                 MethodType invokeType = mType.insertParameterTypes(0, SlotMap.FastKey.class);
                 MethodHandle rawInvoke =
-                        lookup.findStatic(PropertyLinker.class, "invokeFastKey", invokeType);
+                        lookup.findStatic(
+                                PropertyLinker.class,
+                                op == StandardOperation.SET
+                                        ? "invokeSetFastKey"
+                                        : "invokeGetFastKey",
+                                invokeType);
                 MethodHandle invoke = MethodHandles.insertArguments(rawInvoke, 0, key);
 
                 if (DynamicRuntime.DEBUG) {
-                    System.out.println(namedOp + " -> fast GET: " + key);
+                    if (op == StandardOperation.SET) {
+                        System.out.println(namedOp + " -> fast SET: " + key);
+                    } else {
+                        System.out.println(namedOp + " -> fast GET: " + key);
+                    }
                 }
 
                 return new GuardedInvocation(invoke, guard);
@@ -76,7 +90,7 @@ public class PropertyLinker implements GuardingDynamicLinker {
         return null;
     }
 
-    public static boolean guardFastKey(
+    public static boolean guardGetFastKey(
             SlotMap.FastKey key, Object target, Context cx, Scriptable start) {
         if (target instanceof ScriptableObject) {
             return ((ScriptableObject) target).isFastKeyValid(key);
@@ -84,9 +98,24 @@ public class PropertyLinker implements GuardingDynamicLinker {
         return false;
     }
 
-    public static Object invokeFastKey(
+    public static Object invokeGetFastKey(
             SlotMap.FastKey key, Object target, Context cx, Scriptable start) {
         ScriptableObject so = (ScriptableObject) target;
         return so.getFast(key, so);
+    }
+
+    public static boolean guardSetFastKey(
+            SlotMap.FastKey key, Object target, Object value, Context cx, Scriptable start) {
+        if (target instanceof ScriptableObject) {
+            return ((ScriptableObject) target).isFastKeyValidForPut(key);
+        }
+        return false;
+    }
+
+    public static Object invokeSetFastKey(
+            SlotMap.FastKey key, Object target, Object value, Context cx, Scriptable start) {
+        ScriptableObject so = (ScriptableObject) target;
+        so.putFast(key, so, value);
+        return value;
     }
 }

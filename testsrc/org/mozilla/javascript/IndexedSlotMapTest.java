@@ -56,12 +56,10 @@ public class IndexedSlotMapTest {
         s1.value = 1;
         SlotMap.FastKey fk = map.getFastKey("one", 0);
         assertNotNull(fk);
-        Slot s2 = map.modifyFast(fk);
-        assertNotEquals(s2, SlotMap.NOT_A_FAST_PROPERTY);
+        Slot s2 = map.queryFastNoCheck(fk);
         s2.value = 2;
         assertEquals(map.query("one", 0).value, 2);
-        Slot s3 = map.modifyFast(fk);
-        assertNotEquals(s3, SlotMap.NOT_A_FAST_PROPERTY);
+        Slot s3 = map.queryFastNoCheck(fk);
         s3.value = 3;
         assertEquals(map.query("one", 0).value, 3);
 
@@ -71,8 +69,7 @@ public class IndexedSlotMapTest {
         s0.value = 111;
         s1 = map2.modify("one", 0, 0);
         s1.value = 2;
-        s2 = map2.modifyFast(fk);
-        assertNotEquals(s2, SlotMap.NOT_A_FAST_PROPERTY);
+        s2 = map2.queryFastNoCheck(fk);
         s2.value = 3;
         assertEquals(map2.query("one", 0).value, 3);
 
@@ -82,8 +79,7 @@ public class IndexedSlotMapTest {
         s0.value = 111;
         s1 = map3.modify("one", 0, 0);
         s1.value = 2;
-        s2 = map3.modifyFast(fk);
-        assertEquals(s2, SlotMap.NOT_A_FAST_PROPERTY);
+        assertFalse(map3.isFastKeyValid(fk));
     }
 
     @Test
