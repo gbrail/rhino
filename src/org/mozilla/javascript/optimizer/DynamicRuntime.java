@@ -12,6 +12,7 @@ import jdk.dynalink.CallSiteDescriptor;
 import jdk.dynalink.DynamicLinker;
 import jdk.dynalink.DynamicLinkerFactory;
 import jdk.dynalink.NamedOperation;
+import jdk.dynalink.Namespace;
 import jdk.dynalink.NamespaceOperation;
 import jdk.dynalink.Operation;
 import jdk.dynalink.StandardNamespace;
@@ -30,6 +31,10 @@ public class DynamicRuntime {
         GETNOWARN,
     };
 
+    public enum RhinoNamespace implements Namespace {
+        NAME,
+    };
+
     public static final String BOOTSTRAP_SIGNATURE =
             "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;";
 
@@ -37,6 +42,8 @@ public class DynamicRuntime {
             "(Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
     public static final String SET_PROP_SIGNATURE =
             "(Ljava/lang/Object;Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+    public static final String GET_NAME_SIGNATURE =
+            "(Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
 
     public static final ClassFileWriter.MHandle PROP_BOOTSTRAP_HANDLE =
             new ClassFileWriter.MHandle(
@@ -81,6 +88,12 @@ public class DynamicRuntime {
                         .withNamespace(StandardNamespace.PROPERTY)
                         .named(propertyName);
             }
+        } else if (name.startsWith("NAME:")) {
+            String opName = name.substring(5);
+            if (opName.startsWith("GET:")) {
+                String propertyName = opName.substring(4).intern();
+                return StandardOperation.GET.withNamespace(RhinoNamespace.NAME).named(propertyName);
+            }
         }
         throw new NoSuchMethodException(name);
     }
@@ -89,52 +102,58 @@ public class DynamicRuntime {
         @Override
         public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svcs)
                 throws NoSuchMethodException, IllegalAccessException {
-            Operation namedOp = req.getCallSiteDescriptor().getOperation();
+            Operation rawOp = req.getCallSiteDescriptor().getOperation();
             if (DEBUG) {
-                System.out.println(namedOp + " -> fallback link");
+                System.out.println(rawOp + " -> fallback link");
             }
-            if (!(namedOp instanceof NamedOperation)) {
+            if (!(rawOp instanceof NamedOperation)) {
                 throw new UnsupportedOperationException("Only named operations supported");
             }
-            String propertyName = (String) ((NamedOperation) namedOp).getName();
+            String propertyName = (String) ((NamedOperation) rawOp).getName();
 
-            Operation nsOp = ((NamedOperation) namedOp).getBaseOperation();
-            if (!(nsOp instanceof NamespaceOperation)) {
+            Operation rawNsOp = ((NamedOperation) rawOp).getBaseOperation();
+            if (!(rawNsOp instanceof NamespaceOperation)) {
                 throw new UnsupportedOperationException("Only namespace operations supported");
             }
-            if (((NamespaceOperation) nsOp).getNamespace(0) != StandardNamespace.PROPERTY) {
-                throw new UnsupportedOperationException(
-                        "Only property namespace operations supported");
-            }
 
+            NamespaceOperation nsOp = (NamespaceOperation) rawNsOp;
             MethodType mType = req.getCallSiteDescriptor().getMethodType();
             MethodHandles.Lookup lookup = req.getCallSiteDescriptor().getLookup();
-            Operation op = ((NamespaceOperation) nsOp).getBaseOperation();
+            Operation op = nsOp.getBaseOperation();
 
-            if (op == StandardOperation.GET) {
-                MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle getMethod =
-                        lookup.findStatic(ScriptRuntime.class, "getObjectProp", tt);
-                MethodHandle mh = MethodHandles.insertArguments(getMethod, 1, propertyName);
-                return new GuardedInvocation(mh);
+            if (nsOp.getNamespace(0) == StandardNamespace.PROPERTY) {
+                if (op == StandardOperation.GET) {
+                    MethodType tt = mType.insertParameterTypes(1, String.class);
+                    MethodHandle getMethod =
+                            lookup.findStatic(ScriptRuntime.class, "getObjectProp", tt);
+                    MethodHandle mh = MethodHandles.insertArguments(getMethod, 1, propertyName);
+                    return new GuardedInvocation(mh);
 
-            } else if (op == RhinoOperation.GETNOWARN) {
-                MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle getMethod =
-                        lookup.findStatic(ScriptRuntime.class, "getObjectPropNoWarn", tt);
-                MethodHandle mh = MethodHandles.insertArguments(getMethod, 1, propertyName);
-                return new GuardedInvocation(mh);
+                } else if (op == RhinoOperation.GETNOWARN) {
+                    MethodType tt = mType.insertParameterTypes(1, String.class);
+                    MethodHandle getMethod =
+                            lookup.findStatic(ScriptRuntime.class, "getObjectPropNoWarn", tt);
+                    MethodHandle mh = MethodHandles.insertArguments(getMethod, 1, propertyName);
+                    return new GuardedInvocation(mh);
 
-            } else if (op == StandardOperation.SET) {
-                MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle getMethod =
-                        lookup.findStatic(ScriptRuntime.class, "setObjectProp", tt);
-                MethodHandle mh = MethodHandles.insertArguments(getMethod, 1, propertyName);
-                return new GuardedInvocation(mh);
+                } else if (op == StandardOperation.SET) {
+                    MethodType tt = mType.insertParameterTypes(1, String.class);
+                    MethodHandle getMethod =
+                            lookup.findStatic(ScriptRuntime.class, "setObjectProp", tt);
+                    MethodHandle mh = MethodHandles.insertArguments(getMethod, 1, propertyName);
+                    return new GuardedInvocation(mh);
+                }
 
-            } else {
-                throw new UnsupportedOperationException("Invalid operation " + op);
+            } else if (nsOp.getNamespace(0) == RhinoNamespace.NAME) {
+                if (op == StandardOperation.GET) {
+                    MethodType tt = mType.insertParameterTypes(2, String.class);
+                    MethodHandle getMethod = lookup.findStatic(ScriptRuntime.class, "name", tt);
+                    MethodHandle mh = MethodHandles.insertArguments(getMethod, 2, propertyName);
+                    return new GuardedInvocation(mh);
+                }
             }
+
+            throw new UnsupportedOperationException("Invalid operation " + op);
         }
     }
 }

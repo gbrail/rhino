@@ -2645,6 +2645,10 @@ public class Context implements Closeable {
         return cx.isStrictMode();
     }
 
+    public boolean isUsingDynamicScope() {
+        return useDynamicScope;
+    }
+
     private final ContextFactory factory;
     private boolean sealed;
     private Object sealKey;

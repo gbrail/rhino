@@ -962,13 +962,10 @@ class BodyCodegen {
                 {
                     cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
-                    cfw.addPush(node.getString());
-                    addScriptRuntimeInvoke(
-                            "name",
-                            "(Lorg/mozilla/javascript/Context;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
-                                    + "Ljava/lang/String;"
-                                    + ")Ljava/lang/Object;");
+                    cfw.addInvokeDynamic(
+                            "NAME:GET:" + node.getString(),
+                            DynamicRuntime.GET_NAME_SIGNATURE,
+                            DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
                 }
                 break;
 

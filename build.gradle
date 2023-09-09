@@ -111,7 +111,7 @@ task sunSpiderBenchmark(type: JavaExec) {
 task v8Benchmark(type: JavaExec) {
     classpath = sourceSets.jmh.runtimeClasspath
     mainClass = 'org.openjdk.jmh.Main'
-    args '-f', '1', '-i', '10', '-bm', 'avgt', '-tu', 'us', 'V8'
+    args '-f', '1', '-bm', 'avgt', '-tu', 'us', 'V8'
 }
 
 task testBenchmark() {}

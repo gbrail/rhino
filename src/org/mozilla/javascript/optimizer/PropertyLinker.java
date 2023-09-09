@@ -35,25 +35,38 @@ public class PropertyLinker implements GuardingDynamicLinker {
         }
         String propertyName = (String) ((NamedOperation) namedOp).getName();
 
-        Operation nsOp = ((NamedOperation) namedOp).getBaseOperation();
-        if (!(nsOp instanceof NamespaceOperation)) {
-            return null;
-        }
-        if (((NamespaceOperation) nsOp).getNamespace(0) != StandardNamespace.PROPERTY) {
+        Operation rawNsOp = ((NamedOperation) namedOp).getBaseOperation();
+        if (!(rawNsOp instanceof NamespaceOperation)) {
             return null;
         }
 
+        NamespaceOperation nsOp = (NamespaceOperation) rawNsOp;
         MethodType mType = req.getCallSiteDescriptor().getMethodType();
         MethodHandles.Lookup lookup = req.getCallSiteDescriptor().getLookup();
         Operation op = ((NamespaceOperation) nsOp).getBaseOperation();
 
-        if ((op == StandardOperation.GET
+        // Optimize object property gets and sets to use the fast path if the property
+        // is a fast property with a valid key.
+        if (nsOp.getNamespace(0) == StandardNamespace.PROPERTY
+                && (op == StandardOperation.GET
                         || op == DynamicRuntime.RhinoOperation.GETNOWARN
                         || op == StandardOperation.SET)
                 && req.getReceiver() instanceof ScriptableObject) {
             ScriptableObject so = (ScriptableObject) req.getReceiver();
+            Context cx;
+            if (op == StandardOperation.SET) {
+                cx = (Context) req.getArguments()[2];
+            } else {
+                cx = (Context) req.getArguments()[1];
+            }
+            if (cx.hasFeature(Context.FEATURE_THREAD_SAFE_OBJECTS)) {
+                // These optimizations are not compatible with thread-safe objects.
+                return null;
+            }
+
             SlotMap.FastKey key = so.getFastKey(propertyName);
             if (key != null && (op != StandardOperation.SET || so.isFastKeyValidForPut(key))) {
+                assert so.isFastKeyValid(key);
                 MethodType guardType =
                         mType.changeReturnType(Boolean.TYPE)
                                 .insertParameterTypes(0, SlotMap.FastKey.class);
@@ -76,14 +89,61 @@ public class PropertyLinker implements GuardingDynamicLinker {
 
                 if (DynamicRuntime.DEBUG) {
                     if (op == StandardOperation.SET) {
-                        System.out.println(namedOp + " -> fast SET: " + key);
+                        System.out.println(namedOp + " -> fast PROP:SET: " + key);
                     } else {
-                        System.out.println(namedOp + " -> fast GET: " + key);
+                        System.out.println(namedOp + " -> fast PROP:GET: " + key);
                     }
                 }
 
                 return new GuardedInvocation(invoke, guard);
             }
+
+            /* Experimental code to try later
+                // Optimize lookups on the current scope so that fast properties come up fast
+            } else if (nsOp.getNamespace(0) == DynamicRuntime.RhinoNamespace.NAME
+                    && op == StandardOperation.GET
+                    && req.getArguments().length > 1
+                    && !(req.getArguments()[1] instanceof NativeWith)
+                    && !(req.getArguments()[1] instanceof NativeCall)) {
+                Context cx = (Context) req.getArguments()[0];
+                if (cx.isUsingDynamicScope()) {
+                    return null;
+                }
+
+                Scriptable scope = (Scriptable) req.getArguments()[1];
+                int level = 0;
+                while (scope != null) {
+                    if (scope instanceof ScriptableObject) {
+                        ScriptableObject so = (ScriptableObject) scope;
+                        SlotMap.FastKey key = so.getFastKey(propertyName);
+                        if (key != null) {
+                            MethodType guardType =
+                                    mType.changeReturnType(Boolean.TYPE)
+                                            .insertParameterTypes(
+                                                    0, SlotMap.FastKey.class, Integer.TYPE);
+                            MethodHandle rawGuard =
+                                    lookup.findStatic(
+                                            PropertyLinker.class, "guardGetFastName", guardType);
+                            MethodHandle guard = MethodHandles.insertArguments(rawGuard, 0, key, level);
+
+                            MethodType invokeType =
+                                    mType.insertParameterTypes(0, SlotMap.FastKey.class, Integer.TYPE);
+                            MethodHandle rawInvoke =
+                                    lookup.findStatic(
+                                            PropertyLinker.class, "invokeGetFastName", invokeType);
+                            MethodHandle invoke =
+                                    MethodHandles.insertArguments(rawInvoke, 0, key, level);
+
+                            if (DynamicRuntime.DEBUG) {
+                                System.out.println(namedOp + " -> fast NAME:GET[" + level + "] " + key);
+                            }
+
+                            return new GuardedInvocation(invoke, guard);
+                        }
+                    }
+                    scope = scope.getParentScope();
+                }
+            */
         }
 
         // Let another linker pick this up
@@ -118,4 +178,32 @@ public class PropertyLinker implements GuardingDynamicLinker {
         so.putFast(key, so, value);
         return value;
     }
+
+    /* Experimental code to try later
+    public static boolean guardGetFastName(
+            SlotMap.FastKey key, int level, Context cx, Scriptable scope) {
+        if (cx.isUsingDynamicScope()) {
+            return false;
+        }
+        if (!(scope instanceof NativeWith) && !(scope instanceof NativeCall)) {
+            for (int i = 0; scope != null && i < level; i++) {
+                scope = scope.getParentScope();
+            }
+            if (scope instanceof ScriptableObject) {
+                ScriptableObject ss = (ScriptableObject) scope;
+                return ss.isFastKeyValid(key);
+            }
+        }
+        return false;
+    }
+
+    public static Object invokeGetFastName(
+            SlotMap.FastKey key, int level, Context cx, Scriptable scope) {
+        for (int i = 0; scope != null && i < level; i++) {
+            scope = scope.getParentScope();
+        }
+        ScriptableObject ss = (ScriptableObject) scope;
+        return ss.getFast(key, ss);
+    }
+    */
 }
