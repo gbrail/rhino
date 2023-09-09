@@ -27,13 +27,6 @@ import org.mozilla.classfile.ClassFileWriter;
 import org.mozilla.javascript.ScriptRuntime;
 
 public class DynamicRuntime {
-    public enum RhinoOperation implements Operation {
-        GETNOWARN,
-    };
-
-    public enum RhinoNamespace implements Namespace {
-        NAME,
-    };
 
     public static final String BOOTSTRAP_SIGNATURE =
             "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;";
@@ -45,7 +38,7 @@ public class DynamicRuntime {
     public static final String GET_NAME_SIGNATURE =
             "(Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
 
-    public static final ClassFileWriter.MHandle PROP_BOOTSTRAP_HANDLE =
+    public static final ClassFileWriter.MHandle BOOTSTRAP_HANDLE =
             new ClassFileWriter.MHandle(
                     ByteCode.MH_INVOKESTATIC,
                     "org.mozilla.javascript.optimizer.DynamicRuntime",
@@ -57,6 +50,7 @@ public class DynamicRuntime {
     static final boolean DEBUG = false;
 
     static {
+        // Construct our linker.
         DynamicLinkerFactory linkerFactory = new DynamicLinkerFactory();
         linkerFactory.setPrioritizedLinkers(new PropertyLinker(), new FallbackLinker());
         LINKER = linkerFactory.createLinker();
@@ -65,14 +59,29 @@ public class DynamicRuntime {
     @SuppressWarnings("unused")
     public static CallSite bootstrap(MethodHandles.Lookup lookup, String name, MethodType mType)
             throws NoSuchMethodException, IllegalAccessException {
+        // Link using a ChainedCallSite. This will cache a number of possibilities for each
+        // call site, and adjust them if the sitation changes.
         return LINKER.link(
                 new ChainedCallSite(new CallSiteDescriptor(lookup, parseOperation(name), mType)));
     }
 
+    /**
+     * This method parses the operation names that we use in the INDY instructions to objects that
+     * our linkers will use to efficiently link the call sites. Supported names are:
+     *
+     * <ul>
+     *   <li>PROP:GET:name Get an object property called "name"
+     *   <li>PROP:GETNOWARN:name Get without a missing property warning
+     *   <li>PROP:SET:name Set it
+     *   <li>NAME:GET:name Get value "name" from the supplied scope
+     * </ul>
+     */
     private static Operation parseOperation(String name) throws NoSuchMethodException {
         if (name.startsWith("PROP:")) {
             String opName = name.substring(5);
             if (opName.startsWith("GET:")) {
+                // Interning is important here because this is only called once per call site
+                // and repeated calls are much faster when we do
                 String propertyName = opName.substring(4).intern();
                 return StandardOperation.GET
                         .withNamespace(StandardNamespace.PROPERTY)
@@ -98,30 +107,29 @@ public class DynamicRuntime {
         throw new NoSuchMethodException(name);
     }
 
+    /**
+     * This linker will resolve all call sites to the methods in ScriptableRuntime that the bytecode
+     * has always used for various operations. It does no special optimizations, and should always
+     * be last in the chain, because once it's called, no more optimizations will happen.
+     */
     static class FallbackLinker implements GuardingDynamicLinker {
         @Override
         public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svcs)
                 throws NoSuchMethodException, IllegalAccessException {
-            Operation rawOp = req.getCallSiteDescriptor().getOperation();
+            Operation op = req.getCallSiteDescriptor().getOperation();
             if (DEBUG) {
-                System.out.println(rawOp + " -> fallback link");
-            }
-            if (!(rawOp instanceof NamedOperation)) {
-                throw new UnsupportedOperationException("Only named operations supported");
-            }
-            String propertyName = (String) ((NamedOperation) rawOp).getName();
-
-            Operation rawNsOp = ((NamedOperation) rawOp).getBaseOperation();
-            if (!(rawNsOp instanceof NamespaceOperation)) {
-                throw new UnsupportedOperationException("Only namespace operations supported");
+                System.out.println(op + " -> fallback link");
             }
 
-            NamespaceOperation nsOp = (NamespaceOperation) rawNsOp;
+            String propertyName = getPropertyName(op);
+            op = NamedOperation.getBaseOperation(op);
+            Namespace namespace = getNamespace(op);
+            op = NamespaceOperation.getBaseOperation(op);
+
             MethodType mType = req.getCallSiteDescriptor().getMethodType();
             MethodHandles.Lookup lookup = req.getCallSiteDescriptor().getLookup();
-            Operation op = nsOp.getBaseOperation();
 
-            if (nsOp.getNamespace(0) == StandardNamespace.PROPERTY) {
+            if (namespace == StandardNamespace.PROPERTY) {
                 if (op == StandardOperation.GET) {
                     MethodType tt = mType.insertParameterTypes(1, String.class);
                     MethodHandle getMethod =
@@ -144,7 +152,7 @@ public class DynamicRuntime {
                     return new GuardedInvocation(mh);
                 }
 
-            } else if (nsOp.getNamespace(0) == RhinoNamespace.NAME) {
+            } else if (namespace == RhinoNamespace.NAME) {
                 if (op == StandardOperation.GET) {
                     MethodType tt = mType.insertParameterTypes(2, String.class);
                     MethodHandle getMethod = lookup.findStatic(ScriptRuntime.class, "name", tt);
@@ -155,5 +163,24 @@ public class DynamicRuntime {
 
             throw new UnsupportedOperationException("Invalid operation " + op);
         }
+    }
+
+    static Namespace getNamespace(Operation op) {
+        Namespace[] namespaces = NamespaceOperation.getNamespaces(op);
+        if (namespaces.length != 1) {
+            throw new UnsupportedOperationException("Operation must have one namespace");
+        }
+        return namespaces[0];
+    }
+
+    static String getPropertyName(Operation op) {
+        Object name = NamedOperation.getName(op);
+        if (name == null) {
+            return null;
+        }
+        if (!(name instanceof String)) {
+            throw new UnsupportedOperationException("Operation must have a string name");
+        }
+        return (String) name;
     }
 }

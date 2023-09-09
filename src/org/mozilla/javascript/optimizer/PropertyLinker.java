@@ -8,6 +8,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import jdk.dynalink.NamedOperation;
+import jdk.dynalink.Namespace;
 import jdk.dynalink.NamespaceOperation;
 import jdk.dynalink.Operation;
 import jdk.dynalink.StandardNamespace;
@@ -29,29 +30,27 @@ public class PropertyLinker implements GuardingDynamicLinker {
     @Override
     public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svcs)
             throws NoSuchMethodException, IllegalAccessException {
-        Operation namedOp = req.getCallSiteDescriptor().getOperation();
-        if (!(namedOp instanceof NamedOperation)) {
+        Operation topOp = req.getCallSiteDescriptor().getOperation();
+        String propertyName = DynamicRuntime.getPropertyName(topOp);
+        Operation op = NamedOperation.getBaseOperation(topOp);
+        Namespace namespace = DynamicRuntime.getNamespace(op);
+        if (namespace != StandardNamespace.PROPERTY) {
+            // This linker only works with properties
             return null;
         }
-        String propertyName = (String) ((NamedOperation) namedOp).getName();
+        op = NamespaceOperation.getBaseOperation(op);
 
-        Operation rawNsOp = ((NamedOperation) namedOp).getBaseOperation();
-        if (!(rawNsOp instanceof NamespaceOperation)) {
-            return null;
-        }
-
-        NamespaceOperation nsOp = (NamespaceOperation) rawNsOp;
         MethodType mType = req.getCallSiteDescriptor().getMethodType();
         MethodHandles.Lookup lookup = req.getCallSiteDescriptor().getLookup();
-        Operation op = ((NamespaceOperation) nsOp).getBaseOperation();
 
         // Optimize object property gets and sets to use the fast path if the property
         // is a fast property with a valid key.
-        if (nsOp.getNamespace(0) == StandardNamespace.PROPERTY
+        if (namespace == StandardNamespace.PROPERTY
                 && (op == StandardOperation.GET
-                        || op == DynamicRuntime.RhinoOperation.GETNOWARN
+                        || op == RhinoOperation.GETNOWARN
                         || op == StandardOperation.SET)
                 && req.getReceiver() instanceof ScriptableObject) {
+            assert propertyName != null;
             ScriptableObject so = (ScriptableObject) req.getReceiver();
             Context cx;
             if (op == StandardOperation.SET) {
@@ -89,9 +88,9 @@ public class PropertyLinker implements GuardingDynamicLinker {
 
                 if (DynamicRuntime.DEBUG) {
                     if (op == StandardOperation.SET) {
-                        System.out.println(namedOp + " -> fast PROP:SET: " + key);
+                        System.out.println(topOp + " -> fast PROP:SET: " + key);
                     } else {
-                        System.out.println(namedOp + " -> fast PROP:GET: " + key);
+                        System.out.println(topOp + " -> fast PROP:GET: " + key);
                     }
                 }
 

@@ -962,10 +962,8 @@ class BodyCodegen {
                 {
                     cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
-                    cfw.addInvokeDynamic(
-                            "NAME:GET:" + node.getString(),
-                            DynamicRuntime.GET_NAME_SIGNATURE,
-                            DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
+                    addDynamicInvoke(
+                            "NAME:GET:" + node.getString(), DynamicRuntime.GET_NAME_SIGNATURE);
                 }
                 break;
 
@@ -3984,15 +3982,11 @@ class BodyCodegen {
         cfw.addALoad(variableObjectLocal);
 
         if (node.getType() == Token.GETPROPNOWARN) {
-            cfw.addInvokeDynamic(
-                    "PROP:GETNOWARN:" + nameChild.getString(),
-                    DynamicRuntime.GET_PROP_SIGNATURE,
-                    DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
+            addDynamicInvoke(
+                    "PROP:GETNOWARN:" + nameChild.getString(), DynamicRuntime.GET_PROP_SIGNATURE);
         } else {
-            cfw.addInvokeDynamic(
-                    "PROP:GET:" + nameChild.getString(),
-                    DynamicRuntime.GET_PROP_SIGNATURE,
-                    DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
+            addDynamicInvoke(
+                    "PROP:GET:" + nameChild.getString(), DynamicRuntime.GET_PROP_SIGNATURE);
         }
     }
 
@@ -4005,19 +3999,14 @@ class BodyCodegen {
             cfw.add(ByteCode.DUP);
             cfw.addALoad(contextLocal);
             cfw.addALoad(variableObjectLocal);
-            cfw.addInvokeDynamic(
-                    "PROP:GET:" + nameChild.getString(),
-                    DynamicRuntime.GET_PROP_SIGNATURE,
-                    DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
+            addDynamicInvoke(
+                    "PROP:GET:" + nameChild.getString(), DynamicRuntime.GET_PROP_SIGNATURE);
         }
         child = child.getNext();
         generateExpression(child, node);
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        cfw.addInvokeDynamic(
-                "PROP:SET:" + nameChild.getString(),
-                DynamicRuntime.SET_PROP_SIGNATURE,
-                DynamicRuntime.PROP_BOOTSTRAP_HANDLE);
+        addDynamicInvoke("PROP:SET:" + nameChild.getString(), DynamicRuntime.SET_PROP_SIGNATURE);
     }
 
     private void visitSetElem(int type, Node node, Node child) {
@@ -4196,6 +4185,10 @@ class BodyCodegen {
                 "org/mozilla/javascript/optimizer/OptRuntime",
                 methodName,
                 methodSignature);
+    }
+
+    private void addDynamicInvoke(String operation, String methodSignature) {
+        cfw.addInvokeDynamic(operation, methodSignature, DynamicRuntime.BOOTSTRAP_HANDLE);
     }
 
     private void addJumpedBooleanWrap(int trueLabel, int falseLabel) {
