@@ -47,7 +47,7 @@ public class DynamicRuntime {
 
     private static final DynamicLinker LINKER;
 
-    static final boolean DEBUG = false;
+    static final boolean DEBUG = true;
 
     static {
         // Construct our linker.
