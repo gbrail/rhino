@@ -17,13 +17,15 @@ class SlotMapContainer implements SlotMap {
     private static final boolean indexedMap;
 
     private static final int DEFAULT_SIZE = 10;
-    private static final int LARGE_HASH_SIZE = 2000;
 
     protected SlotMap map;
 
     static {
+        /* TODO
         String propVal = System.getProperty("RhinoOldMaps");
         indexedMap = propVal == null;
+        */
+        indexedMap = false;
     }
 
     SlotMapContainer() {
@@ -33,7 +35,7 @@ class SlotMapContainer implements SlotMap {
     SlotMapContainer(int initialSize) {
         if (indexedMap) {
             map = new IndexedSlotMap();
-        } else if (initialSize > LARGE_HASH_SIZE) {
+        } else if (initialSize > 1000) {
             map = new HashSlotMap();
         } else {
             map = new EmbeddedSlotMap();
@@ -52,6 +54,11 @@ class SlotMapContainer implements SlotMap {
     @Override
     public boolean isEmpty() {
         return map.isEmpty();
+    }
+
+    @Override
+    public boolean isTooBig() {
+        return false;
     }
 
     @Override
@@ -115,7 +122,7 @@ class SlotMapContainer implements SlotMap {
      * map to a HashMap that is more robust against large numbers of hash collisions.
      */
     protected void checkMapSize() {
-        if ((map instanceof EmbeddedSlotMap) && map.size() >= LARGE_HASH_SIZE) {
+        if (map.isTooBig()) {
             SlotMap newMap = new HashSlotMap();
             for (Slot s : map) {
                 newMap.add(s);

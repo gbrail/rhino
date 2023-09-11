@@ -1,7 +1,10 @@
 package org.mozilla.javascript.benchmarks;
 
 import java.util.Random;
-import org.mozilla.javascript.*;
+import org.mozilla.javascript.EmbeddedSlotMap;
+import org.mozilla.javascript.IndexedSlotMap;
+import org.mozilla.javascript.Slot;
+import org.mozilla.javascript.SlotMap;
 import org.openjdk.jmh.annotations.*;
 
 public class SlotMapBenchmark {
@@ -197,6 +200,9 @@ public class SlotMapBenchmark {
         assert (key != null);
         Slot slot = null;
         for (int i = 0; i < 1000000; i++) {
+            if (!state.size10Map.isFastKeyValid(key)) {
+                throw new AssertionError();
+            }
             slot = state.size10Map.queryFastNoCheck(key);
         }
         if (slot == null || slot == SlotMap.NOT_A_FAST_PROPERTY) {

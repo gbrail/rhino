@@ -4,7 +4,7 @@
 
 package org.mozilla.javascript;
 
-import java.util.HashMap;
+import java.util.Objects;
 import java.util.WeakHashMap;
 
 /**
@@ -20,37 +20,11 @@ public class PropertyMap {
     private final int level;
     private final PropertyMap parent;
     private final WeakHashMap<Object, PropertyMap> children = new WeakHashMap<>();
-    private final HashMap<Object, Integer> entries;
 
     private PropertyMap(Object key, int level, PropertyMap parent) {
         this.key = key;
         this.level = level;
         this.parent = parent;
-        if (parent != null) {
-            // It's dubious whether this is thread safe
-            this.entries = new HashMap<>(parent.entries);
-            this.entries.put(key, level);
-        } else {
-            this.entries = new HashMap<>();
-        }
-    }
-
-    /** Return the PropertyMap from the hierarchy at the specified level. */
-    public PropertyMap getMapForLevel(int level) {
-        PropertyMap p = this;
-        while (p.level > level) {
-            p = p.parent;
-        }
-        return p;
-    }
-
-    /** Return whether this map matches at the given level by traversing the parent chain. */
-    public boolean equalAtLevel(PropertyMap p, int level) {
-        PropertyMap m = p;
-        while (m != null && m.level > level) {
-            m = m.parent;
-        }
-        return this == m;
     }
 
     public int getLevel() {
@@ -62,6 +36,9 @@ public class PropertyMap {
      * an existing property map -- that's the nature of property maps.
      */
     public PropertyMap add(Object key) {
+        if (Objects.equals(key, this.key)) {
+            return this;
+        }
         synchronized (children) {
             return children.computeIfAbsent(key, k -> new PropertyMap(k, level + 1, this));
         }
@@ -79,12 +56,6 @@ public class PropertyMap {
         }
         */
         return null;
-    }
-
-    /** Find the index of the map entry with the specified key, or null if the key is not found. */
-    public int find(Object key) {
-        Integer k = entries.get(key);
-        return k == null ? -1 : k;
     }
 
     public void print() {

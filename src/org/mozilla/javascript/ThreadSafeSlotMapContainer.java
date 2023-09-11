@@ -62,6 +62,22 @@ class ThreadSafeSlotMapContainer extends SlotMapContainer {
     }
 
     @Override
+    public boolean isTooBig() {
+        long stamp = lock.tryOptimisticRead();
+        boolean r = map.isTooBig();
+        if (lock.validate(stamp)) {
+            return r;
+        }
+
+        stamp = lock.readLock();
+        try {
+            return map.isTooBig();
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    @Override
     public Slot modify(Object key, int index, int attributes) {
         final long stamp = lock.writeLock();
         try {

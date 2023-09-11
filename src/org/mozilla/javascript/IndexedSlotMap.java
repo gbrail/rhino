@@ -2,7 +2,6 @@ package org.mozilla.javascript;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.NoSuchElementException;
 
 /**
  * This class supports a map of properties indexex by the PropertyMap class, which allows classes
@@ -19,6 +18,16 @@ public class IndexedSlotMap implements SlotMap {
     private final LinkedHashMap<Object, Slot> slots = new LinkedHashMap<>();
     private PropertyMap propertyMap = PropertyMap.ROOT;
 
+    public static final class FastKeyImpl implements SlotMap.FastKey {
+        PropertyMap map;
+        int index;
+
+        FastKeyImpl(PropertyMap map, int index) {
+            this.map = map;
+            this.index = index;
+        }
+    }
+
     @Override
     public int size() {
         return slots.size();
@@ -27,6 +36,11 @@ public class IndexedSlotMap implements SlotMap {
     @Override
     public boolean isEmpty() {
         return slots.isEmpty();
+    }
+
+    @Override
+    public boolean isTooBig() {
+        return false;
     }
 
     @Override
@@ -43,7 +57,7 @@ public class IndexedSlotMap implements SlotMap {
         Object key = makeKey(k, index);
         int ix = getFastSlot(key);
         if (ix >= 0) {
-            return new FastKey(propertyMap, ix);
+            return new FastKeyImpl(propertyMap, ix);
         }
         return null;
     }
@@ -53,8 +67,12 @@ public class IndexedSlotMap implements SlotMap {
      * with the same property map.
      */
     @Override
-    public boolean isFastKeyValid(FastKey key) {
-        return (key.map == propertyMap && key.index < fastSize);
+    public boolean isFastKeyValid(FastKey k) {
+        if (k instanceof FastKeyImpl) {
+            FastKeyImpl key = (FastKeyImpl) k;
+            return (key.map == propertyMap && key.index < fastSize);
+        }
+        return false;
     }
 
     /**
@@ -62,7 +80,8 @@ public class IndexedSlotMap implements SlotMap {
      * and the object has not been modified since.
      */
     @Override
-    public Slot queryFastNoCheck(FastKey key) {
+    public Slot queryFastNoCheck(FastKey k) {
+        FastKeyImpl key = (FastKeyImpl) k;
         assert key.map == propertyMap;
         assert key.index < fastSize;
         return fastSlots[key.index];
@@ -81,13 +100,13 @@ public class IndexedSlotMap implements SlotMap {
     public Slot modify(Object k, int index, int attributes) {
         Object key = makeKey(k, index);
         return slots.computeIfAbsent(
-                    key,
-                    kk -> {
-                        int indexOrHash = (kk != null ? kk.hashCode() : index);
-                        Slot slot = new Slot(kk, indexOrHash, attributes);
-                        addFastSlot(kk, slot);
-                        return slot;
-                    });
+                key,
+                kk -> {
+                    int indexOrHash = (kk != null ? kk.hashCode() : index);
+                    Slot slot = new Slot(kk, indexOrHash, attributes);
+                    addFastSlot(kk, slot);
+                    return slot;
+                });
     }
 
     @Override
@@ -127,6 +146,8 @@ public class IndexedSlotMap implements SlotMap {
     }
 
     private int getFastSlot(Object key) {
+        // TODO temporarily disabled
+        /*
         if (fastSize > 0) {
             // Find the property in the fast map and construct a key
             int ix = propertyMap.find(key);
@@ -135,6 +156,7 @@ public class IndexedSlotMap implements SlotMap {
                 return ix;
             }
         }
+        */
         return -1;
     }
 

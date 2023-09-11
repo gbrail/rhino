@@ -25,6 +25,12 @@ public interface SlotMap extends Iterable<Slot> {
     boolean isEmpty();
 
     /**
+     * Return whether the map has reached a size or a state in which it ought to be replaced with a
+     * HashMap.
+     */
+    boolean isTooBig();
+
+    /**
      * Return the Slot that matches EITHER "key" or "index". (It will use "key" if it is not null,
      * and otherwise "index".) If no slot exists, then create a default slot class.
      *
@@ -77,18 +83,6 @@ public interface SlotMap extends Iterable<Slot> {
      */
     void remove(Object key, int index);
 
-    final class FastKey {
-        final PropertyMap map;
-        final int index;
-
-        public FastKey(PropertyMap map, int index) {
-            this.map = map;
-            this.index = index;
-        }
-
-        @Override
-        public String toString() {
-            return "{" + index + "}";
-        }
-    }
+    /** Different SlotMap implementations may have different types of fast keys. */
+    public interface FastKey {}
 }
