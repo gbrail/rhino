@@ -92,6 +92,19 @@
     <Class name="org.mozilla.javascript.optimizer.OptRuntime$GeneratorState"/>
     <Bug pattern="URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD"/>
   </Match>
+  <Match>
+    <!-- Don't want to break decades of other code -->
+    <Class name="org.mozilla.javascript.ContextFactory"/>
+    <Bug pattern="SING_SINGLETON_HAS_NONPRIVATE_CONSTRUCTOR"/>
+  </Match>
+  <Match>
+    <!-- Lots of constructors in Rhino throw exceptions. -->
+    <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+  </Match>
+  <Match>
+    <!-- Our serialization calls lots and lots of methods -->
+    <Bug pattern="MC_OVERRIDABLE_METHOD_CALL_IN_READ_OBJECT"/>
+  </Match>
 
   <!-- Things below are things that we aspire to fix! -->
   <Match>

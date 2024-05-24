@@ -3,6 +3,9 @@ plugins {
     id 'com.github.spotbugs'
 }
 
+import com.github.spotbugs.snom.Confidence
+import com.github.spotbugs.snom.Effort
+
 version = project.version
 
 tasks.named('compileJava') {
@@ -21,8 +24,8 @@ tasks.withType(Jar).configureEach {
 }
 
 spotbugs {
-    effort = "less"
-    reportLevel = "medium"
+    effort = Effort.valueOf('LESS')
+    reportLevel = Confidence.valueOf('MEDIUM')
     excludeFilter = file("${projectDir}/../spotbugs-exclude.xml")
 }
 
