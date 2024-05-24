@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
 <FindBugsFilter>
+  <!-- Don't bother with our tests -->
+  <Match>
+    <Class name="~org\.mozilla\.javascript\.tests.*"/>
+  </Match>
+  <Match>
+    <Class name="~org\.mozilla\.javascript\.SlotMapTest"/>
+  </Match>
   <!-- Things below are legit exemptions -->
   <Match>
     <!-- Existing "Token" constants have values to 255 -->
