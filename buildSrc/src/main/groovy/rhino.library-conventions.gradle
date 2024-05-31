@@ -1,6 +1,7 @@
 plugins {
     id 'rhino.java-conventions'
     id 'com.github.spotbugs'
+    id 'maven-publish'
 }
 
 import com.github.spotbugs.snom.Confidence
@@ -36,5 +37,24 @@ spotbugsMain {
             outputLocation = file("$buildDir/reports/spotbugs/main/spotbugs.html")
             stylesheet = 'fancy-hist.xsl'
         }
+    }
+}
+
+task javadocJar(type: Jar) {
+    archiveClassifier = 'javadoc'
+    from javadoc
+}
+
+task sourceJar(type: Jar) {
+    from sourceSets.main.allJava
+    archiveClassifier = 'sources'
+    from ('LICENSE.txt') {
+        into 'META-INF'
+    }
+    from ('NOTICE.txt') {
+        into 'META-INF'
+    }
+    from ('NOTICE-tools.txt') {
+        into 'META-INF'
     }
 }
