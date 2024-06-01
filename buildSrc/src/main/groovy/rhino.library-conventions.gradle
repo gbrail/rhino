@@ -2,6 +2,7 @@ plugins {
     id 'rhino.java-conventions'
     id 'com.github.spotbugs'
     id 'maven-publish'
+    id 'checkstyle'
 }
 
 import com.github.spotbugs.snom.Confidence
@@ -27,7 +28,7 @@ tasks.withType(Jar).configureEach {
 spotbugs {
     effort = Effort.valueOf('LESS')
     reportLevel = Confidence.valueOf('MEDIUM')
-    excludeFilter = file("${projectDir}/../spotbugs-exclude.xml")
+    excludeFilter = file("${projectDir}/../config/spotbugs/spotbugs-exclude.xml")
 }
 
 spotbugsMain {
