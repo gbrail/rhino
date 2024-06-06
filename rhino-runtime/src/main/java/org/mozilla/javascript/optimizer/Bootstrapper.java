@@ -48,6 +48,21 @@ public class Bootstrapper {
     public static final String OBJECT_INDEX_SET_SIGNATURE =
             "(Ljava/lang/Object;DLjava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
 
+    public static final String CALL_NAME_0_SIGNATURE =
+            "(Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+    public static final String CALL_PROP_0_SIGNATURE =
+            "(Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+    public static final String CALL_0_SIGNATURE =
+            "(Lorg/mozilla/javascript/Callable;Lorg/mozilla/javascript/Scriptable;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+    public static final String CALL_1_SIGNATURE =
+            "(Lorg/mozilla/javascript/Callable;Lorg/mozilla/javascript/Scriptable;Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+    public static final String CALL_2_SIGNATURE =
+            "(Lorg/mozilla/javascript/Callable;Lorg/mozilla/javascript/Scriptable;Ljava/lang/Object;Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+    public static final String CALL_N_SIGNATURE =
+            "(Lorg/mozilla/javascript/Callable;Lorg/mozilla/javascript/Scriptable;[Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+    public static final String CALL_NAME_SIGNATURE =
+            "([Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+
     public static final ClassFileWriter.MHandle BOOTSTRAP_HANDLE =
             new ClassFileWriter.MHandle(
                     ByteCode.MH_INVOKESTATIC,
@@ -169,6 +184,39 @@ public class Bootstrapper {
                             lookup.findStatic(ScriptRuntime.class, "setObjectIndex", mType);
                     return new ConstantCallSite(mh);
                 }
+            }
+        } else if (name.startsWith("CALL:")) {
+            String opName = name.substring(5);
+            if (opName.startsWith("NAME0:")) {
+                String propName = opName.substring(6).intern();
+                MethodType tt = mType.insertParameterTypes(0, String.class);
+                MethodHandle m = lookup.findStatic(OptRuntime.class, "callName0", tt);
+                MethodHandle mh = MethodHandles.insertArguments(m, 0, propName);
+                return new ConstantCallSite(mh);
+            } else if (opName.startsWith("NAME:")) {
+                String propName = opName.substring(5).intern();
+                MethodType tt = mType.insertParameterTypes(1, String.class);
+                MethodHandle m = lookup.findStatic(OptRuntime.class, "callName", tt);
+                MethodHandle mh = MethodHandles.insertArguments(m, 1, propName);
+                return new ConstantCallSite(mh);
+            } else if (opName.startsWith("PROP0:")) {
+                String propName = opName.substring(6).intern();
+                MethodType tt = mType.insertParameterTypes(1, String.class);
+                MethodHandle m = lookup.findStatic(OptRuntime.class, "callProp0", tt);
+                MethodHandle mh = MethodHandles.insertArguments(m, 1, propName);
+                return new ConstantCallSite(mh);
+            } else if (opName.equals("ZERO")) {
+                MethodHandle mh = lookup.findStatic(OptRuntime.class, "call0", mType);
+                return new ConstantCallSite(mh);
+            } else if (opName.equals("ONE")) {
+                MethodHandle mh = lookup.findStatic(OptRuntime.class, "call1", mType);
+                return new ConstantCallSite(mh);
+            } else if (opName.equals("TWO")) {
+                MethodHandle mh = lookup.findStatic(OptRuntime.class, "call2", mType);
+                return new ConstantCallSite(mh);
+            } else if (opName.equals("N")) {
+                MethodHandle mh = lookup.findStatic(OptRuntime.class, "callN", mType);
+                return new ConstantCallSite(mh);
             }
         }
         throw new NoSuchMethodException(name);

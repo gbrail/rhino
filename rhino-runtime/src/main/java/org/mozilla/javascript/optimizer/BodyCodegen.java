@@ -2267,45 +2267,29 @@ class BodyCodegen {
         Node firstArgChild = child.getNext();
         int childType = child.getType();
 
-        String methodName;
+        String operation;
         String signature;
 
         if (firstArgChild == null) {
             if (childType == Token.NAME) {
                 // name() call
                 String name = child.getString();
-                cfw.addPush(name);
-                methodName = "callName0";
-                signature =
-                        "(Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "CALL:NAME0:" + name;
+                signature = Bootstrapper.CALL_NAME_0_SIGNATURE;
             } else if (childType == Token.GETPROP) {
                 // x.name() call
                 Node propTarget = child.getFirstChild();
                 generateExpression(propTarget, node);
                 Node id = propTarget.getNext();
                 String property = id.getString();
-                cfw.addPush(property);
-                methodName = "callProp0";
-                signature =
-                        "(Ljava/lang/Object;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "CALL:PROP0:" + property;
+                signature = Bootstrapper.CALL_PROP_0_SIGNATURE;
             } else if (childType == Token.GETPROPNOWARN) {
                 throw Kit.codeBug();
             } else {
                 generateFunctionAndThisObj(child, node);
-                methodName = "call0";
-                signature =
-                        "(Lorg/mozilla/javascript/Callable;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "CALL:ZERO";
+                signature = Bootstrapper.CALL_0_SIGNATURE;
             }
 
         } else if (childType == Token.NAME) {
@@ -2315,14 +2299,8 @@ class BodyCodegen {
             // there are no checks for it
             String name = child.getString();
             generateCallArgArray(node, firstArgChild, false);
-            cfw.addPush(name);
-            methodName = "callName";
-            signature =
-                    "([Ljava/lang/Object;"
-                            + "Ljava/lang/String;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + "Lorg/mozilla/javascript/Scriptable;"
-                            + ")Ljava/lang/Object;";
+            operation = "CALL:NAME:" + name;
+            signature = Bootstrapper.CALL_NAME_SIGNATURE;
         } else {
             int argCount = 0;
             for (Node arg = firstArgChild; arg != null; arg = arg.getNext()) {
@@ -2332,42 +2310,23 @@ class BodyCodegen {
             // stack: ... functionObj thisObj
             if (argCount == 1) {
                 generateExpression(firstArgChild, node);
-                methodName = "call1";
-                signature =
-                        "(Lorg/mozilla/javascript/Callable;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + "Ljava/lang/Object;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "CALL:ONE";
+                signature = Bootstrapper.CALL_1_SIGNATURE;
             } else if (argCount == 2) {
                 generateExpression(firstArgChild, node);
                 generateExpression(firstArgChild.getNext(), node);
-                methodName = "call2";
-                signature =
-                        "(Lorg/mozilla/javascript/Callable;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + "Ljava/lang/Object;"
-                                + "Ljava/lang/Object;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "CALL:TWO";
+                signature = Bootstrapper.CALL_2_SIGNATURE;
             } else {
                 generateCallArgArray(node, firstArgChild, false);
-                methodName = "callN";
-                signature =
-                        "(Lorg/mozilla/javascript/Callable;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + "[Ljava/lang/Object;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "CALL:N";
+                signature = Bootstrapper.CALL_N_SIGNATURE;
             }
         }
 
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        addOptRuntimeInvoke(methodName, signature);
+        addDynamicInvoke(operation, signature);
     }
 
     private void visitStandardNew(Node node, Node child) {
