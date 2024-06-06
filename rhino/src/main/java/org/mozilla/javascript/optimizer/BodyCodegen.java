@@ -986,13 +986,8 @@ class BodyCodegen {
                 {
                     cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
-                    cfw.addPush(node.getString());
-                    addScriptRuntimeInvoke(
-                            "name",
-                            "(Lorg/mozilla/javascript/Context;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
-                                    + "Ljava/lang/String;"
-                                    + ")Ljava/lang/Object;");
+                    addDynamicInvoke(
+                            "NAME:GET:" + node.getString(), Bootstrapper.GET_NAME_SIGNATURE);
                 }
                 break;
 
@@ -1183,7 +1178,7 @@ class BodyCodegen {
 
             case Token.TYPEOF:
                 generateExpression(child, node);
-                addScriptRuntimeInvoke("typeof", "(Ljava/lang/Object;" + ")Ljava/lang/String;");
+                addDynamicInvoke("CONVERT:TYPEOF", Bootstrapper.TYPEOF_SIGNATURE);
                 break;
 
             case Token.TYPEOFNAME:
@@ -1200,7 +1195,7 @@ class BodyCodegen {
                 {
                     generateExpression(child, node);
                     cfw.add(ByteCode.DUP);
-                    addScriptRuntimeInvoke("toBoolean", "(Ljava/lang/Object;)Z");
+                    addDynamicInvoke("CONVERT:TOBOOLEAN", Bootstrapper.TOBOOLEAN_SIGNATURE);
                     int falseTarget = cfw.acquireLabel();
                     if (type == Token.AND) cfw.add(ByteCode.IFEQ, falseTarget);
                     else cfw.add(ByteCode.IFNE, falseTarget);
@@ -1215,7 +1210,7 @@ class BodyCodegen {
                     Node ifThen = child.getNext();
                     Node ifElse = ifThen.getNext();
                     generateExpression(child, node);
-                    addScriptRuntimeInvoke("toBoolean", "(Ljava/lang/Object;)Z");
+                    addDynamicInvoke("CONVERT:TOBOOLEAN", Bootstrapper.TOBOOLEAN_SIGNATURE);
                     int elseTarget = cfw.acquireLabel();
                     cfw.add(ByteCode.IFEQ, elseTarget);
                     short stack = cfw.getStackTop();
@@ -1238,24 +1233,15 @@ class BodyCodegen {
                             break;
                         case Node.LEFT:
                             cfw.addALoad(contextLocal);
-                            addOptRuntimeInvoke(
-                                    "add",
-                                    "(DLjava/lang/Object;Lorg/mozilla/javascript/Context;)Ljava/lang/Object;");
+                            addDynamicInvoke("MATH:ADDLEFT", Bootstrapper.ADD_LEFT_SIGNATURE);
                             break;
                         case Node.RIGHT:
                             cfw.addALoad(contextLocal);
-                            addOptRuntimeInvoke(
-                                    "add",
-                                    "(Ljava/lang/Object;DLorg/mozilla/javascript/Context;)Ljava/lang/Object;");
+                            addDynamicInvoke("MATH:ADDRIGHT", Bootstrapper.ADD_RIGHT_SIGNATURE);
                             break;
                         default:
                             cfw.addALoad(contextLocal);
-                            addScriptRuntimeInvoke(
-                                    "add",
-                                    "(Ljava/lang/Object;"
-                                            + "Ljava/lang/Object;"
-                                            + "Lorg/mozilla/javascript/Context;"
-                                            + ")Ljava/lang/Object;");
+                            addDynamicInvoke("MATH:ADD", Bootstrapper.ADD_SIGNATURE);
                     }
                 }
                 break;
@@ -1297,8 +1283,7 @@ class BodyCodegen {
                     generateExpression(child, node);
                     if (childNumberFlag == -1) {
                         addObjectToNumeric();
-                        addScriptRuntimeInvoke(
-                                "negate", "(Ljava/lang/Number;" + ")Ljava/lang/Number;");
+                        addDynamicInvoke("MATH:NEGATE", Bootstrapper.MATH_1_SIGNATURE);
                     } else {
                         cfw.add(ByteCode.DNEG);
                     }
@@ -1364,21 +1349,11 @@ class BodyCodegen {
                 generateExpression(child, node); // object
                 generateExpression(child.getNext(), node); // id
                 cfw.addALoad(contextLocal);
+                cfw.addALoad(variableObjectLocal);
                 if (node.getIntProp(Node.ISNUMBER_PROP, -1) != -1) {
-                    addScriptRuntimeInvoke(
-                            "getObjectIndex",
-                            "(Ljava/lang/Object;D"
-                                    + "Lorg/mozilla/javascript/Context;"
-                                    + ")Ljava/lang/Object;");
+                    addDynamicInvoke("OBJ:INDEX:GET", Bootstrapper.OBJECT_INDEX_GET_SIGNATURE);
                 } else {
-                    cfw.addALoad(variableObjectLocal);
-                    addScriptRuntimeInvoke(
-                            "getObjectElem",
-                            "(Ljava/lang/Object;"
-                                    + "Ljava/lang/Object;"
-                                    + "Lorg/mozilla/javascript/Context;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
-                                    + ")Ljava/lang/Object;");
+                    addDynamicInvoke("OBJ:ELEM:GET", Bootstrapper.OBJECT_ELEM_GET_SIGNATURE);
                 }
                 break;
 
@@ -1484,16 +1459,9 @@ class BodyCodegen {
                         generateExpression(child, node);
                         child = child.getNext();
                     }
-                    // Generate code for "ScriptRuntime.bind(varObj, "s")"
                     cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
-                    cfw.addPush(node.getString());
-                    addScriptRuntimeInvoke(
-                            "bind",
-                            "(Lorg/mozilla/javascript/Context;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
-                                    + "Ljava/lang/String;"
-                                    + ")Lorg/mozilla/javascript/Scriptable;");
+                    addDynamicInvoke("BIND:" + node.getString(), Bootstrapper.BIND_SIGNATURE);
                 }
                 break;
 
@@ -1668,13 +1636,10 @@ class BodyCodegen {
             // Yield was previously moved up via the "nestedYield" code below.
             if (exprContext) {
                 cfw.addALoad(variableObjectLocal);
-                cfw.addLoadConstant(unnestedYields.get(node));
+                String property = unnestedYields.get(node);
                 cfw.addALoad(contextLocal);
                 cfw.addALoad(variableObjectLocal);
-                addScriptRuntimeInvoke(
-                        "getObjectPropNoWarn",
-                        "(Ljava/lang/Object;Ljava/lang/String;Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;");
+                addDynamicInvoke("PROP:GETNOWARN:" + property, Bootstrapper.GET_PROP_SIGNATURE);
             }
             return;
         }
@@ -1696,6 +1661,8 @@ class BodyCodegen {
             cfw.add(ByteCode.SWAP);
             cfw.addALoad(contextLocal);
 
+            // Not doing INDY here yet because this uses a different signature
+            // and we have to make sure that the right scope is selected
             addScriptRuntimeInvoke(
                     "setObjectProp",
                     "(Lorg/mozilla/javascript/Scriptable;Ljava/lang/String;Ljava/lang/Object;"
@@ -1872,7 +1839,7 @@ class BodyCodegen {
             default:
                 // Generate generic code for non-optimized jump
                 generateExpression(node, parent);
-                addScriptRuntimeInvoke("toBoolean", "(Ljava/lang/Object;)Z");
+                addDynamicInvoke("CONVERT:TOBOOLEAN", Bootstrapper.TOBOOLEAN_SIGNATURE);
                 cfw.add(ByteCode.IFNE, trueLabel);
                 cfw.add(ByteCode.GOTO, falseLabel);
         }
@@ -2289,45 +2256,29 @@ class BodyCodegen {
         Node firstArgChild = child.getNext();
         int childType = child.getType();
 
-        String methodName;
+        String operation;
         String signature;
 
         if (firstArgChild == null) {
             if (childType == Token.NAME) {
                 // name() call
                 String name = child.getString();
-                cfw.addPush(name);
-                methodName = "callName0";
-                signature =
-                        "(Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "CALL:NAME0:" + name;
+                signature = Bootstrapper.CALL_NAME_0_SIGNATURE;
             } else if (childType == Token.GETPROP) {
                 // x.name() call
                 Node propTarget = child.getFirstChild();
                 generateExpression(propTarget, node);
                 Node id = propTarget.getNext();
                 String property = id.getString();
-                cfw.addPush(property);
-                methodName = "callProp0";
-                signature =
-                        "(Ljava/lang/Object;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "CALL:PROP0:" + property;
+                signature = Bootstrapper.CALL_PROP_0_SIGNATURE;
             } else if (childType == Token.GETPROPNOWARN) {
                 throw Kit.codeBug();
             } else {
                 generateFunctionAndThisObj(child, node);
-                methodName = "call0";
-                signature =
-                        "(Lorg/mozilla/javascript/Callable;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "CALL:ZERO";
+                signature = Bootstrapper.CALL_0_SIGNATURE;
             }
 
         } else if (childType == Token.NAME) {
@@ -2337,14 +2288,8 @@ class BodyCodegen {
             // there are no checks for it
             String name = child.getString();
             generateCallArgArray(node, firstArgChild, false);
-            cfw.addPush(name);
-            methodName = "callName";
-            signature =
-                    "([Ljava/lang/Object;"
-                            + "Ljava/lang/String;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + "Lorg/mozilla/javascript/Scriptable;"
-                            + ")Ljava/lang/Object;";
+            operation = "CALL:NAME:" + name;
+            signature = Bootstrapper.CALL_NAME_SIGNATURE;
         } else {
             int argCount = 0;
             for (Node arg = firstArgChild; arg != null; arg = arg.getNext()) {
@@ -2354,42 +2299,23 @@ class BodyCodegen {
             // stack: ... functionObj thisObj
             if (argCount == 1) {
                 generateExpression(firstArgChild, node);
-                methodName = "call1";
-                signature =
-                        "(Lorg/mozilla/javascript/Callable;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + "Ljava/lang/Object;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "CALL:ONE";
+                signature = Bootstrapper.CALL_1_SIGNATURE;
             } else if (argCount == 2) {
                 generateExpression(firstArgChild, node);
                 generateExpression(firstArgChild.getNext(), node);
-                methodName = "call2";
-                signature =
-                        "(Lorg/mozilla/javascript/Callable;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + "Ljava/lang/Object;"
-                                + "Ljava/lang/Object;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "CALL:TWO";
+                signature = Bootstrapper.CALL_2_SIGNATURE;
             } else {
                 generateCallArgArray(node, firstArgChild, false);
-                methodName = "callN";
-                signature =
-                        "(Lorg/mozilla/javascript/Callable;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + "[Ljava/lang/Object;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "CALL:N";
+                signature = Bootstrapper.CALL_N_SIGNATURE;
             }
         }
 
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        addOptRuntimeInvoke(methodName, signature);
+        addDynamicInvoke(operation, signature);
     }
 
     private void visitStandardNew(Node node, Node child) {
@@ -2599,28 +2525,17 @@ class BodyCodegen {
                     Node id = target.getNext();
                     if (type == Token.GETPROP) {
                         String property = id.getString();
-                        cfw.addPush(property);
                         cfw.addALoad(contextLocal);
                         cfw.addALoad(variableObjectLocal);
-                        addScriptRuntimeInvoke(
-                                "getPropFunctionAndThis",
-                                "(Ljava/lang/Object;"
-                                        + "Ljava/lang/String;"
-                                        + "Lorg/mozilla/javascript/Context;"
-                                        + "Lorg/mozilla/javascript/Scriptable;"
-                                        + ")Lorg/mozilla/javascript/Callable;");
+                        addDynamicInvoke(
+                                "GETFUNCTHIS:PROP:" + property,
+                                Bootstrapper.FUNCTHIS_PROP_SIGNATURE);
                     } else {
                         generateExpression(id, node); // id
                         if (node.getIntProp(Node.ISNUMBER_PROP, -1) != -1) addDoubleWrap();
                         cfw.addALoad(contextLocal);
                         cfw.addALoad(variableObjectLocal);
-                        addScriptRuntimeInvoke(
-                                "getElemFunctionAndThis",
-                                "(Ljava/lang/Object;"
-                                        + "Ljava/lang/Object;"
-                                        + "Lorg/mozilla/javascript/Context;"
-                                        + "Lorg/mozilla/javascript/Scriptable;"
-                                        + ")Lorg/mozilla/javascript/Callable;");
+                        addDynamicInvoke("GETFUNCTHIS:ELEM", Bootstrapper.FUNCTHIS_ELEM_SIGNATURE);
                     }
                     break;
                 }
@@ -2628,26 +2543,17 @@ class BodyCodegen {
             case Token.NAME:
                 {
                     String name = node.getString();
-                    cfw.addPush(name);
                     cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
-                    addScriptRuntimeInvoke(
-                            "getNameFunctionAndThis",
-                            "(Ljava/lang/String;"
-                                    + "Lorg/mozilla/javascript/Context;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
-                                    + ")Lorg/mozilla/javascript/Callable;");
+                    addDynamicInvoke(
+                            "GETFUNCTHIS:NAME:" + name, Bootstrapper.FUNCTHIS_NAME_SIGNATURE);
                     break;
                 }
 
             default: // including GETVAR
                 generateExpression(node, parent);
                 cfw.addALoad(contextLocal);
-                addScriptRuntimeInvoke(
-                        "getValueFunctionAndThis",
-                        "(Ljava/lang/Object;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + ")Lorg/mozilla/javascript/Callable;");
+                addDynamicInvoke("GETFUNCTHIS:VALUE", Bootstrapper.FUNCTHIS_VALUE_SIGNATURE);
                 break;
         }
         // Get thisObj prepared by get(Name|Prop|Elem|Value)FunctionAndThis
@@ -3196,8 +3102,7 @@ class BodyCodegen {
             Node test = caseNode.getFirstChild();
             generateExpression(test, caseNode);
             cfw.addALoad(selector);
-            addScriptRuntimeInvoke(
-                    "shallowEq", "(Ljava/lang/Object;" + "Ljava/lang/Object;" + ")Z");
+            addDynamicInvoke("MATH:SHALLOWEQ", Bootstrapper.EQ_SIGNATURE);
             addGoto(caseNode.target, ByteCode.IFNE);
         }
         releaseWordLocal(selector);
@@ -3217,7 +3122,7 @@ class BodyCodegen {
                     cfw.add(ByteCode.IF_ACMPEQ, isNumberLabel);
                     short stack = cfw.getStackTop();
                     cfw.addALoad(dcp_register);
-                    addScriptRuntimeInvoke("typeof", "(Ljava/lang/Object;" + ")Ljava/lang/String;");
+                    addDynamicInvoke("CONVERT:TYPEOF", Bootstrapper.TYPEOF_SIGNATURE);
                     int beyond = cfw.acquireLabel();
                     cfw.add(ByteCode.GOTO, beyond);
                     cfw.markLabel(isNumberLabel, stack);
@@ -3225,18 +3130,14 @@ class BodyCodegen {
                     cfw.markLabel(beyond);
                 } else {
                     cfw.addALoad(varRegisters[varIndex]);
-                    addScriptRuntimeInvoke("typeof", "(Ljava/lang/Object;" + ")Ljava/lang/String;");
+                    addDynamicInvoke("CONVERT:TYPEOF", Bootstrapper.TYPEOF_SIGNATURE);
                 }
                 return;
             }
         }
         cfw.addALoad(variableObjectLocal);
-        cfw.addPush(node.getString());
-        addScriptRuntimeInvoke(
-                "typeofName",
-                "(Lorg/mozilla/javascript/Scriptable;"
-                        + "Ljava/lang/String;"
-                        + ")Ljava/lang/String;");
+        addDynamicInvoke(
+                "CONVERT:TYPEOFNAME:" + node.getString(), Bootstrapper.TYPEOF_NAME_SIGNATURE);
     }
 
     /**
@@ -3361,15 +3262,10 @@ class BodyCodegen {
                 break;
             case Token.NAME:
                 cfw.addALoad(variableObjectLocal);
-                cfw.addPush(child.getString()); // push name
+                String name = child.getString(); // push name
                 cfw.addALoad(contextLocal);
                 cfw.addPush(incrDecrMask);
-                addScriptRuntimeInvoke(
-                        "nameIncrDecr",
-                        "(Lorg/mozilla/javascript/Scriptable;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "I)Ljava/lang/Object;");
+                addDynamicInvoke("NAME:INCRDECR:" + name, Bootstrapper.INCRDECR_NAME_SIGNATURE);
                 break;
             case Token.GETPROPNOWARN:
                 throw Kit.codeBug();
@@ -3381,6 +3277,7 @@ class BodyCodegen {
                     cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
                     cfw.addPush(incrDecrMask);
+                    // Making this use INDY will require changing more up top
                     addScriptRuntimeInvoke(
                             "propIncrDecr",
                             "(Ljava/lang/Object;"
@@ -3477,21 +3374,16 @@ class BodyCodegen {
 
             switch (type) {
                 case Token.SUB:
-                    addScriptRuntimeInvoke(
-                            "subtract", "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:SUB", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.MUL:
-                    addScriptRuntimeInvoke(
-                            "multiply", "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:MUL", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.DIV:
-                    addScriptRuntimeInvoke(
-                            "divide", "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:DIV", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.MOD:
-                    addScriptRuntimeInvoke(
-                            "remainder",
-                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:MOD", Bootstrapper.MATH_SIGNATURE);
                     break;
                 default:
                     throw Kit.codeBug(Token.typeToName(type));
@@ -3514,9 +3406,7 @@ class BodyCodegen {
             addObjectToNumeric();
             cfw.addALoad(reg);
             addObjectToNumeric();
-
-            addScriptRuntimeInvoke(
-                    "exponentiate", "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+            addDynamicInvoke("MATH:EXP", Bootstrapper.MATH_SIGNATURE);
         }
     }
 
@@ -3525,7 +3415,7 @@ class BodyCodegen {
         generateExpression(child, node);
         if (childNumberFlag == -1) {
             addObjectToNumeric();
-            addScriptRuntimeInvoke("bitwiseNOT", "(Ljava/lang/Number;)Ljava/lang/Number;");
+            addDynamicInvoke("MATH:BITNOT", Bootstrapper.MATH_1_SIGNATURE);
         } else {
             addScriptRuntimeInvoke("toInt32", "(D)I");
             cfw.addPush(-1); // implement ~a as (a ^ -1)
@@ -3542,9 +3432,9 @@ class BodyCodegen {
         // that we can return a 32-bit unsigned value, and call
         // toUint32 instead of toInt32.
         if (type == Token.URSH) {
-            addScriptRuntimeInvoke("toUint32", "(Ljava/lang/Object;)J");
+            addDynamicInvoke("CONVERT:TOUINT32", Bootstrapper.TOUINT32_SIGNATURE);
             generateExpression(child.getNext(), node);
-            addScriptRuntimeInvoke("toInt32", "(Ljava/lang/Object;)I");
+            addDynamicInvoke("CONVERT:TOINT32", Bootstrapper.TOINT32_SIGNATURE);
             // Looks like we need to explicitly mask the shift to 5 bits -
             // LUSHR takes 6 bits.
             cfw.addPush(31);
@@ -3561,29 +3451,19 @@ class BodyCodegen {
 
             switch (type) {
                 case Token.BITOR:
-                    addScriptRuntimeInvoke(
-                            "bitwiseOR",
-                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:BITOR", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.BITXOR:
-                    addScriptRuntimeInvoke(
-                            "bitwiseXOR",
-                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:BITXOR", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.BITAND:
-                    addScriptRuntimeInvoke(
-                            "bitwiseAND",
-                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:BITAND", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.RSH:
-                    addScriptRuntimeInvoke(
-                            "signedRightShift",
-                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:RSH", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.LSH:
-                    addScriptRuntimeInvoke(
-                            "leftShift",
-                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:LSH", Bootstrapper.MATH_SIGNATURE);
                     break;
                 default:
                     throw Kit.codeBug(Token.typeToName(type));
@@ -3740,7 +3620,7 @@ class BodyCodegen {
             }
 
             cfw.addPush(type);
-            addScriptRuntimeInvoke("compare", "(Ljava/lang/Object;" + "Ljava/lang/Object;" + "I)Z");
+            addDynamicInvoke("MATH:CMP", Bootstrapper.COMPARE_SIGNATURE);
             cfw.add(ByteCode.IFNE, trueGOTO);
             cfw.add(ByteCode.GOTO, falseGOTO);
         }
@@ -3809,25 +3689,25 @@ class BodyCodegen {
             int testCode;
             switch (type) {
                 case Token.EQ:
-                    name = "eq";
+                    name = "MATH:EQ";
                     testCode = ByteCode.IFNE;
                     break;
                 case Token.NE:
-                    name = "eq";
+                    name = "MATH:EQ";
                     testCode = ByteCode.IFEQ;
                     break;
                 case Token.SHEQ:
-                    name = "shallowEq";
+                    name = "MATH:SHALLOWEQ";
                     testCode = ByteCode.IFNE;
                     break;
                 case Token.SHNE:
-                    name = "shallowEq";
+                    name = "MATH:SHALLOWEQ";
                     testCode = ByteCode.IFEQ;
                     break;
                 default:
                     throw Codegen.badTree();
             }
-            addScriptRuntimeInvoke(name, "(Ljava/lang/Object;" + "Ljava/lang/Object;" + ")Z");
+            addDynamicInvoke(name, Bootstrapper.EQ_SIGNATURE);
             cfw.add(testCode, trueGOTO);
             cfw.add(ByteCode.GOTO, falseGOTO);
         }
@@ -3842,15 +3722,7 @@ class BodyCodegen {
         }
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        cfw.addPush(name);
-        addScriptRuntimeInvoke(
-                "setName",
-                "(Lorg/mozilla/javascript/Scriptable;"
-                        + "Ljava/lang/Object;"
-                        + "Lorg/mozilla/javascript/Context;"
-                        + "Lorg/mozilla/javascript/Scriptable;"
-                        + "Ljava/lang/String;"
-                        + ")Ljava/lang/Object;");
+        addDynamicInvoke("NAME:SET:" + name, Bootstrapper.SET_NAME_SIGNATURE);
     }
 
     private void visitStrictSetName(Node node, Node child) {
@@ -3861,15 +3733,7 @@ class BodyCodegen {
         }
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        cfw.addPush(name);
-        addScriptRuntimeInvoke(
-                "strictSetName",
-                "(Lorg/mozilla/javascript/Scriptable;"
-                        + "Ljava/lang/Object;"
-                        + "Lorg/mozilla/javascript/Context;"
-                        + "Lorg/mozilla/javascript/Scriptable;"
-                        + "Ljava/lang/String;"
-                        + ")Ljava/lang/Object;");
+        addDynamicInvoke("NAME:SETSTRICT:" + name, Bootstrapper.SET_NAME_SIGNATURE);
     }
 
     private void visitSetConst(Node node, Node child) {
@@ -4007,91 +3871,32 @@ class BodyCodegen {
     private void visitGetProp(Node node, Node child) {
         generateExpression(child, node); // object
         Node nameChild = child.getNext();
-        generateExpression(nameChild, node); // the name
+        cfw.addALoad(contextLocal);
+        cfw.addALoad(variableObjectLocal);
+
         if (node.getType() == Token.GETPROPNOWARN) {
-            cfw.addALoad(contextLocal);
-            cfw.addALoad(variableObjectLocal);
-            addScriptRuntimeInvoke(
-                    "getObjectPropNoWarn",
-                    "(Ljava/lang/Object;"
-                            + "Ljava/lang/String;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + "Lorg/mozilla/javascript/Scriptable;"
-                            + ")Ljava/lang/Object;");
-            return;
-        }
-        /*
-            for 'this.foo' we call getObjectProp(Scriptable...) which can
-            skip some casting overhead.
-        */
-        int childType = child.getType();
-        if (childType == Token.THIS && nameChild.getType() == Token.STRING) {
-            cfw.addALoad(contextLocal);
-            addScriptRuntimeInvoke(
-                    "getObjectProp",
-                    "(Lorg/mozilla/javascript/Scriptable;"
-                            + "Ljava/lang/String;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + ")Ljava/lang/Object;");
+            addDynamicInvoke(
+                    "PROP:GETNOWARN:" + nameChild.getString(), Bootstrapper.GET_PROP_SIGNATURE);
         } else {
-            cfw.addALoad(contextLocal);
-            cfw.addALoad(variableObjectLocal);
-            addScriptRuntimeInvoke(
-                    "getObjectProp",
-                    "(Ljava/lang/Object;"
-                            + "Ljava/lang/String;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + "Lorg/mozilla/javascript/Scriptable;"
-                            + ")Ljava/lang/Object;");
+            addDynamicInvoke("PROP:GET:" + nameChild.getString(), Bootstrapper.GET_PROP_SIGNATURE);
         }
     }
 
     private void visitSetProp(int type, Node node, Node child) {
-        Node objectChild = child;
         generateExpression(child, node);
         child = child.getNext();
+        Node nameChild = child;
         if (type == Token.SETPROP_OP) {
             cfw.add(ByteCode.DUP);
+            cfw.addALoad(contextLocal);
+            cfw.addALoad(variableObjectLocal);
+            addDynamicInvoke("PROP:GET:" + nameChild.getString(), Bootstrapper.GET_PROP_SIGNATURE);
         }
-        Node nameChild = child;
-        generateExpression(child, node);
         child = child.getNext();
-        if (type == Token.SETPROP_OP) {
-            // stack: ... object object name -> ... object name object name
-            cfw.add(ByteCode.DUP_X1);
-            // for 'this.foo += ...' we call thisGet which can skip some
-            // casting overhead.
-            if (objectChild.getType() == Token.THIS && nameChild.getType() == Token.STRING) {
-                cfw.addALoad(contextLocal);
-                addScriptRuntimeInvoke(
-                        "getObjectProp",
-                        "(Lorg/mozilla/javascript/Scriptable;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + ")Ljava/lang/Object;");
-            } else {
-                cfw.addALoad(contextLocal);
-                cfw.addALoad(variableObjectLocal);
-                addScriptRuntimeInvoke(
-                        "getObjectProp",
-                        "(Ljava/lang/Object;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;");
-            }
-        }
         generateExpression(child, node);
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        addScriptRuntimeInvoke(
-                "setObjectProp",
-                "(Ljava/lang/Object;"
-                        + "Ljava/lang/String;"
-                        + "Ljava/lang/Object;"
-                        + "Lorg/mozilla/javascript/Context;"
-                        + "Lorg/mozilla/javascript/Scriptable;"
-                        + ")Ljava/lang/Object;");
+        addDynamicInvoke("PROP:SET:" + nameChild.getString(), Bootstrapper.SET_PROP_SIGNATURE);
     }
 
     private void visitSetElem(int type, Node node, Node child) {
@@ -4110,48 +3915,23 @@ class BodyCodegen {
                 cfw.add(ByteCode.DUP2_X1);
                 cfw.addALoad(contextLocal);
                 cfw.addALoad(variableObjectLocal);
-                addScriptRuntimeInvoke(
-                        "getObjectIndex",
-                        "(Ljava/lang/Object;D"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;");
+                addDynamicInvoke("OBJ:INDEX:GET", Bootstrapper.OBJECT_INDEX_GET_SIGNATURE);
             } else {
                 // stack: ... object object indexObject
                 //        -> ... object indexObject object indexObject
                 cfw.add(ByteCode.DUP_X1);
                 cfw.addALoad(contextLocal);
                 cfw.addALoad(variableObjectLocal);
-                addScriptRuntimeInvoke(
-                        "getObjectElem",
-                        "(Ljava/lang/Object;"
-                                + "Ljava/lang/Object;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;");
+                addDynamicInvoke("OBJ:ELEM:GET", Bootstrapper.OBJECT_ELEM_GET_SIGNATURE);
             }
         }
         generateExpression(child, node);
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
         if (indexIsNumber) {
-            addScriptRuntimeInvoke(
-                    "setObjectIndex",
-                    "(Ljava/lang/Object;"
-                            + "D"
-                            + "Ljava/lang/Object;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + "Lorg/mozilla/javascript/Scriptable;"
-                            + ")Ljava/lang/Object;");
+            addDynamicInvoke("OBJ:INDEX:SET", Bootstrapper.OBJECT_INDEX_SET_SIGNATURE);
         } else {
-            addScriptRuntimeInvoke(
-                    "setObjectElem",
-                    "(Ljava/lang/Object;"
-                            + "Ljava/lang/Object;"
-                            + "Ljava/lang/Object;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + "Lorg/mozilla/javascript/Scriptable;"
-                            + ")Ljava/lang/Object;");
+            addDynamicInvoke("OBJ:ELEM:SET", Bootstrapper.OBJECT_ELEM_SET_SIGNATURE);
         }
     }
 
@@ -4175,7 +3955,7 @@ class BodyCodegen {
         cfw.add(ByteCode.POP);
 
         generateExpression(child.getNext(), node);
-        addScriptRuntimeInvoke("toBoolean", "(Ljava/lang/Object;)Z");
+        addDynamicInvoke("CONVERT:TOBOOLEAN", Bootstrapper.TOBOOLEAN_SIGNATURE);
         cfw.addALoad(variableObjectLocal);
         addScriptRuntimeInvoke(
                 "updateDotQuery",
@@ -4232,11 +4012,11 @@ class BodyCodegen {
     }
 
     private void addObjectToDouble() {
-        addScriptRuntimeInvoke("toNumber", "(Ljava/lang/Object;)D");
+        addDynamicInvoke("CONVERT:TONUMBER", Bootstrapper.TONUMBER_SIGNATURE);
     }
 
     private void addObjectToNumeric() {
-        addScriptRuntimeInvoke("toNumeric", "(Ljava/lang/Object;)Ljava/lang/Number;");
+        addDynamicInvoke("CONVERT:TONUMERIC", Bootstrapper.TONUMERIC_SIGNATURE);
     }
 
     private void addNewObjectArray(int size) {
@@ -4270,6 +4050,10 @@ class BodyCodegen {
                 "org/mozilla/javascript/optimizer/OptRuntime",
                 methodName,
                 methodSignature);
+    }
+
+    private void addDynamicInvoke(String operation, String methodSignature) {
+        cfw.addInvokeDynamic(operation, methodSignature, Bootstrapper.BOOTSTRAP_HANDLE);
     }
 
     private void addJumpedBooleanWrap(int trueLabel, int falseLabel) {
