@@ -37,6 +37,8 @@ public class Bootstrapper {
             "(Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Lorg/mozilla/javascript/Callable;";
     public static final String FUNCTHIS_ELEM_SIGNATURE =
             "(Ljava/lang/Object;Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Lorg/mozilla/javascript/Callable;";
+    public static final String FUNCTHIS_VALUE_SIGNATURE =
+            "(Ljava/lang/Object;Lorg/mozilla/javascript/Context;)Lorg/mozilla/javascript/Callable;";
 
     public static final String OBJECT_ELEM_GET_SIGNATURE =
             "(Ljava/lang/Object;Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
@@ -62,6 +64,18 @@ public class Bootstrapper {
             "(Lorg/mozilla/javascript/Callable;Lorg/mozilla/javascript/Scriptable;[Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
     public static final String CALL_NAME_SIGNATURE =
             "([Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+
+    public static final String MATH_SIGNATURE =
+            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;";
+    public static final String MATH_1_SIGNATURE = "(Ljava/lang/Number;)Ljava/lang/Number;";
+    public static final String ADD_SIGNATURE =
+            "(Ljava/lang/Object;Ljava/lang/Object;Lorg/mozilla/javascript/Context;)Ljava/lang/Object;";
+    public static final String ADD_LEFT_SIGNATURE =
+            "(DLjava/lang/Object;Lorg/mozilla/javascript/Context;)Ljava/lang/Object;";
+    public static final String ADD_RIGHT_SIGNATURE =
+            "(Ljava/lang/Object;DLorg/mozilla/javascript/Context;)Ljava/lang/Object;";
+    public static final String COMPARE_SIGNATURE = "(Ljava/lang/Object;Ljava/lang/Object;I)Z";
+    public static final String EQ_SIGNATURE = "(Ljava/lang/Object;Ljava/lang/Object;)Z";
 
     public static final ClassFileWriter.MHandle BOOTSTRAP_HANDLE =
             new ClassFileWriter.MHandle(
@@ -159,6 +173,10 @@ public class Bootstrapper {
                 MethodHandle mh =
                         lookup.findStatic(ScriptRuntime.class, "getElemFunctionAndThis", mType);
                 return new ConstantCallSite(mh);
+            } else if (opName.equals("VALUE")) {
+                MethodHandle mh =
+                        lookup.findStatic(ScriptRuntime.class, "getValueFunctionAndThis", mType);
+                return new ConstantCallSite(mh);
             }
         } else if (name.startsWith("OBJ:")) {
             String oName = name.substring(4);
@@ -217,6 +235,65 @@ public class Bootstrapper {
             } else if (opName.equals("N")) {
                 MethodHandle mh = lookup.findStatic(OptRuntime.class, "callN", mType);
                 return new ConstantCallSite(mh);
+            }
+        } else if (name.startsWith("MATH:")) {
+            String opName = name.substring(5);
+            MethodHandle mh;
+            switch (opName) {
+                case "SUB":
+                    mh = lookup.findStatic(ScriptRuntime.class, "subtract", mType);
+                    return new ConstantCallSite(mh);
+                case "MUL":
+                    mh = lookup.findStatic(ScriptRuntime.class, "multiply", mType);
+                    return new ConstantCallSite(mh);
+                case "DIV":
+                    mh = lookup.findStatic(ScriptRuntime.class, "divide", mType);
+                    return new ConstantCallSite(mh);
+                case "MOD":
+                    mh = lookup.findStatic(ScriptRuntime.class, "remainder", mType);
+                    return new ConstantCallSite(mh);
+                case "EXP":
+                    mh = lookup.findStatic(ScriptRuntime.class, "exponentiate", mType);
+                    return new ConstantCallSite(mh);
+                case "BITOR":
+                    mh = lookup.findStatic(ScriptRuntime.class, "bitwiseOR", mType);
+                    return new ConstantCallSite(mh);
+                case "BITXOR":
+                    mh = lookup.findStatic(ScriptRuntime.class, "bitwiseXOR", mType);
+                    return new ConstantCallSite(mh);
+                case "BITAND":
+                    mh = lookup.findStatic(ScriptRuntime.class, "bitwiseAND", mType);
+                    return new ConstantCallSite(mh);
+                case "BITNOT":
+                    mh = lookup.findStatic(ScriptRuntime.class, "bitwiseNOT", mType);
+                    return new ConstantCallSite(mh);
+                case "RSH":
+                    mh = lookup.findStatic(ScriptRuntime.class, "signedRightShift", mType);
+                    return new ConstantCallSite(mh);
+                case "LSH":
+                    mh = lookup.findStatic(ScriptRuntime.class, "leftShift", mType);
+                    return new ConstantCallSite(mh);
+                case "ADD":
+                    mh = lookup.findStatic(ScriptRuntime.class, "add", mType);
+                    return new ConstantCallSite(mh);
+                case "ADDLEFT":
+                    mh = lookup.findStatic(OptRuntime.class, "add", mType);
+                    return new ConstantCallSite(mh);
+                case "ADDRIGHT":
+                    mh = lookup.findStatic(OptRuntime.class, "add", mType);
+                    return new ConstantCallSite(mh);
+                case "NEGATE":
+                    mh = lookup.findStatic(ScriptRuntime.class, "negate", mType);
+                    return new ConstantCallSite(mh);
+                case "CMP":
+                    mh = lookup.findStatic(ScriptRuntime.class, "compare", mType);
+                    return new ConstantCallSite(mh);
+                case "EQ":
+                    mh = lookup.findStatic(ScriptRuntime.class, "eq", mType);
+                    return new ConstantCallSite(mh);
+                case "SHALLOWEQ":
+                    mh = lookup.findStatic(ScriptRuntime.class, "shallowEq", mType);
+                    return new ConstantCallSite(mh);
             }
         }
         throw new NoSuchMethodException(name);

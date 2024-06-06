@@ -1233,24 +1233,15 @@ class BodyCodegen {
                             break;
                         case Node.LEFT:
                             cfw.addALoad(contextLocal);
-                            addOptRuntimeInvoke(
-                                    "add",
-                                    "(DLjava/lang/Object;Lorg/mozilla/javascript/Context;)Ljava/lang/Object;");
+                            addDynamicInvoke("MATH:ADDLEFT", Bootstrapper.ADD_LEFT_SIGNATURE);
                             break;
                         case Node.RIGHT:
                             cfw.addALoad(contextLocal);
-                            addOptRuntimeInvoke(
-                                    "add",
-                                    "(Ljava/lang/Object;DLorg/mozilla/javascript/Context;)Ljava/lang/Object;");
+                            addDynamicInvoke("MATH:ADDRIGHT", Bootstrapper.ADD_RIGHT_SIGNATURE);
                             break;
                         default:
                             cfw.addALoad(contextLocal);
-                            addScriptRuntimeInvoke(
-                                    "add",
-                                    "(Ljava/lang/Object;"
-                                            + "Ljava/lang/Object;"
-                                            + "Lorg/mozilla/javascript/Context;"
-                                            + ")Ljava/lang/Object;");
+                            addDynamicInvoke("MATH:ADD", Bootstrapper.ADD_SIGNATURE);
                     }
                 }
                 break;
@@ -1292,8 +1283,7 @@ class BodyCodegen {
                     generateExpression(child, node);
                     if (childNumberFlag == -1) {
                         addObjectToNumeric();
-                        addScriptRuntimeInvoke(
-                                "negate", "(Ljava/lang/Number;" + ")Ljava/lang/Number;");
+                        addDynamicInvoke("MATH:NEGATE", Bootstrapper.MATH_1_SIGNATURE);
                     } else {
                         cfw.add(ByteCode.DNEG);
                     }
@@ -1646,13 +1636,10 @@ class BodyCodegen {
             // Yield was previously moved up via the "nestedYield" code below.
             if (exprContext) {
                 cfw.addALoad(variableObjectLocal);
-                cfw.addLoadConstant(unnestedYields.get(node));
+                String property = unnestedYields.get(node);
                 cfw.addALoad(contextLocal);
                 cfw.addALoad(variableObjectLocal);
-                addScriptRuntimeInvoke(
-                        "getObjectPropNoWarn",
-                        "(Ljava/lang/Object;Ljava/lang/String;Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;");
+                addDynamicInvoke("PROP:GETNOWARN:" + property, Bootstrapper.GET_PROP_SIGNATURE);
             }
             return;
         }
@@ -2564,11 +2551,7 @@ class BodyCodegen {
             default: // including GETVAR
                 generateExpression(node, parent);
                 cfw.addALoad(contextLocal);
-                addScriptRuntimeInvoke(
-                        "getValueFunctionAndThis",
-                        "(Ljava/lang/Object;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + ")Lorg/mozilla/javascript/Callable;");
+                addDynamicInvoke("GETFUNCTHIS:VALUE", Bootstrapper.FUNCTHIS_VALUE_SIGNATURE);
                 break;
         }
         // Get thisObj prepared by get(Name|Prop|Elem|Value)FunctionAndThis
@@ -3117,8 +3100,7 @@ class BodyCodegen {
             Node test = caseNode.getFirstChild();
             generateExpression(test, caseNode);
             cfw.addALoad(selector);
-            addScriptRuntimeInvoke(
-                    "shallowEq", "(Ljava/lang/Object;" + "Ljava/lang/Object;" + ")Z");
+            addDynamicInvoke("MATH:SHALLOWEQ", Bootstrapper.EQ_SIGNATURE);
             addGoto(caseNode.target, ByteCode.IFNE);
         }
         releaseWordLocal(selector);
@@ -3398,21 +3380,16 @@ class BodyCodegen {
 
             switch (type) {
                 case Token.SUB:
-                    addScriptRuntimeInvoke(
-                            "subtract", "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:SUB", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.MUL:
-                    addScriptRuntimeInvoke(
-                            "multiply", "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:MUL", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.DIV:
-                    addScriptRuntimeInvoke(
-                            "divide", "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:DIV", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.MOD:
-                    addScriptRuntimeInvoke(
-                            "remainder",
-                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:MOD", Bootstrapper.MATH_SIGNATURE);
                     break;
                 default:
                     throw Kit.codeBug(Token.typeToName(type));
@@ -3435,9 +3412,7 @@ class BodyCodegen {
             addObjectToNumeric();
             cfw.addALoad(reg);
             addObjectToNumeric();
-
-            addScriptRuntimeInvoke(
-                    "exponentiate", "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+            addDynamicInvoke("MATH:EXP", Bootstrapper.MATH_SIGNATURE);
         }
     }
 
@@ -3446,7 +3421,7 @@ class BodyCodegen {
         generateExpression(child, node);
         if (childNumberFlag == -1) {
             addObjectToNumeric();
-            addScriptRuntimeInvoke("bitwiseNOT", "(Ljava/lang/Number;)Ljava/lang/Number;");
+            addDynamicInvoke("MATH:BITNOT", Bootstrapper.MATH_1_SIGNATURE);
         } else {
             addScriptRuntimeInvoke("toInt32", "(D)I");
             cfw.addPush(-1); // implement ~a as (a ^ -1)
@@ -3482,29 +3457,19 @@ class BodyCodegen {
 
             switch (type) {
                 case Token.BITOR:
-                    addScriptRuntimeInvoke(
-                            "bitwiseOR",
-                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:BITOR", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.BITXOR:
-                    addScriptRuntimeInvoke(
-                            "bitwiseXOR",
-                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:BITXOR", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.BITAND:
-                    addScriptRuntimeInvoke(
-                            "bitwiseAND",
-                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:BITAND", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.RSH:
-                    addScriptRuntimeInvoke(
-                            "signedRightShift",
-                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:RSH", Bootstrapper.MATH_SIGNATURE);
                     break;
                 case Token.LSH:
-                    addScriptRuntimeInvoke(
-                            "leftShift",
-                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke("MATH:LSH", Bootstrapper.MATH_SIGNATURE);
                     break;
                 default:
                     throw Kit.codeBug(Token.typeToName(type));
@@ -3661,7 +3626,7 @@ class BodyCodegen {
             }
 
             cfw.addPush(type);
-            addScriptRuntimeInvoke("compare", "(Ljava/lang/Object;" + "Ljava/lang/Object;" + "I)Z");
+            addDynamicInvoke("MATH:CMP", Bootstrapper.COMPARE_SIGNATURE);
             cfw.add(ByteCode.IFNE, trueGOTO);
             cfw.add(ByteCode.GOTO, falseGOTO);
         }
@@ -3730,25 +3695,25 @@ class BodyCodegen {
             int testCode;
             switch (type) {
                 case Token.EQ:
-                    name = "eq";
+                    name = "MATH:EQ";
                     testCode = ByteCode.IFNE;
                     break;
                 case Token.NE:
-                    name = "eq";
+                    name = "MATH:EQ";
                     testCode = ByteCode.IFEQ;
                     break;
                 case Token.SHEQ:
-                    name = "shallowEq";
+                    name = "MATH:SHALLOWEQ";
                     testCode = ByteCode.IFNE;
                     break;
                 case Token.SHNE:
-                    name = "shallowEq";
+                    name = "MATH:SHALLOWEQ";
                     testCode = ByteCode.IFEQ;
                     break;
                 default:
                     throw Codegen.badTree();
             }
-            addScriptRuntimeInvoke(name, "(Ljava/lang/Object;" + "Ljava/lang/Object;" + ")Z");
+            addDynamicInvoke(name, Bootstrapper.EQ_SIGNATURE);
             cfw.add(testCode, trueGOTO);
             cfw.add(ByteCode.GOTO, falseGOTO);
         }
