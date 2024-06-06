@@ -1359,14 +1359,10 @@ class BodyCodegen {
                 generateExpression(child, node); // object
                 generateExpression(child.getNext(), node); // id
                 cfw.addALoad(contextLocal);
+                cfw.addALoad(variableObjectLocal);
                 if (node.getIntProp(Node.ISNUMBER_PROP, -1) != -1) {
-                    addScriptRuntimeInvoke(
-                            "getObjectIndex",
-                            "(Ljava/lang/Object;D"
-                                    + "Lorg/mozilla/javascript/Context;"
-                                    + ")Ljava/lang/Object;");
+                    addDynamicInvoke("OBJ:INDEX:GET", Bootstrapper.OBJECT_INDEX_GET_SIGNATURE);
                 } else {
-                    cfw.addALoad(variableObjectLocal);
                     addDynamicInvoke("OBJ:ELEM:GET", Bootstrapper.OBJECT_ELEM_GET_SIGNATURE);
                 }
                 break;
@@ -4001,12 +3997,7 @@ class BodyCodegen {
                 cfw.add(ByteCode.DUP2_X1);
                 cfw.addALoad(contextLocal);
                 cfw.addALoad(variableObjectLocal);
-                addScriptRuntimeInvoke(
-                        "getObjectIndex",
-                        "(Ljava/lang/Object;D"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;");
+                addDynamicInvoke("OBJ:INDEX:GET", Bootstrapper.OBJECT_INDEX_GET_SIGNATURE);
             } else {
                 // stack: ... object object indexObject
                 //        -> ... object indexObject object indexObject
@@ -4020,14 +4011,7 @@ class BodyCodegen {
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
         if (indexIsNumber) {
-            addScriptRuntimeInvoke(
-                    "setObjectIndex",
-                    "(Ljava/lang/Object;"
-                            + "D"
-                            + "Ljava/lang/Object;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + "Lorg/mozilla/javascript/Scriptable;"
-                            + ")Ljava/lang/Object;");
+            addDynamicInvoke("OBJ:INDEX:SET", Bootstrapper.OBJECT_INDEX_SET_SIGNATURE);
         } else {
             addDynamicInvoke("OBJ:ELEM:SET", Bootstrapper.OBJECT_ELEM_SET_SIGNATURE);
         }

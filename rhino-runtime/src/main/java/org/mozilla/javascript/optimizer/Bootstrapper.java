@@ -42,6 +42,12 @@ public class Bootstrapper {
             "(Ljava/lang/Object;Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
     public static final String OBJECT_ELEM_SET_SIGNATURE =
             "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+
+    public static final String OBJECT_INDEX_GET_SIGNATURE =
+            "(Ljava/lang/Object;DLorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+    public static final String OBJECT_INDEX_SET_SIGNATURE =
+            "(Ljava/lang/Object;DLjava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+
     public static final ClassFileWriter.MHandle BOOTSTRAP_HANDLE =
             new ClassFileWriter.MHandle(
                     ByteCode.MH_INVOKESTATIC,
@@ -150,6 +156,17 @@ public class Bootstrapper {
                 } else if (opName.equals("SET")) {
                     MethodHandle mh =
                             lookup.findStatic(ScriptRuntime.class, "setObjectElem", mType);
+                    return new ConstantCallSite(mh);
+                }
+            } else if (oName.startsWith("INDEX:")) {
+                String opName = oName.substring(6);
+                if (opName.equals("GET")) {
+                    MethodHandle mh =
+                            lookup.findStatic(ScriptRuntime.class, "getObjectIndex", mType);
+                    return new ConstantCallSite(mh);
+                } else if (opName.equals("SET")) {
+                    MethodHandle mh =
+                            lookup.findStatic(ScriptRuntime.class, "setObjectIndex", mType);
                     return new ConstantCallSite(mh);
                 }
             }
