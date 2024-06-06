@@ -986,13 +986,8 @@ class BodyCodegen {
                 {
                     cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
-                    cfw.addPush(node.getString());
-                    addScriptRuntimeInvoke(
-                            "name",
-                            "(Lorg/mozilla/javascript/Context;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
-                                    + "Ljava/lang/String;"
-                                    + ")Ljava/lang/Object;");
+                    addDynamicInvoke(
+                            "NAME:GET:" + node.getString(), Bootstrapper.GET_NAME_SIGNATURE);
                 }
                 break;
 
@@ -4007,42 +4002,14 @@ class BodyCodegen {
     private void visitGetProp(Node node, Node child) {
         generateExpression(child, node); // object
         Node nameChild = child.getNext();
-        generateExpression(nameChild, node); // the name
+        cfw.addALoad(contextLocal);
+        cfw.addALoad(variableObjectLocal);
+
         if (node.getType() == Token.GETPROPNOWARN) {
-            cfw.addALoad(contextLocal);
-            cfw.addALoad(variableObjectLocal);
-            addScriptRuntimeInvoke(
-                    "getObjectPropNoWarn",
-                    "(Ljava/lang/Object;"
-                            + "Ljava/lang/String;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + "Lorg/mozilla/javascript/Scriptable;"
-                            + ")Ljava/lang/Object;");
-            return;
-        }
-        /*
-            for 'this.foo' we call getObjectProp(Scriptable...) which can
-            skip some casting overhead.
-        */
-        int childType = child.getType();
-        if (childType == Token.THIS && nameChild.getType() == Token.STRING) {
-            cfw.addALoad(contextLocal);
-            addScriptRuntimeInvoke(
-                    "getObjectProp",
-                    "(Lorg/mozilla/javascript/Scriptable;"
-                            + "Ljava/lang/String;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + ")Ljava/lang/Object;");
+            addDynamicInvoke(
+                    "PROP:GETNOWARN:" + nameChild.getString(), Bootstrapper.GET_PROP_SIGNATURE);
         } else {
-            cfw.addALoad(contextLocal);
-            cfw.addALoad(variableObjectLocal);
-            addScriptRuntimeInvoke(
-                    "getObjectProp",
-                    "(Ljava/lang/Object;"
-                            + "Ljava/lang/String;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + "Lorg/mozilla/javascript/Scriptable;"
-                            + ")Ljava/lang/Object;");
+            addDynamicInvoke("PROP:GET:" + nameChild.getString(), Bootstrapper.GET_PROP_SIGNATURE);
         }
     }
 
@@ -4050,48 +4017,18 @@ class BodyCodegen {
         Node objectChild = child;
         generateExpression(child, node);
         child = child.getNext();
+        Node nameChild = child;
         if (type == Token.SETPROP_OP) {
             cfw.add(ByteCode.DUP);
+            cfw.addALoad(contextLocal);
+            cfw.addALoad(variableObjectLocal);
+            addDynamicInvoke("PROP:GET:" + nameChild.getString(), Bootstrapper.GET_PROP_SIGNATURE);
         }
-        Node nameChild = child;
-        generateExpression(child, node);
         child = child.getNext();
-        if (type == Token.SETPROP_OP) {
-            // stack: ... object object name -> ... object name object name
-            cfw.add(ByteCode.DUP_X1);
-            // for 'this.foo += ...' we call thisGet which can skip some
-            // casting overhead.
-            if (objectChild.getType() == Token.THIS && nameChild.getType() == Token.STRING) {
-                cfw.addALoad(contextLocal);
-                addScriptRuntimeInvoke(
-                        "getObjectProp",
-                        "(Lorg/mozilla/javascript/Scriptable;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + ")Ljava/lang/Object;");
-            } else {
-                cfw.addALoad(contextLocal);
-                cfw.addALoad(variableObjectLocal);
-                addScriptRuntimeInvoke(
-                        "getObjectProp",
-                        "(Ljava/lang/Object;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;");
-            }
-        }
         generateExpression(child, node);
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        addScriptRuntimeInvoke(
-                "setObjectProp",
-                "(Ljava/lang/Object;"
-                        + "Ljava/lang/String;"
-                        + "Ljava/lang/Object;"
-                        + "Lorg/mozilla/javascript/Context;"
-                        + "Lorg/mozilla/javascript/Scriptable;"
-                        + ")Ljava/lang/Object;");
+        addDynamicInvoke("PROP:SET:" + nameChild.getString(), Bootstrapper.SET_PROP_SIGNATURE);
     }
 
     private void visitSetElem(int type, Node node, Node child) {
@@ -4270,6 +4207,10 @@ class BodyCodegen {
                 "org/mozilla/javascript/optimizer/OptRuntime",
                 methodName,
                 methodSignature);
+    }
+
+    private void addDynamicInvoke(String operation, String methodSignature) {
+        cfw.addInvokeDynamic(operation, methodSignature, Bootstrapper.BOOTSTRAP_HANDLE);
     }
 
     private void addJumpedBooleanWrap(int trueLabel, int falseLabel) {
