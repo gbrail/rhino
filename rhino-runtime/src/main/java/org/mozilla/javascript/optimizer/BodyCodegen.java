@@ -1367,13 +1367,7 @@ class BodyCodegen {
                                     + ")Ljava/lang/Object;");
                 } else {
                     cfw.addALoad(variableObjectLocal);
-                    addScriptRuntimeInvoke(
-                            "getObjectElem",
-                            "(Ljava/lang/Object;"
-                                    + "Ljava/lang/Object;"
-                                    + "Lorg/mozilla/javascript/Context;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
-                                    + ")Ljava/lang/Object;");
+                    addDynamicInvoke("OBJ:ELEM:GET", Bootstrapper.OBJECT_ELEM_GET_SIGNATURE);
                 }
                 break;
 
@@ -1479,16 +1473,9 @@ class BodyCodegen {
                         generateExpression(child, node);
                         child = child.getNext();
                     }
-                    // Generate code for "ScriptRuntime.bind(varObj, "s")"
                     cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
-                    cfw.addPush(node.getString());
-                    addScriptRuntimeInvoke(
-                            "bind",
-                            "(Lorg/mozilla/javascript/Context;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
-                                    + "Ljava/lang/String;"
-                                    + ")Lorg/mozilla/javascript/Scriptable;");
+                    addDynamicInvoke("BIND:" + node.getString(), Bootstrapper.BIND_SIGNATURE);
                 }
                 break;
 
@@ -2594,28 +2581,17 @@ class BodyCodegen {
                     Node id = target.getNext();
                     if (type == Token.GETPROP) {
                         String property = id.getString();
-                        cfw.addPush(property);
                         cfw.addALoad(contextLocal);
                         cfw.addALoad(variableObjectLocal);
-                        addScriptRuntimeInvoke(
-                                "getPropFunctionAndThis",
-                                "(Ljava/lang/Object;"
-                                        + "Ljava/lang/String;"
-                                        + "Lorg/mozilla/javascript/Context;"
-                                        + "Lorg/mozilla/javascript/Scriptable;"
-                                        + ")Lorg/mozilla/javascript/Callable;");
+                        addDynamicInvoke(
+                                "GETFUNCTHIS:PROP:" + property,
+                                Bootstrapper.FUNCTHIS_PROP_SIGNATURE);
                     } else {
                         generateExpression(id, node); // id
                         if (node.getIntProp(Node.ISNUMBER_PROP, -1) != -1) addDoubleWrap();
                         cfw.addALoad(contextLocal);
                         cfw.addALoad(variableObjectLocal);
-                        addScriptRuntimeInvoke(
-                                "getElemFunctionAndThis",
-                                "(Ljava/lang/Object;"
-                                        + "Ljava/lang/Object;"
-                                        + "Lorg/mozilla/javascript/Context;"
-                                        + "Lorg/mozilla/javascript/Scriptable;"
-                                        + ")Lorg/mozilla/javascript/Callable;");
+                        addDynamicInvoke("GETFUNCTHIS:ELEM", Bootstrapper.FUNCTHIS_ELEM_SIGNATURE);
                     }
                     break;
                 }
@@ -2623,15 +2599,10 @@ class BodyCodegen {
             case Token.NAME:
                 {
                     String name = node.getString();
-                    cfw.addPush(name);
                     cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
-                    addScriptRuntimeInvoke(
-                            "getNameFunctionAndThis",
-                            "(Ljava/lang/String;"
-                                    + "Lorg/mozilla/javascript/Context;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
-                                    + ")Lorg/mozilla/javascript/Callable;");
+                    addDynamicInvoke(
+                            "GETFUNCTHIS:NAME:" + name, Bootstrapper.FUNCTHIS_NAME_SIGNATURE);
                     break;
                 }
 
@@ -3837,15 +3808,7 @@ class BodyCodegen {
         }
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        cfw.addPush(name);
-        addScriptRuntimeInvoke(
-                "setName",
-                "(Lorg/mozilla/javascript/Scriptable;"
-                        + "Ljava/lang/Object;"
-                        + "Lorg/mozilla/javascript/Context;"
-                        + "Lorg/mozilla/javascript/Scriptable;"
-                        + "Ljava/lang/String;"
-                        + ")Ljava/lang/Object;");
+        addDynamicInvoke("NAME:SET:" + name, Bootstrapper.SET_NAME_SIGNATURE);
     }
 
     private void visitStrictSetName(Node node, Node child) {
@@ -3856,15 +3819,7 @@ class BodyCodegen {
         }
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        cfw.addPush(name);
-        addScriptRuntimeInvoke(
-                "strictSetName",
-                "(Lorg/mozilla/javascript/Scriptable;"
-                        + "Ljava/lang/Object;"
-                        + "Lorg/mozilla/javascript/Context;"
-                        + "Lorg/mozilla/javascript/Scriptable;"
-                        + "Ljava/lang/String;"
-                        + ")Ljava/lang/Object;");
+        addDynamicInvoke("NAME:SETSTRICT:" + name, Bootstrapper.SET_NAME_SIGNATURE);
     }
 
     private void visitSetConst(Node node, Node child) {
@@ -4014,7 +3969,6 @@ class BodyCodegen {
     }
 
     private void visitSetProp(int type, Node node, Node child) {
-        Node objectChild = child;
         generateExpression(child, node);
         child = child.getNext();
         Node nameChild = child;
@@ -4059,13 +4013,7 @@ class BodyCodegen {
                 cfw.add(ByteCode.DUP_X1);
                 cfw.addALoad(contextLocal);
                 cfw.addALoad(variableObjectLocal);
-                addScriptRuntimeInvoke(
-                        "getObjectElem",
-                        "(Ljava/lang/Object;"
-                                + "Ljava/lang/Object;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;");
+                addDynamicInvoke("OBJ:ELEM:GET", Bootstrapper.OBJECT_ELEM_GET_SIGNATURE);
             }
         }
         generateExpression(child, node);
@@ -4081,14 +4029,7 @@ class BodyCodegen {
                             + "Lorg/mozilla/javascript/Scriptable;"
                             + ")Ljava/lang/Object;");
         } else {
-            addScriptRuntimeInvoke(
-                    "setObjectElem",
-                    "(Ljava/lang/Object;"
-                            + "Ljava/lang/Object;"
-                            + "Ljava/lang/Object;"
-                            + "Lorg/mozilla/javascript/Context;"
-                            + "Lorg/mozilla/javascript/Scriptable;"
-                            + ")Ljava/lang/Object;");
+            addDynamicInvoke("OBJ:ELEM:SET", Bootstrapper.OBJECT_ELEM_SET_SIGNATURE);
         }
     }
 
@@ -4194,6 +4135,9 @@ class BodyCodegen {
     }
 
     private void addScriptRuntimeInvoke(String methodName, String methodSignature) {
+        if (Bootstrapper.DEBUG) {
+            System.out.println("ScriptRuntime: " + methodName);
+        }
         cfw.addInvoke(
                 ByteCode.INVOKESTATIC,
                 "org.mozilla.javascript.ScriptRuntime",
@@ -4202,6 +4146,9 @@ class BodyCodegen {
     }
 
     private void addOptRuntimeInvoke(String methodName, String methodSignature) {
+        if (Bootstrapper.DEBUG) {
+            System.out.println("OptRuntime: " + methodName);
+        }
         cfw.addInvoke(
                 ByteCode.INVOKESTATIC,
                 "org/mozilla/javascript/optimizer/OptRuntime",
