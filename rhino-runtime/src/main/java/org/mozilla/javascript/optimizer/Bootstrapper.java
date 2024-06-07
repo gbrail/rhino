@@ -22,11 +22,15 @@ public class Bootstrapper {
             "(Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
     public static final String SET_PROP_SIGNATURE =
             "(Ljava/lang/Object;Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+    public static final String INCRDECR_PROP_SIGNATURE =
+            "(Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;I)Ljava/lang/Object;";
 
     public static final String GET_NAME_SIGNATURE =
             "(Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
     public static final String SET_NAME_SIGNATURE =
             "(Lorg/mozilla/javascript/Scriptable;Ljava/lang/Object;Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Ljava/lang/Object;";
+    public static final String INCRDECR_NAME_SIGNATURE =
+            "(Lorg/mozilla/javascript/Scriptable;Lorg/mozilla/javascript/Context;I)Ljava/lang/Object;";
 
     public static final String BIND_SIGNATURE =
             "(Lorg/mozilla/javascript/Context;Lorg/mozilla/javascript/Scriptable;)Lorg/mozilla/javascript/Scriptable;";
@@ -77,6 +81,15 @@ public class Bootstrapper {
     public static final String COMPARE_SIGNATURE = "(Ljava/lang/Object;Ljava/lang/Object;I)Z";
     public static final String EQ_SIGNATURE = "(Ljava/lang/Object;Ljava/lang/Object;)Z";
 
+    public static final String TYPEOF_SIGNATURE = "(Ljava/lang/Object;)Ljava/lang/String;";
+    public static final String TYPEOF_NAME_SIGNATURE =
+            "(Lorg/mozilla/javascript/Scriptable;)Ljava/lang/String;";
+    public static final String TOBOOLEAN_SIGNATURE = "(Ljava/lang/Object;)Z";
+    public static final String TONUMBER_SIGNATURE = "(Ljava/lang/Object;)D";
+    public static final String TONUMERIC_SIGNATURE = "(Ljava/lang/Object;)Ljava/lang/Number;";
+    public static final String TOINT32_SIGNATURE = "(Ljava/lang/Object;)I";
+    public static final String TOUINT32_SIGNATURE = "(Ljava/lang/Object;)J";
+
     public static final ClassFileWriter.MHandle BOOTSTRAP_HANDLE =
             new ClassFileWriter.MHandle(
                     ByteCode.MH_INVOKESTATIC,
@@ -125,6 +138,12 @@ public class Bootstrapper {
                 MethodHandle m = lookup.findStatic(ScriptRuntime.class, "setObjectProp", tt);
                 MethodHandle mh = MethodHandles.insertArguments(m, 1, propertyName);
                 return new ConstantCallSite(mh);
+            } else if (opName.startsWith("INCRDECR:")) {
+                String propertyName = opName.substring(9).intern();
+                MethodType tt = mType.insertParameterTypes(1, String.class);
+                MethodHandle m = lookup.findStatic(ScriptRuntime.class, "propIncrDecr", tt);
+                MethodHandle mh = MethodHandles.insertArguments(m, 1, propertyName);
+                return new ConstantCallSite(mh);
             }
         } else if (name.startsWith("NAME:")) {
             String opName = name.substring(5);
@@ -145,6 +164,12 @@ public class Bootstrapper {
                 MethodType tt = mType.insertParameterTypes(4, String.class);
                 MethodHandle m = lookup.findStatic(ScriptRuntime.class, "strictSetName", tt);
                 MethodHandle mh = MethodHandles.insertArguments(m, 4, propertyName);
+                return new ConstantCallSite(mh);
+            } else if (opName.startsWith("INCRDECR:")) {
+                String propertyName = opName.substring(9).intern();
+                MethodType tt = mType.insertParameterTypes(1, String.class);
+                MethodHandle m = lookup.findStatic(ScriptRuntime.class, "nameIncrDecr", tt);
+                MethodHandle mh = MethodHandles.insertArguments(m, 1, propertyName);
                 return new ConstantCallSite(mh);
             }
         } else if (name.startsWith("BIND:")) {
@@ -293,6 +318,36 @@ public class Bootstrapper {
                     return new ConstantCallSite(mh);
                 case "SHALLOWEQ":
                     mh = lookup.findStatic(ScriptRuntime.class, "shallowEq", mType);
+                    return new ConstantCallSite(mh);
+            }
+        } else if (name.startsWith("CONVERT:")) {
+            String opName = name.substring(8);
+            MethodHandle mh;
+            if (opName.startsWith("TYPEOFNAME:")) {
+                String prop = opName.substring(11).intern();
+                MethodType tt = mType.insertParameterTypes(1, String.class);
+                MethodHandle m = lookup.findStatic(ScriptRuntime.class, "typeofName", tt);
+                mh = MethodHandles.insertArguments(m, 1, prop);
+                return new ConstantCallSite(mh);
+            }
+            switch (opName) {
+                case "TYPEOF":
+                    mh = lookup.findStatic(ScriptRuntime.class, "typeof", mType);
+                    return new ConstantCallSite(mh);
+                case "TOBOOLEAN":
+                    mh = lookup.findStatic(ScriptRuntime.class, "toBoolean", mType);
+                    return new ConstantCallSite(mh);
+                case "TONUMBER":
+                    mh = lookup.findStatic(ScriptRuntime.class, "toNumber", mType);
+                    return new ConstantCallSite(mh);
+                case "TONUMERIC":
+                    mh = lookup.findStatic(ScriptRuntime.class, "toNumeric", mType);
+                    return new ConstantCallSite(mh);
+                case "TOINT32":
+                    mh = lookup.findStatic(ScriptRuntime.class, "toInt32", mType);
+                    return new ConstantCallSite(mh);
+                case "TOUINT32":
+                    mh = lookup.findStatic(ScriptRuntime.class, "toUint32", mType);
                     return new ConstantCallSite(mh);
             }
         }

@@ -1178,7 +1178,7 @@ class BodyCodegen {
 
             case Token.TYPEOF:
                 generateExpression(child, node);
-                addScriptRuntimeInvoke("typeof", "(Ljava/lang/Object;" + ")Ljava/lang/String;");
+                addDynamicInvoke("CONVERT:TYPEOF", Bootstrapper.TYPEOF_SIGNATURE);
                 break;
 
             case Token.TYPEOFNAME:
@@ -1195,7 +1195,7 @@ class BodyCodegen {
                 {
                     generateExpression(child, node);
                     cfw.add(ByteCode.DUP);
-                    addScriptRuntimeInvoke("toBoolean", "(Ljava/lang/Object;)Z");
+                    addDynamicInvoke("CONVERT:TOBOOLEAN", Bootstrapper.TOBOOLEAN_SIGNATURE);
                     int falseTarget = cfw.acquireLabel();
                     if (type == Token.AND) cfw.add(ByteCode.IFEQ, falseTarget);
                     else cfw.add(ByteCode.IFNE, falseTarget);
@@ -1210,7 +1210,7 @@ class BodyCodegen {
                     Node ifThen = child.getNext();
                     Node ifElse = ifThen.getNext();
                     generateExpression(child, node);
-                    addScriptRuntimeInvoke("toBoolean", "(Ljava/lang/Object;)Z");
+                    addDynamicInvoke("CONVERT:TOBOOLEAN", Bootstrapper.TOBOOLEAN_SIGNATURE);
                     int elseTarget = cfw.acquireLabel();
                     cfw.add(ByteCode.IFEQ, elseTarget);
                     short stack = cfw.getStackTop();
@@ -1661,6 +1661,8 @@ class BodyCodegen {
             cfw.add(ByteCode.SWAP);
             cfw.addALoad(contextLocal);
 
+            // Not doing INDY here yet because this uses a different signature
+            // and we have to make sure that the right scope is selected
             addScriptRuntimeInvoke(
                     "setObjectProp",
                     "(Lorg/mozilla/javascript/Scriptable;Ljava/lang/String;Ljava/lang/Object;"
@@ -1837,7 +1839,7 @@ class BodyCodegen {
             default:
                 // Generate generic code for non-optimized jump
                 generateExpression(node, parent);
-                addScriptRuntimeInvoke("toBoolean", "(Ljava/lang/Object;)Z");
+                addDynamicInvoke("CONVERT:TOBOOLEAN", Bootstrapper.TOBOOLEAN_SIGNATURE);
                 cfw.add(ByteCode.IFNE, trueLabel);
                 cfw.add(ByteCode.GOTO, falseLabel);
         }
@@ -3120,7 +3122,7 @@ class BodyCodegen {
                     cfw.add(ByteCode.IF_ACMPEQ, isNumberLabel);
                     short stack = cfw.getStackTop();
                     cfw.addALoad(dcp_register);
-                    addScriptRuntimeInvoke("typeof", "(Ljava/lang/Object;" + ")Ljava/lang/String;");
+                    addDynamicInvoke("CONVERT:TYPEOF", Bootstrapper.TYPEOF_SIGNATURE);
                     int beyond = cfw.acquireLabel();
                     cfw.add(ByteCode.GOTO, beyond);
                     cfw.markLabel(isNumberLabel, stack);
@@ -3128,18 +3130,14 @@ class BodyCodegen {
                     cfw.markLabel(beyond);
                 } else {
                     cfw.addALoad(varRegisters[varIndex]);
-                    addScriptRuntimeInvoke("typeof", "(Ljava/lang/Object;" + ")Ljava/lang/String;");
+                    addDynamicInvoke("CONVERT:TYPEOF", Bootstrapper.TYPEOF_SIGNATURE);
                 }
                 return;
             }
         }
         cfw.addALoad(variableObjectLocal);
-        cfw.addPush(node.getString());
-        addScriptRuntimeInvoke(
-                "typeofName",
-                "(Lorg/mozilla/javascript/Scriptable;"
-                        + "Ljava/lang/String;"
-                        + ")Ljava/lang/String;");
+        addDynamicInvoke(
+                "CONVERT:TYPEOFNAME:" + node.getString(), Bootstrapper.TYPEOF_NAME_SIGNATURE);
     }
 
     /**
@@ -3264,15 +3262,10 @@ class BodyCodegen {
                 break;
             case Token.NAME:
                 cfw.addALoad(variableObjectLocal);
-                cfw.addPush(child.getString()); // push name
+                String name = child.getString(); // push name
                 cfw.addALoad(contextLocal);
                 cfw.addPush(incrDecrMask);
-                addScriptRuntimeInvoke(
-                        "nameIncrDecr",
-                        "(Lorg/mozilla/javascript/Scriptable;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "I)Ljava/lang/Object;");
+                addDynamicInvoke("NAME:INCRDECR:" + name, Bootstrapper.INCRDECR_NAME_SIGNATURE);
                 break;
             case Token.GETPROPNOWARN:
                 throw Kit.codeBug();
@@ -3284,6 +3277,7 @@ class BodyCodegen {
                     cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
                     cfw.addPush(incrDecrMask);
+                    // Making this use INDY will require changing more up top
                     addScriptRuntimeInvoke(
                             "propIncrDecr",
                             "(Ljava/lang/Object;"
@@ -3438,9 +3432,9 @@ class BodyCodegen {
         // that we can return a 32-bit unsigned value, and call
         // toUint32 instead of toInt32.
         if (type == Token.URSH) {
-            addScriptRuntimeInvoke("toUint32", "(Ljava/lang/Object;)J");
+            addDynamicInvoke("CONVERT:TOUINT32", Bootstrapper.TOUINT32_SIGNATURE);
             generateExpression(child.getNext(), node);
-            addScriptRuntimeInvoke("toInt32", "(Ljava/lang/Object;)I");
+            addDynamicInvoke("CONVERT:TOINT32", Bootstrapper.TOINT32_SIGNATURE);
             // Looks like we need to explicitly mask the shift to 5 bits -
             // LUSHR takes 6 bits.
             cfw.addPush(31);
@@ -3961,7 +3955,7 @@ class BodyCodegen {
         cfw.add(ByteCode.POP);
 
         generateExpression(child.getNext(), node);
-        addScriptRuntimeInvoke("toBoolean", "(Ljava/lang/Object;)Z");
+        addDynamicInvoke("CONVERT:TOBOOLEAN", Bootstrapper.TOBOOLEAN_SIGNATURE);
         cfw.addALoad(variableObjectLocal);
         addScriptRuntimeInvoke(
                 "updateDotQuery",
@@ -4018,11 +4012,11 @@ class BodyCodegen {
     }
 
     private void addObjectToDouble() {
-        addScriptRuntimeInvoke("toNumber", "(Ljava/lang/Object;)D");
+        addDynamicInvoke("CONVERT:TONUMBER", Bootstrapper.TONUMBER_SIGNATURE);
     }
 
     private void addObjectToNumeric() {
-        addScriptRuntimeInvoke("toNumeric", "(Ljava/lang/Object;)Ljava/lang/Number;");
+        addDynamicInvoke("CONVERT:TONUMERIC", Bootstrapper.TONUMERIC_SIGNATURE);
     }
 
     private void addNewObjectArray(int size) {
@@ -4043,9 +4037,6 @@ class BodyCodegen {
     }
 
     private void addScriptRuntimeInvoke(String methodName, String methodSignature) {
-        if (Bootstrapper.DEBUG) {
-            System.out.println("ScriptRuntime: " + methodName);
-        }
         cfw.addInvoke(
                 ByteCode.INVOKESTATIC,
                 "org.mozilla.javascript.ScriptRuntime",
@@ -4054,9 +4045,6 @@ class BodyCodegen {
     }
 
     private void addOptRuntimeInvoke(String methodName, String methodSignature) {
-        if (Bootstrapper.DEBUG) {
-            System.out.println("OptRuntime: " + methodName);
-        }
         cfw.addInvoke(
                 ByteCode.INVOKESTATIC,
                 "org/mozilla/javascript/optimizer/OptRuntime",
