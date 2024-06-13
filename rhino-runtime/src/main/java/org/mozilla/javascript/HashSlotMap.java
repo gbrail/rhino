@@ -8,6 +8,7 @@ package org.mozilla.javascript;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.function.BiFunction;
 
 /**
  * This class implements the SlotMap interface using a java.util.HashMap. This class has more
@@ -17,7 +18,7 @@ import java.util.LinkedHashMap;
  */
 public class HashSlotMap implements SlotMap {
 
-    private final LinkedHashMap<Object, Slot> map = new LinkedHashMap<>();
+    private final LinkedHashMap<Slot.Key, Slot> map = new LinkedHashMap<>();
 
     @Override
     public int size() {
@@ -30,56 +31,52 @@ public class HashSlotMap implements SlotMap {
     }
 
     @Override
-    public Slot query(Object key, int index) {
-        Object name = makeKey(key, index);
-        return map.get(name);
+    public boolean has(Slot.Key key) {
+        return map.containsKey(key);
     }
 
     @Override
-    public Slot modify(Object key, int index, int attributes) {
-        Object name = makeKey(key, index);
-        Slot slot = map.get(name);
-        if (slot != null) {
-            return slot;
-        }
-
-        return createSlot(key, index, attributes);
+    public Slot query(Slot.Key key) {
+        return map.get(key);
     }
 
     @Override
-    public void replace(Slot oldSlot, Slot newSlot) {
-        Object name = makeKey(oldSlot);
-        map.put(name, newSlot);
+    public Slot modify(Slot.Key key, int attributes) {
+        return map.computeIfAbsent(key, k -> new Slot(k, attributes));
     }
 
-    private Slot createSlot(Object key, int index, int attributes) {
-        Slot newSlot = new Slot(key, index, attributes);
-        add(newSlot);
-        return newSlot;
+    @Override
+    @SuppressWarnings("unchecked")
+    public <S extends Slot> S compute(Slot.Key key, BiFunction<Slot.Key, Slot, S> c) {
+        Slot slot = map.compute(key, (k, s) -> c.apply(k, s));
+        // We can cast here because the function passsed us already
+        // is reqiured to return the right type.
+        return (S) slot;
     }
 
     @Override
     public void add(Slot newSlot) {
-        Object name = makeKey(newSlot);
-        map.put(name, newSlot);
+        map.put(newSlot.key, newSlot);
     }
 
     @Override
-    public void remove(Object key, int index) {
-        Object name = makeKey(key, index);
-        Slot slot = map.get(name);
-        if (slot != null) {
-            // non-configurable
-            if ((slot.getAttributes() & ScriptableObject.PERMANENT) != 0) {
-                Context cx = Context.getContext();
-                if (cx.isStrictMode()) {
-                    throw ScriptRuntime.typeErrorById(
-                            "msg.delete.property.with.configurable.false", key);
-                }
-                return;
-            }
-            map.remove(name);
-        }
+    public void remove(Slot.Key key) {
+        map.computeIfPresent(
+                key,
+                (k, slot) -> {
+                    if ((slot.getAttributes() & ScriptableObject.PERMANENT) != 0) {
+                        Context cx = Context.getContext();
+                        if (cx.isStrictMode()) {
+                            // If we throw the object will be unmodified
+                            throw ScriptRuntime.typeErrorById(
+                                    "msg.delete.property.with.configurable.false", key);
+                        }
+                        // If we return the slot it will remain
+                        return slot;
+                    }
+                    // If we return null the object will be deleted
+                    return null;
+                });
     }
 
     @Override
@@ -87,11 +84,11 @@ public class HashSlotMap implements SlotMap {
         return map.values().iterator();
     }
 
-    private Object makeKey(Object name, int index) {
-        return name == null ? String.valueOf(index) : name;
+    @Override
+    public long readLock() {
+        return 0;
     }
 
-    private Object makeKey(Slot slot) {
-        return slot.name == null ? String.valueOf(slot.indexOrHash) : slot.name;
-    }
+    @Override
+    public void unlockRead(long stamp) {}
 }

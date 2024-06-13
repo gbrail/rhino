@@ -9,6 +9,10 @@ public class LazyLoadSlot extends Slot {
         super(oldSlot);
     }
 
+    LazyLoadSlot(Slot.Key key, int attributes) {
+        super(key, attributes);
+    }
+
     @Override
     public Object getValue(Scriptable start) {
         Object val = this.value;

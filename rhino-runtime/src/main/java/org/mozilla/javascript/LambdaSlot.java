@@ -18,6 +18,10 @@ public class LambdaSlot extends Slot {
         super(oldSlot);
     }
 
+    LambdaSlot(Slot.Key key, int attributes) {
+        super(key, attributes);
+    }
+
     transient Supplier<Object> getter;
     transient Consumer<Object> setter;
 

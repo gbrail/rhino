@@ -6,6 +6,8 @@
 
 package org.mozilla.javascript;
 
+import java.util.function.BiFunction;
+
 /**
  * A SlotMap is an interface to the main data structure that contains all the "Slots" that back a
  * ScriptableObject. It is the primary property map in Rhino. It is Iterable but does not implement
@@ -16,36 +18,40 @@ package org.mozilla.javascript;
  * substantial performance regressions so we are doing the best that we can.
  */
 public interface SlotMap extends Iterable<Slot> {
-
     /** Return the size of the map. */
     int size();
 
     /** Return whether the map is empty. */
     boolean isEmpty();
 
+    /** Return whether the slot map contains the specified key. */
+    boolean has(Slot.Key key);
+
     /**
      * Return the Slot that matches EITHER "key" or "index". (It will use "key" if it is not null,
      * and otherwise "index".) If no slot exists, then create a default slot class.
      *
-     * @param key The key for the slot, which should be a String or a Symbol.
-     * @param index if key is zero, then this will be used as the key instead.
+     * @param key The key for the slot, which must be a String or a Symbol.
      * @param attributes the attributes to be set on the slot if a new slot is created. Existing
      *     slots will not be modified.
      * @return a Slot, which will be created anew if no such slot exists.
      */
-    Slot modify(Object key, int index, int attributes);
+    Slot modify(Slot.Key key, int attributes);
 
     /**
      * Retrieve the slot at EITHER key or index, or return null if the slot cannot be found.
      *
-     * @param key The key for the slot, which should be a String or a Symbol.
-     * @param index if key is zero, then this will be used as the key instead.
+     * @param key The key for the slot, which must be a String or a Symbol.
      * @return either the Slot that matched the key and index, or null
      */
-    Slot query(Object key, int index);
+    Slot query(Slot.Key key);
 
-    /** Replace "slot" with a new slot. This is used to change slot types. */
-    void replace(Slot oldSlot, Slot newSlot);
+    /**
+     * Replace the value of key with the slot computed by the "compute" method, and set attributes
+     * if requested. If "compute" throws an exception, make no change. If "compute" returns null,
+     * remove the mapping.
+     */
+    <S extends Slot> S compute(Slot.Key key, BiFunction<Slot.Key, Slot, S> c);
 
     /**
      * Insert a new slot to the map. Both "name" and "indexOrHash" must be populated. Note that
@@ -59,5 +65,9 @@ public interface SlotMap extends Iterable<Slot> {
      * @param key The key for the slot, which should be a String or a Symbol.
      * @param index if key is zero, then this will be used as the key instead.
      */
-    void remove(Object key, int index);
+    void remove(Slot.Key key);
+
+    long readLock();
+
+    void unlockRead(long stamp);
 }
