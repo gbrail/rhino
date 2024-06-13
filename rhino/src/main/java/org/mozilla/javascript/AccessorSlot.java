@@ -12,6 +12,10 @@ public class AccessorSlot extends Slot {
         super(oldSlot);
     }
 
+    AccessorSlot(Slot.Key key, int attributes) {
+        super(key, attributes);
+    }
+
     // The Getter and Setter may each be of a different type (JavaScript function, Java
     // function, or neither). So, use an abstraction to distinguish them.
     transient Getter getter;
@@ -48,7 +52,7 @@ public class AccessorSlot extends Slot {
             desc.setCommonDescriptorProperties(attr, getter == null && setter == null);
         }
 
-        String fName = name == null ? "f" : name.toString();
+        String fName = key.isIndex() ? "f" : key.toString();
         if (getter != null) {
             Function f = getter.asGetterFunction(fName, scope);
             desc.defineProperty("get", f == null ? Undefined.instance : f, ScriptableObject.EMPTY);

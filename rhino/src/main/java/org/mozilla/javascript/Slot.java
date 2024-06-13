@@ -3,6 +3,7 @@ package org.mozilla.javascript;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * A Slot is the base class for all properties stored in the ScriptableObject class. There are a
@@ -12,16 +13,118 @@ import java.io.Serializable;
  */
 public class Slot implements Serializable {
     private static final long serialVersionUID = -6090581677123995491L;
-    Object name; // This can change due to caching
-    int indexOrHash;
+
+    public static final class Key implements Serializable, Comparable<Key> {
+        private final Object name;
+        private final int index;
+        private final boolean isName;
+
+        public Key(Object n) {
+            this.name = n;
+            this.index = 0;
+            this.isName = true;
+        }
+
+        public Key(int index) {
+            this.name = null;
+            this.index = index;
+            this.isName = false;
+        }
+
+        public Key(Object n, int index) {
+            if (n == null) {
+                this.name = null;
+                this.index = index;
+                this.isName = false;
+            } else {
+                this.name = n;
+                this.index = 0;
+                this.isName = true;
+            }
+        }
+
+        public boolean isName() {
+            return isName;
+        }
+
+        public boolean isIndex() {
+            return !isName;
+        }
+
+        public Object getName() {
+            return name;
+        }
+
+        public int getIndex() {
+            return index;
+        }
+
+        public Object toObject() {
+            return isName ? name : Integer.valueOf(index);
+        }
+
+        @Override
+        public int hashCode() {
+            return isName ? name.hashCode() : index;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof Key)) {
+                return false;
+            }
+            Key k = (Key) o;
+            if (isName) {
+                if (!k.isName) {
+                    return false;
+                }
+                return Objects.equals(name, k.name);
+            }
+            if (k.isName) {
+                return false;
+            }
+            return index == k.index;
+        }
+
+        @Override
+        public int compareTo(Key k) {
+            if (isName) {
+                if (!k.isName) {
+                    // Indexes always come before everything else
+                    return 1;
+                }
+                if (name instanceof String) {
+                    if (k.name instanceof String) {
+                        return ((String) name).compareTo((String) k.name);
+                    }
+                    // Non-string keys come after string keys
+                    return -1;
+                }
+            }
+            if (k.isName) {
+                return -1;
+            }
+            if (index < k.index) {
+                return -1;
+            }
+            if (index > k.index) {
+                return 1;
+            }
+            return 0;
+        }
+
+        @Override
+        public String toString() {
+            return isName ? name.toString() : String.valueOf(index);
+        }
+    }
+
+    Key key;
     private short attributes;
     Object value;
-    transient Slot next; // next in hash table bucket
-    transient Slot orderedNext; // next in linked list
 
-    Slot(Object name, int indexOrHash, int attributes) {
-        this.name = name;
-        this.indexOrHash = indexOrHash;
+    Slot(Key key, int attributes) {
+        this.key = key;
         this.attributes = (short) attributes;
     }
 
@@ -41,19 +144,13 @@ public class Slot implements Serializable {
     }
 
     protected Slot(Slot oldSlot) {
-        name = oldSlot.name;
-        indexOrHash = oldSlot.indexOrHash;
+        key = oldSlot.key;
         attributes = oldSlot.attributes;
         value = oldSlot.value;
-        next = oldSlot.next;
-        orderedNext = oldSlot.orderedNext;
     }
 
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
-        if (name != null) {
-            indexOrHash = name.hashCode();
-        }
     }
 
     public final boolean setValue(Object value, Scriptable owner, Scriptable start) {
@@ -63,7 +160,7 @@ public class Slot implements Serializable {
     public boolean setValue(Object value, Scriptable owner, Scriptable start, boolean isThrow) {
         if ((attributes & ScriptableObject.READONLY) != 0) {
             if (isThrow) {
-                throw ScriptRuntime.typeErrorById("msg.modify.readonly", name);
+                throw ScriptRuntime.typeErrorById("msg.modify.readonly", key);
             }
             return true;
         }
@@ -100,8 +197,8 @@ public class Slot implements Serializable {
                 cx.hasFeature(Context.FEATURE_STRICT_MODE)) {
 
             String prop = "";
-            if (name != null) {
-                prop = "[" + start.getClassName() + "]." + name;
+            if (key != null) {
+                prop = "[" + start.getClassName() + "]." + key;
             }
             throw ScriptRuntime.typeErrorById(
                     "msg.set.prop.no.setter", prop, Context.toString(newValue));

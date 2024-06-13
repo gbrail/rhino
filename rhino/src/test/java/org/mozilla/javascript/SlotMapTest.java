@@ -2,6 +2,7 @@ package org.mozilla.javascript;
 
 import static org.junit.Assert.*;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -19,18 +20,16 @@ public class SlotMapTest {
     private final SlotMap map;
 
     public SlotMapTest(Class<SlotMap> mapClass)
-            throws IllegalAccessException, InstantiationException {
-        this.map = mapClass.newInstance();
+            throws IllegalAccessException, InstantiationException, InvocationTargetException,
+                    NoSuchMethodException {
+        this.map = mapClass.getDeclaredConstructor().newInstance();
     }
 
     @Parameterized.Parameters
     public static Collection<Object[]> mapTypes() {
         return Arrays.asList(
                 new Object[][] {
-                    {EmbeddedSlotMap.class},
-                    {HashSlotMap.class},
-                    {SlotMapContainer.class},
-                    {ThreadSafeSlotMapContainer.class},
+                    {HashSlotMap.class}, {ThreadSafeHashSlotMap.class},
                 });
     }
 
@@ -38,44 +37,34 @@ public class SlotMapTest {
     public void empty() {
         assertEquals(0, map.size());
         assertTrue(map.isEmpty());
-        assertNull(map.query("notfound", 0));
-        assertNull(map.query(null, 123));
+        assertNull(map.query(new Slot.Key("notfound")));
+        assertNull(map.query(new Slot.Key(123)));
     }
 
     @Test
     public void crudOneString() {
-        assertNull(map.query("foo", 0));
-        Slot slot = map.modify("foo", 0, 0);
+        assertNull(map.query(new Slot.Key("foo")));
+        Slot slot = map.modify(new Slot.Key("foo"), 0);
         assertNotNull(slot);
         slot.value = "Testing";
         assertEquals(1, map.size());
         assertFalse(map.isEmpty());
-        Slot newSlot = new Slot(slot);
-        map.replace(slot, newSlot);
-        Slot foundNewSlot = map.query("foo", 0);
-        assertEquals("Testing", foundNewSlot.value);
-        assertSame(foundNewSlot, newSlot);
-        map.remove("foo", 0);
-        assertNull(map.query("foo", 0));
+        map.remove(new Slot.Key("foo"));
+        assertNull(map.query(new Slot.Key("foo")));
         assertEquals(0, map.size());
         assertTrue(map.isEmpty());
     }
 
     @Test
     public void crudOneIndex() {
-        assertNull(map.query(null, 11));
-        Slot slot = map.modify(null, 11, 0);
+        assertNull(map.query(new Slot.Key(11)));
+        Slot slot = map.modify(new Slot.Key(11), 0);
         assertNotNull(slot);
         slot.value = "Testing";
         assertEquals(1, map.size());
         assertFalse(map.isEmpty());
-        Slot newSlot = new Slot(slot);
-        map.replace(slot, newSlot);
-        Slot foundNewSlot = map.query(null, 11);
-        assertEquals("Testing", foundNewSlot.value);
-        assertSame(foundNewSlot, newSlot);
-        map.remove(null, 11);
-        assertNull(map.query(null, 11));
+        map.remove(new Slot.Key(11));
+        assertNull(map.query(new Slot.Key(11)));
         assertEquals(0, map.size());
         assertTrue(map.isEmpty());
     }
@@ -85,11 +74,11 @@ public class SlotMapTest {
     @Test
     public void manyKeysAndIndices() {
         for (int i = 0; i < NUM_INDICES; i++) {
-            Slot newSlot = map.modify(null, i, 0);
+            Slot newSlot = map.modify(new Slot.Key(i), 0);
             newSlot.value = i;
         }
         for (String key : KEYS) {
-            Slot newSlot = map.modify(key, 0, 0);
+            Slot newSlot = map.modify(new Slot.Key(key), 0);
             newSlot.value = key;
         }
         assertEquals(KEYS.length + NUM_INDICES, map.size());
@@ -99,35 +88,31 @@ public class SlotMapTest {
         // Randomly replace some stuff
         for (int i = 0; i < 20; i++) {
             int ix = rand.nextInt(NUM_INDICES);
-            Slot slot = map.query(null, ix);
+            Slot slot = map.query(new Slot.Key(ix));
             assertNotNull(slot);
-            Slot newSlot = new Slot(slot);
-            map.replace(slot, newSlot);
         }
         for (int i = 0; i < 20; i++) {
             int ix = rand.nextInt(KEYS.length);
-            Slot slot = map.query(KEYS[ix], 0);
+            Slot slot = map.query(new Slot.Key(KEYS[ix]));
             assertNotNull(slot);
-            Slot newSlot = new Slot(slot);
-            map.replace(slot, newSlot);
         }
         verifyIndicesAndKeys();
 
         HashSet<Integer> removedIds = new HashSet<>();
         for (int i = 0; i < 20; i++) {
             int ix = rand.nextInt(NUM_INDICES);
-            map.remove(null, ix);
+            map.remove(new Slot.Key(ix));
             removedIds.add(ix);
         }
         HashSet<String> removedKeys = new HashSet<>();
         for (int i = 0; i < 20; i++) {
             int ix = rand.nextInt(NUM_INDICES);
-            map.remove(KEYS[ix], ix);
+            map.remove(new Slot.Key(KEYS[ix]));
             removedKeys.add(KEYS[ix]);
         }
 
         for (int i = 0; i < NUM_INDICES; i++) {
-            Slot slot = map.query(null, i);
+            Slot slot = map.query(new Slot.Key(i));
             if (removedIds.contains(i)) {
                 assertNull(slot);
             } else {
@@ -136,7 +121,7 @@ public class SlotMapTest {
             }
         }
         for (String key : KEYS) {
-            Slot slot = map.query(key, 0);
+            Slot slot = map.query(new Slot.Key(key));
             if (removedKeys.contains(key)) {
                 assertNull(slot);
             } else {
@@ -148,20 +133,18 @@ public class SlotMapTest {
 
     private void verifyIndicesAndKeys() {
         long lockStamp = 0;
-        if (map instanceof SlotMapContainer) {
-            lockStamp = ((SlotMapContainer) map).readLock();
-        }
+        lockStamp = map.readLock();
         try {
             Iterator<Slot> it = map.iterator();
             for (int i = 0; i < NUM_INDICES; i++) {
-                Slot slot = map.query(null, i);
+                Slot slot = map.query(new Slot.Key(i));
                 assertNotNull(slot);
                 assertEquals(i, slot.value);
                 assertTrue(it.hasNext());
                 assertEquals(slot, it.next());
             }
             for (String key : KEYS) {
-                Slot slot = map.query(key, 0);
+                Slot slot = map.query(new Slot.Key(key));
                 assertNotNull(slot);
                 assertEquals(key, slot.value);
                 assertTrue(it.hasNext());
@@ -169,9 +152,7 @@ public class SlotMapTest {
             }
             assertFalse(it.hasNext());
         } finally {
-            if (map instanceof SlotMapContainer) {
-                ((SlotMapContainer) map).unlockRead(lockStamp);
-            }
+            map.unlockRead(lockStamp);
         }
     }
 
