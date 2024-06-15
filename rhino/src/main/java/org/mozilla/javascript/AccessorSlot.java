@@ -80,7 +80,7 @@ public class AccessorSlot extends Slot {
     public boolean setValue(Object value, Scriptable owner, Scriptable start, boolean isThrow) {
         if (setter == null) {
             if (getter != null) {
-                throwNoSetterException(start, value);
+                checkNoSetterException(start, value);
                 return true;
             }
         } else {

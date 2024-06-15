@@ -188,7 +188,7 @@ public class Slot implements Serializable {
         return ScriptableObject.buildDataDescriptor(scope, value, attributes);
     }
 
-    protected void throwNoSetterException(Scriptable start, Object newValue) {
+    protected void checkNoSetterException(Scriptable start, Object newValue) {
         Context cx = Context.getContext();
         if (cx.isStrictMode()
                 ||
@@ -203,6 +203,19 @@ public class Slot implements Serializable {
             throw ScriptRuntime.typeErrorById(
                     "msg.set.prop.no.setter", prop, Context.toString(newValue));
         }
+    }
+
+    boolean checkIsPermanent() {
+        if ((attributes & ScriptableObject.PERMANENT) != 0) {
+            Context cx = Context.getContext();
+            if (cx.isStrictMode()) {
+                // If we throw the object will be unmodified
+                throw ScriptRuntime.typeErrorById(
+                        "msg.delete.property.with.configurable.false", key);
+            }
+            return true;
+        }
+        return false;
     }
 
     /**
