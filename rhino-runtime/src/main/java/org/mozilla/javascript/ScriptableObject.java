@@ -155,10 +155,18 @@ public abstract class ScriptableObject
         }
     }
 
+    /** Create the best possible slot map in this instance */
     private static SlotMap createSlotMap() {
         Context cx = Context.getCurrentContext();
-        if ((cx != null) && cx.hasFeature(Context.FEATURE_THREAD_SAFE_OBJECTS)) {
-            return new ThreadSafeHashSlotMap();
+        if (cx != null) {
+            if (cx.hasFeature(Context.FEATURE_THREAD_SAFE_OBJECTS)) {
+                // Thread-safe map is based on hash map
+                return new ThreadSafeHashSlotMap();
+            } else if (cx.getOptimizationLevel() >= 0) {
+                // Property maps enable inline caching, but only make sense for
+                // compiled mode as they add a bit of overhead otherwise
+                return new PropertyMapSlotMap();
+            }
         }
         return new HashSlotMap();
     }

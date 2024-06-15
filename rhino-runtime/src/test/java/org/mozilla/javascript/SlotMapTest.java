@@ -8,6 +8,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Random;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -17,19 +19,32 @@ public class SlotMapTest {
     // Random number generator with fixed seed to ensure repeatable tests
     private static final Random rand = new Random(0);
 
-    private final SlotMap map;
+    private final Class<SlotMap> mapClass;
+    private Context cx;
+    private SlotMap map;
 
-    public SlotMapTest(Class<SlotMap> mapClass)
-            throws IllegalAccessException, InstantiationException, InvocationTargetException,
-                    NoSuchMethodException {
-        this.map = mapClass.getDeclaredConstructor().newInstance();
+    public SlotMapTest(Class<SlotMap> mapClass) {
+        this.mapClass = mapClass;
+    }
+
+    @Before
+    public void init()
+            throws InstantiationException, IllegalAccessException, IllegalArgumentException,
+                    InvocationTargetException, NoSuchMethodException, SecurityException {
+        cx = Context.enter();
+        map = mapClass.getDeclaredConstructor().newInstance();
+    }
+
+    @After
+    public void close() {
+        Context.exit();
     }
 
     @Parameterized.Parameters
     public static Collection<Object[]> mapTypes() {
         return Arrays.asList(
                 new Object[][] {
-                    {HashSlotMap.class}, {ThreadSafeHashSlotMap.class},
+                    {HashSlotMap.class}, {ThreadSafeHashSlotMap.class}, {PropertyMapSlotMap.class},
                 });
     }
 
@@ -49,8 +64,14 @@ public class SlotMapTest {
         slot.value = "Testing";
         assertEquals(1, map.size());
         assertFalse(map.isEmpty());
+        slot = map.modify(new Slot.Key("foo"), 0);
+        assertEquals(1, map.size());
+        assertFalse(map.isEmpty());
         map.remove(new Slot.Key("foo"));
         assertNull(map.query(new Slot.Key("foo")));
+        assertEquals(0, map.size());
+        assertTrue(map.isEmpty());
+        map.remove(new Slot.Key("foo"));
         assertEquals(0, map.size());
         assertTrue(map.isEmpty());
     }
@@ -69,6 +90,57 @@ public class SlotMapTest {
         assertTrue(map.isEmpty());
     }
 
+    @Test
+    public void computeAdd() {
+        Slot slot =
+                map.compute(
+                        new Slot.Key(1),
+                        (k, s) -> {
+                            assertEquals(new Slot.Key(1), k);
+                            assertNull(s);
+                            return new Slot(k, 0);
+                        });
+        assertEquals(new Slot.Key(1), slot.key);
+        assertEquals(1, map.size());
+        Slot slot2 =
+                map.compute(
+                        new Slot.Key(1),
+                        (k, s) -> {
+                            assertEquals(new Slot.Key(1), k);
+                            assertSame(slot, s);
+                            return s;
+                        });
+        assertSame(slot2, slot);
+        assertEquals(1, map.size());
+    }
+
+    @Test
+    public void computeRemove() {
+        Slot slot = map.modify(new Slot.Key(1), 0);
+        assertEquals(1, map.size());
+        Slot slot2 =
+                map.compute(
+                        new Slot.Key(1),
+                        (k, s) -> {
+                            assertEquals(new Slot.Key(1), k);
+                            assertSame(slot, s);
+                            return s;
+                        });
+        assertSame(slot2, slot);
+        assertEquals(1, map.size());
+        Slot slot3 =
+                map.compute(
+                        new Slot.Key(1),
+                        (k, s) -> {
+                            assertEquals(new Slot.Key(1), k);
+                            assertSame(slot, s);
+                            return null;
+                        });
+        assertNull(slot3);
+        assertEquals(0, map.size());
+    }
+
+    // For good testing, should be bigger than max slot size
     private static final int NUM_INDICES = 67;
 
     @Test

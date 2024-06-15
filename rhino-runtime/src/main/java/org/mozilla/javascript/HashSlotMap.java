@@ -64,13 +64,7 @@ public class HashSlotMap implements SlotMap {
         map.computeIfPresent(
                 key,
                 (k, slot) -> {
-                    if ((slot.getAttributes() & ScriptableObject.PERMANENT) != 0) {
-                        Context cx = Context.getContext();
-                        if (cx.isStrictMode()) {
-                            // If we throw the object will be unmodified
-                            throw ScriptRuntime.typeErrorById(
-                                    "msg.delete.property.with.configurable.false", key);
-                        }
+                    if (slot.checkIsPermanent()) {
                         // If we return the slot it will remain
                         return slot;
                     }
