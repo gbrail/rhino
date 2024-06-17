@@ -16,29 +16,29 @@ public class Slot implements Serializable {
 
     public static final class Key implements Serializable, Comparable<Key> {
         private final Object name;
-        private final int index;
+        private final int indexOrHash;
         private final boolean isName;
 
         public Key(Object n) {
             this.name = n;
-            this.index = 0;
+            this.indexOrHash = n.hashCode();
             this.isName = true;
         }
 
         public Key(int index) {
             this.name = null;
-            this.index = index;
+            this.indexOrHash = index;
             this.isName = false;
         }
 
         public Key(Object n, int index) {
             if (n == null) {
                 this.name = null;
-                this.index = index;
+                this.indexOrHash = index;
                 this.isName = false;
             } else {
                 this.name = n;
-                this.index = 0;
+                this.indexOrHash = n.hashCode();
                 this.isName = true;
             }
         }
@@ -56,16 +56,16 @@ public class Slot implements Serializable {
         }
 
         public int getIndex() {
-            return index;
+            return indexOrHash;
         }
 
         public Object toObject() {
-            return isName ? name : Integer.valueOf(index);
+            return isName ? name : Integer.valueOf(indexOrHash);
         }
 
         @Override
         public int hashCode() {
-            return isName ? name.hashCode() : index;
+            return indexOrHash;
         }
 
         @Override
@@ -83,7 +83,7 @@ public class Slot implements Serializable {
             if (k.isName) {
                 return false;
             }
-            return index == k.index;
+            return indexOrHash == k.indexOrHash;
         }
 
         @Override
@@ -104,10 +104,10 @@ public class Slot implements Serializable {
             if (k.isName) {
                 return -1;
             }
-            if (index < k.index) {
+            if (indexOrHash < k.indexOrHash) {
                 return -1;
             }
-            if (index > k.index) {
+            if (indexOrHash > k.indexOrHash) {
                 return 1;
             }
             return 0;
@@ -115,7 +115,7 @@ public class Slot implements Serializable {
 
         @Override
         public String toString() {
-            return isName ? name.toString() : String.valueOf(index);
+            return isName ? name.toString() : String.valueOf(indexOrHash);
         }
     }
 
