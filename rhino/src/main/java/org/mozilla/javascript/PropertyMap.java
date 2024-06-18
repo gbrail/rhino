@@ -101,4 +101,17 @@ public class PropertyMap {
             child.print();
         }
     }
+
+    /**
+     * Property maps are compared using object identity.
+     */
+    @Override
+    public int hashCode() {
+        return System.identityHashCode(this);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return this == o;
+    }
 }

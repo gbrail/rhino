@@ -41,6 +41,11 @@ public class HashSlotMap implements SlotMap {
     }
 
     @Override
+    public CacheableResult<Slot> queryAndGetCacheInfo(Slot.Key key) {
+        return new CacheableResult<>(query(key));
+    }
+
+    @Override
     public Slot modify(Slot.Key key, int attributes) {
         return map.computeIfAbsent(key, k -> new Slot(k, attributes));
     }
@@ -85,4 +90,14 @@ public class HashSlotMap implements SlotMap {
 
     @Override
     public void unlockRead(long stamp) {}
+
+    @Override
+    public PropertyMap getPropertyMap() {
+        return null;
+    }
+
+    @Override
+    public Slot queryFromCache(int index) {
+        return null;
+    }
 }

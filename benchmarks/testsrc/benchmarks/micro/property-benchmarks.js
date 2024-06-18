@@ -29,3 +29,19 @@ function check(o) {
   }
   return x;
 }
+
+let obj = {
+  foo: 1,
+  bar: 2
+};
+for (var i = 0; i < 10; i++) {
+  check(obj);
+}
+
+let bobj = {
+  bar: 1,
+  foo: 2
+};
+for (var i = 0; i < 10; i++) {
+  check(bobj);
+}

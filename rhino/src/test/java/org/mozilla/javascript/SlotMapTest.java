@@ -13,6 +13,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.mozilla.javascript.SlotMap.CacheableResult;
 
 @RunWith(Parameterized.class)
 public class SlotMapTest {
@@ -88,6 +89,24 @@ public class SlotMapTest {
         assertNull(map.query(new Slot.Key(11)));
         assertEquals(0, map.size());
         assertTrue(map.isEmpty());
+    }
+
+    @Test
+    public void crudWithCache() {
+        Slot slot = map.modify(new Slot.Key("foo"), 0);
+        slot.value = "testing";
+        slot = map.modify(new Slot.Key("bar"), 0);
+        slot.value = 123;
+        CacheableResult<Slot> result = map.queryAndGetCacheInfo(new Slot.Key("foo"));
+        assertNotNull(result);
+        assertEquals("testing", result.getValue().value);
+        if (map instanceof PropertyMapSlotMap) {
+            assertNotNull(result.getPropertyMap());
+        }
+        if (result.getPropertyMap() != null) {
+            slot = map.queryFromCache(result.getIndex());
+            assertEquals("testing", slot.value);
+        }
     }
 
     @Test

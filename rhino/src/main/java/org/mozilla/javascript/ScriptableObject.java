@@ -162,10 +162,10 @@ public abstract class ScriptableObject
             if (cx.hasFeature(Context.FEATURE_THREAD_SAFE_OBJECTS)) {
                 // Thread-safe map is based on hash map
                 return new ThreadSafeHashSlotMap();
-            } else if (cx.getOptimizationLevel() >= 0) {
+            //} else if (cx.getOptimizationLevel() >= 0) {
                 // Property maps enable inline caching, but only make sense for
                 // compiled mode as they add a bit of overhead otherwise
-                return new PropertyMapSlotMap();
+                //return new PropertyMapSlotMap();
             }
         }
         return new HashSlotMap();
@@ -251,6 +251,24 @@ public abstract class ScriptableObject
             return Scriptable.NOT_FOUND;
         }
         return slot.getValue(start);
+    }
+
+    public SlotMap.CacheableResult<Object> getWithCacheInfo(String name, Scriptable start) {
+        SlotMap.CacheableResult<Slot> result = slotMap.queryAndGetCacheInfo(new Slot.Key(name));
+        if (result == null || result.getValue() == null) {
+            // Drive fallback behavior
+            return null;
+        }
+        return new SlotMap.CacheableResult<Object>(result, result.getValue().getValue(start));
+    }
+
+    public Object getFromCache(int index, Scriptable start) {
+        Slot slot = slotMap.queryFromCache(index);
+        return slot.getValue(start);
+    }
+
+    public PropertyMap getPropertyMap() {
+        return slotMap.getPropertyMap();
     }
 
     /**

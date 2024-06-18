@@ -114,7 +114,7 @@ public class Bootstrapper {
     public static CallSite bootstrap(MethodHandles.Lookup lookup, String name, MethodType mType)
             throws NoSuchMethodException, IllegalAccessException {
         if (DEBUG) {
-            // System.out.println("Bootstrap: " + name);
+            System.out.println("Bootstrap: " + name);
         }
         if (name.startsWith("PROP:")) {
             String opName = name.substring(5);
@@ -122,9 +122,10 @@ public class Bootstrapper {
                 // Interning is important here because this is only called once per call site
                 // and repeated calls are much faster when we do
                 String propertyName = opName.substring(4).intern();
-                MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle m = lookup.findStatic(ScriptRuntime.class, "getObjectProp", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 1, propertyName);
+                MethodType tt = mType.insertParameterTypes(0, PropertyCallSite.class);
+                PropertyCallSite site = new PropertyCallSite(propertyName, mType);
+                MethodHandle m = lookup.findStatic(DynamicOperations.class, "getObjectProp", tt);
+                MethodHandle mh = MethodHandles.insertArguments(m, 0, site);
                 return new ConstantCallSite(mh);
             } else if (opName.startsWith("GETNOWARN:")) {
                 String propertyName = opName.substring(10).intern();

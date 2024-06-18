@@ -4,6 +4,8 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.BiFunction;
 
+import org.mozilla.javascript.Slot.Key;
+
 public class PropertyMapSlotMap implements SlotMap {
 
     private PropertyMap propertyMap;
@@ -54,6 +56,23 @@ public class PropertyMapSlotMap implements SlotMap {
             return hashSlots.query(key);
         }
         return null;
+    }
+
+    @Override
+    public CacheableResult<Slot> queryAndGetCacheInfo(Slot.Key key) {
+        int ix = propertyMap.get(key);
+        if (ix >= 0 && ix < slots.length) {
+            return new CacheableResult<>(slots[ix], ix, propertyMap);
+        }
+        if (hashSlots != null) {
+            return new CacheableResult<>(hashSlots.query(key));
+        }
+        return null;
+    }
+
+    @Override
+    public Slot queryFromCache(int index) {
+        return slots[index];
     }
 
     /**
@@ -258,5 +277,10 @@ public class PropertyMapSlotMap implements SlotMap {
             }
             throw new NoSuchElementException();
         }
+    }
+
+    @Override
+    public PropertyMap getPropertyMap() {
+        return propertyMap;
     }
 }
