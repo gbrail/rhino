@@ -126,7 +126,8 @@ public class Bootstrapper {
                 PropertyCallSite site = new PropertyCallSite(propertyName, mType);
                 MethodHandle m = lookup.findStatic(DynamicOperations.class, "getObjectProp", tt);
                 MethodHandle mh = MethodHandles.insertArguments(m, 0, site);
-                return new ConstantCallSite(mh);
+                site.setTarget(mh);
+                return site;
             } else if (opName.startsWith("GETNOWARN:")) {
                 String propertyName = opName.substring(10).intern();
                 MethodType tt = mType.insertParameterTypes(1, String.class);

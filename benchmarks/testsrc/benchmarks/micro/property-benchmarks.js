@@ -9,6 +9,15 @@ function createObject(name) {
   }
 }
 
+function createAlternateObject(name) {
+  return {
+    baz: 3,
+    bar: 2,
+    foo: 1,
+    name: name,
+  }
+}
+
 function createObjectFieldByField(name) {
   let o = {};
   o.name = name;
@@ -18,17 +27,28 @@ function createObjectFieldByField(name) {
   return o;
 }
 
-function getName(o) {
-  return o.name;
+function getName(o, count) {
+  var name;
+  for (var i = 0; i < count; i++) {
+    name = o.name;
+  }
+  return name;
 }
 
-function check(o) {
-  const x = o.foo + o.bar;
-  if (x !== 3) {
-    throw "Expected 3, got" + x;
+function check(o, count) {
+  var x;
+  for (var i = 0; i < count; i++) {
+    x = o.foo + o.bar;
+    if (x !== 3) {
+      throw "Expected 3, got" + x;
+    }
   }
   return x;
 }
+
+const testObj = createObject();
+check(testObj);
+check(testObj);
 
 let obj = {
   foo: 1,

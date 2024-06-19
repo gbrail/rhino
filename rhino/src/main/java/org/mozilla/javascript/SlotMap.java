@@ -67,32 +67,26 @@ public interface SlotMap extends Iterable<Slot> {
      */
     void remove(Slot.Key key);
 
-    /**
-     * For a thread-safe property map, lock the map for reads in the style of StampedLock.
-     */
+    /** For a thread-safe property map, lock the map for reads in the style of StampedLock. */
     long readLock();
 
-    /**
-     * Unlock a call to readLock().
-     */
+    /** Unlock a call to readLock(). */
     void unlockRead(long stamp);
 
     /**
-     * Return the PropertyMap that backs this SlotMap, if any. This is used for
-     * handling inline caching.
+     * Return the PropertyMap that backs this SlotMap, if any. This is used for handling inline
+     * caching.
      */
     PropertyMap getPropertyMap();
 
     /**
-     * Retrieve the key in the slot referenced by the PropertyMap that matches
-     * this object. This will fail with undefined behavior unless the PropertyMap
-     * for this object matches the one used to look up the index.
+     * Retrieve the key in the slot referenced by the PropertyMap that matches this object. This
+     * will fail with undefined behavior unless the PropertyMap for this object matches the one used
+     * to look up the index.
      */
     Slot queryFromCache(int index);
 
-    /**
-     * Perform a query and return the property map and index that was used.
-     */
+    /** Perform a query and return the property map and index that was used. */
     CacheableResult<Slot> queryAndGetCacheInfo(Slot.Key key);
 
     public static final class CacheableResult<T> {

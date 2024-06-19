@@ -162,10 +162,10 @@ public abstract class ScriptableObject
             if (cx.hasFeature(Context.FEATURE_THREAD_SAFE_OBJECTS)) {
                 // Thread-safe map is based on hash map
                 return new ThreadSafeHashSlotMap();
-            //} else if (cx.getOptimizationLevel() >= 0) {
+            } else if (cx.getOptimizationLevel() >= 0) {
                 // Property maps enable inline caching, but only make sense for
                 // compiled mode as they add a bit of overhead otherwise
-                //return new PropertyMapSlotMap();
+                return new PropertyMapSlotMap();
             }
         }
         return new HashSlotMap();

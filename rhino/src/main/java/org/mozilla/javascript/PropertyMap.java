@@ -102,9 +102,7 @@ public class PropertyMap {
         }
     }
 
-    /**
-     * Property maps are compared using object identity.
-     */
+    /** Property maps are compared using object identity. */
     @Override
     public int hashCode() {
         return System.identityHashCode(this);

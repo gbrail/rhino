@@ -2,9 +2,6 @@ package org.mozilla.javascript.optimizer;
 
 import java.lang.invoke.MethodType;
 import java.lang.invoke.MutableCallSite;
-import java.util.Objects;
-import java.util.OptionalInt;
-
 import org.mozilla.javascript.PropertyMap;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.SlotMap;
@@ -17,6 +14,7 @@ public class PropertyCallSite extends MutableCallSite {
     public PropertyCallSite(String name, MethodType type) {
         super(type);
         propertyName = name;
+        DynamicOperations.callSites.increment();
     }
 
     public boolean isCacheFull() {
@@ -27,14 +25,14 @@ public class PropertyCallSite extends MutableCallSite {
         return propertyName;
     }
 
-    public OptionalInt getCacheIndex(ScriptableObject so) {
-        if (cachedMap1 != null && Objects.equals(cachedMap1, so.getPropertyMap())) {
+    public int getCacheIndex(ScriptableObject so) {
+        if (cachedMap1 == so.getPropertyMap()) {
             if (Bootstrapper.DEBUG) {
                 System.out.println("PROP " + propertyName + ": GET IX " + cachedIndex1);
             }
-            return OptionalInt.of(cachedIndex1);
+            return cachedIndex1;
         }
-        return OptionalInt.empty();
+        return -1;
     }
 
     public void cacheLocation(SlotMap.CacheableResult<Object> result) {

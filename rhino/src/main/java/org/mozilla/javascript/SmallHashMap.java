@@ -16,11 +16,9 @@ public class SmallHashMap<K, V> implements Map<K, V> {
     }
 
     public SmallHashMap(SmallHashMap<K, V> map) {
-        SmallHashMap<K, V> shm = (SmallHashMap<K, V>)map;
+        SmallHashMap<K, V> shm = (SmallHashMap<K, V>) map;
         buckets = new Item[map.buckets.length];
-        for (int i = 0; i < map.buckets.length; i++) {
-            
-        }
+        for (int i = 0; i < map.buckets.length; i++) {}
     }
 
     @Override
@@ -46,7 +44,7 @@ public class SmallHashMap<K, V> implements Map<K, V> {
 
     @Override
     public V get(Object k) {
-        K key = (K)k;
+        K key = (K) k;
         int ix = hashKey(key);
         Item<K, V> found = buckets[ix];
         while (found != null && !Objects.equals(key, found.key)) {
@@ -120,7 +118,7 @@ public class SmallHashMap<K, V> implements Map<K, V> {
     private int hashKey(K key) {
         return key.hashCode() & (buckets.length - 1);
     }
- 
+
     private static final class Item<K, V> {
         K key;
         V value;
