@@ -10,10 +10,10 @@ dependencies {
 
 jmh {
     // use this to include only some
-    includes = ['SunSpider']
+    includes = ['SlotMap']
     benchmarkMode = ['avgt']
     fork = 1
-    timeUnit = 'us'
+    timeUnit = 'ns'
     iterations = 3
     timeOnIteration = '5s'
     warmupIterations = 3

@@ -141,6 +141,23 @@ public class SlotMapBenchmark {
 
     @Benchmark
     @OperationsPerInvocation(100)
+    public Object mapQueryKey10EntriesCached(MapState state) {
+        SlotMap.CacheableResult<Slot> result = state.size10Map.queryAndGetCacheInfo(new Slot.Key(state.size10LastKey));
+        if (result.getPropertyMap() == null) {
+            throw new AssertionError();
+        }
+        Slot slot = null;
+        for (int i = 0; i < 100; i++) {
+            slot = state.size10Map.queryFromCache(result.getIndex());
+        }
+        if (slot == null) {
+            throw new AssertionError();
+        }
+        return slot;
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(100)
     public Object mapQueryKey100Entries(MapState state) {
         Slot slot = null;
         for (int i = 0; i < 100; i++) {

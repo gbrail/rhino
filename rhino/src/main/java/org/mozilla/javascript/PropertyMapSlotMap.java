@@ -4,8 +4,6 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.BiFunction;
 
-import org.mozilla.javascript.Slot.Key;
-
 public class PropertyMapSlotMap implements SlotMap {
 
     private PropertyMap propertyMap;
