@@ -9,6 +9,7 @@ import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.util.regex.Pattern;
 import org.mozilla.classfile.ByteCode;
 import org.mozilla.classfile.ClassFileWriter;
 import org.mozilla.javascript.ScriptRuntime;
@@ -97,260 +98,349 @@ public class Bootstrapper {
                     "bootstrap",
                     Bootstrapper.BOOTSTRAP_SIGNATURE);
 
+    private static final Pattern SEPARATOR = Pattern.compile(":");
+
     static final boolean DEBUG = false;
 
     /**
      * This method parses the operation names that we use in the INDY instructions to objects that
-     * our linkers will use to efficiently link the call sites. Supported names include:
-     *
-     * <ul>
-     *   <li>PROP:GET:name Get an object property called "name"
-     *   <li>PROP:GETNOWARN:name Get without a missing property warning
-     *   <li>PROP:SET:name Set it
-     *   <li>NAME:GET:name Get value "name" from the supplied scope
-     * </ul>
+     * our linkers will use to efficiently link the call sites.
      */
     @SuppressWarnings("unused")
     public static CallSite bootstrap(MethodHandles.Lookup lookup, String name, MethodType mType)
             throws NoSuchMethodException, IllegalAccessException {
         if (DEBUG) {
-            // System.out.println("Bootstrap: " + name);
+            System.out.println("Bootstrap: " + name);
         }
-        if (name.startsWith("PROP:")) {
-            String opName = name.substring(5);
-            if (opName.startsWith("GET:")) {
-                // Interning is important here because this is only called once per call site
-                // and repeated calls are much faster when we do
-                String propertyName = opName.substring(4).intern();
-                MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle m = lookup.findStatic(ScriptRuntime.class, "getObjectProp", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 1, propertyName);
-                return new ConstantCallSite(mh);
-            } else if (opName.startsWith("GETNOWARN:")) {
-                String propertyName = opName.substring(10).intern();
-                MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle m = lookup.findStatic(ScriptRuntime.class, "getObjectPropNoWarn", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 1, propertyName);
-                return new ConstantCallSite(mh);
-            } else if (opName.startsWith("SET:")) {
-                String propertyName = opName.substring(4).intern();
-                MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle m = lookup.findStatic(ScriptRuntime.class, "setObjectProp", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 1, propertyName);
-                return new ConstantCallSite(mh);
-            } else if (opName.startsWith("INCRDECR:")) {
-                String propertyName = opName.substring(9).intern();
-                MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle m = lookup.findStatic(ScriptRuntime.class, "propIncrDecr", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 1, propertyName);
-                return new ConstantCallSite(mh);
-            }
-        } else if (name.startsWith("NAME:")) {
-            String opName = name.substring(5);
-            if (opName.startsWith("GET:")) {
-                String propertyName = opName.substring(4).intern();
-                MethodType tt = mType.insertParameterTypes(2, String.class);
-                MethodHandle m = lookup.findStatic(ScriptRuntime.class, "name", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 2, propertyName);
-                return new ConstantCallSite(mh);
-            } else if (opName.startsWith("SET:")) {
-                String propertyName = opName.substring(4).intern();
-                MethodType tt = mType.insertParameterTypes(4, String.class);
-                MethodHandle m = lookup.findStatic(ScriptRuntime.class, "setName", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 4, propertyName);
-                return new ConstantCallSite(mh);
-            } else if (opName.startsWith("SETSTRICT:")) {
-                String propertyName = opName.substring(10).intern();
-                MethodType tt = mType.insertParameterTypes(4, String.class);
-                MethodHandle m = lookup.findStatic(ScriptRuntime.class, "strictSetName", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 4, propertyName);
-                return new ConstantCallSite(mh);
-            } else if (opName.startsWith("INCRDECR:")) {
-                String propertyName = opName.substring(9).intern();
-                MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle m = lookup.findStatic(ScriptRuntime.class, "nameIncrDecr", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 1, propertyName);
-                return new ConstantCallSite(mh);
-            }
-        } else if (name.startsWith("BIND:")) {
-            String propertyName = name.substring(5).intern();
-            MethodType tt = mType.insertParameterTypes(2, String.class);
-            MethodHandle m = lookup.findStatic(ScriptRuntime.class, "bind", tt);
-            MethodHandle mh = MethodHandles.insertArguments(m, 2, propertyName);
-            return new ConstantCallSite(mh);
-        } else if (name.startsWith("GETFUNCTHIS:")) {
-            String opName = name.substring(12);
-            if (opName.startsWith("PROP:")) {
-                String propertyName = opName.substring(5).intern();
-                MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle m =
-                        lookup.findStatic(ScriptRuntime.class, "getPropFunctionAndThis", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 1, propertyName);
-                return new ConstantCallSite(mh);
-            } else if (opName.startsWith("NAME:")) {
-                String propertyName = opName.substring(5).intern();
-                MethodType tt = mType.insertParameterTypes(0, String.class);
-                MethodHandle m =
-                        lookup.findStatic(ScriptRuntime.class, "getNameFunctionAndThis", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 0, propertyName);
-                return new ConstantCallSite(mh);
-            } else if (opName.equals("ELEM")) {
-                MethodHandle mh =
-                        lookup.findStatic(ScriptRuntime.class, "getElemFunctionAndThis", mType);
-                return new ConstantCallSite(mh);
-            } else if (opName.equals("VALUE")) {
-                MethodHandle mh =
-                        lookup.findStatic(ScriptRuntime.class, "getValueFunctionAndThis", mType);
-                return new ConstantCallSite(mh);
-            }
-        } else if (name.startsWith("OBJ:")) {
-            String oName = name.substring(4);
-            if (oName.startsWith("ELEM:")) {
-                String opName = oName.substring(5);
-                if (opName.equals("GET")) {
-                    MethodHandle mh =
-                            lookup.findStatic(ScriptRuntime.class, "getObjectElem", mType);
-                    return new ConstantCallSite(mh);
-                } else if (opName.equals("SET")) {
-                    MethodHandle mh =
-                            lookup.findStatic(ScriptRuntime.class, "setObjectElem", mType);
-                    return new ConstantCallSite(mh);
-                }
-            } else if (oName.startsWith("INDEX:")) {
-                String opName = oName.substring(6);
-                if (opName.equals("GET")) {
-                    MethodHandle mh =
-                            lookup.findStatic(ScriptRuntime.class, "getObjectIndex", mType);
-                    return new ConstantCallSite(mh);
-                } else if (opName.equals("SET")) {
-                    MethodHandle mh =
-                            lookup.findStatic(ScriptRuntime.class, "setObjectIndex", mType);
-                    return new ConstantCallSite(mh);
-                }
-            }
-        } else if (name.startsWith("CALL:")) {
-            String opName = name.substring(5);
-            if (opName.startsWith("NAME0:")) {
-                String propName = opName.substring(6).intern();
-                MethodType tt = mType.insertParameterTypes(0, String.class);
-                MethodHandle m = lookup.findStatic(OptRuntime.class, "callName0", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 0, propName);
-                return new ConstantCallSite(mh);
-            } else if (opName.startsWith("NAME:")) {
-                String propName = opName.substring(5).intern();
-                MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle m = lookup.findStatic(OptRuntime.class, "callName", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 1, propName);
-                return new ConstantCallSite(mh);
-            } else if (opName.startsWith("PROP0:")) {
-                String propName = opName.substring(6).intern();
-                MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle m = lookup.findStatic(OptRuntime.class, "callProp0", tt);
-                MethodHandle mh = MethodHandles.insertArguments(m, 1, propName);
-                return new ConstantCallSite(mh);
-            } else if (opName.equals("ZERO")) {
-                MethodHandle mh = lookup.findStatic(OptRuntime.class, "call0", mType);
-                return new ConstantCallSite(mh);
-            } else if (opName.equals("ONE")) {
-                MethodHandle mh = lookup.findStatic(OptRuntime.class, "call1", mType);
-                return new ConstantCallSite(mh);
-            } else if (opName.equals("TWO")) {
-                MethodHandle mh = lookup.findStatic(OptRuntime.class, "call2", mType);
-                return new ConstantCallSite(mh);
-            } else if (opName.equals("N")) {
-                MethodHandle mh = lookup.findStatic(OptRuntime.class, "callN", mType);
-                return new ConstantCallSite(mh);
-            }
-        } else if (name.startsWith("MATH:")) {
-            String opName = name.substring(5);
-            MethodHandle mh;
-            switch (opName) {
-                case "SUB":
-                    mh = lookup.findStatic(ScriptRuntime.class, "subtract", mType);
-                    return new ConstantCallSite(mh);
-                case "MUL":
-                    mh = lookup.findStatic(ScriptRuntime.class, "multiply", mType);
-                    return new ConstantCallSite(mh);
-                case "DIV":
-                    mh = lookup.findStatic(ScriptRuntime.class, "divide", mType);
-                    return new ConstantCallSite(mh);
-                case "MOD":
-                    mh = lookup.findStatic(ScriptRuntime.class, "remainder", mType);
-                    return new ConstantCallSite(mh);
-                case "EXP":
-                    mh = lookup.findStatic(ScriptRuntime.class, "exponentiate", mType);
-                    return new ConstantCallSite(mh);
-                case "BITOR":
-                    mh = lookup.findStatic(ScriptRuntime.class, "bitwiseOR", mType);
-                    return new ConstantCallSite(mh);
-                case "BITXOR":
-                    mh = lookup.findStatic(ScriptRuntime.class, "bitwiseXOR", mType);
-                    return new ConstantCallSite(mh);
-                case "BITAND":
-                    mh = lookup.findStatic(ScriptRuntime.class, "bitwiseAND", mType);
-                    return new ConstantCallSite(mh);
-                case "BITNOT":
-                    mh = lookup.findStatic(ScriptRuntime.class, "bitwiseNOT", mType);
-                    return new ConstantCallSite(mh);
-                case "RSH":
-                    mh = lookup.findStatic(ScriptRuntime.class, "signedRightShift", mType);
-                    return new ConstantCallSite(mh);
-                case "LSH":
-                    mh = lookup.findStatic(ScriptRuntime.class, "leftShift", mType);
-                    return new ConstantCallSite(mh);
-                case "ADD":
-                    mh = lookup.findStatic(ScriptRuntime.class, "add", mType);
-                    return new ConstantCallSite(mh);
-                case "ADDLEFT":
-                    mh = lookup.findStatic(OptRuntime.class, "add", mType);
-                    return new ConstantCallSite(mh);
-                case "ADDRIGHT":
-                    mh = lookup.findStatic(OptRuntime.class, "add", mType);
-                    return new ConstantCallSite(mh);
-                case "NEGATE":
-                    mh = lookup.findStatic(ScriptRuntime.class, "negate", mType);
-                    return new ConstantCallSite(mh);
-                case "CMP":
-                    mh = lookup.findStatic(ScriptRuntime.class, "compare", mType);
-                    return new ConstantCallSite(mh);
-                case "EQ":
-                    mh = lookup.findStatic(ScriptRuntime.class, "eq", mType);
-                    return new ConstantCallSite(mh);
-                case "SHALLOWEQ":
-                    mh = lookup.findStatic(ScriptRuntime.class, "shallowEq", mType);
-                    return new ConstantCallSite(mh);
-            }
-        } else if (name.startsWith("CONVERT:")) {
-            String opName = name.substring(8);
-            MethodHandle mh;
-            if (opName.startsWith("TYPEOFNAME:")) {
-                String prop = opName.substring(11).intern();
-                MethodType tt = mType.insertParameterTypes(1, String.class);
-                MethodHandle m = lookup.findStatic(ScriptRuntime.class, "typeofName", tt);
+
+        String[] tokens = SEPARATOR.split(name);
+        if (tokens.length < 2) {
+            // All operation names have at least two tokens
+            throw new NoSuchMethodException(name);
+        }
+        switch (tokens[0]) {
+            case "PROP":
+                return bootstrapProperties(lookup, mType, name, tokens);
+            case "NAME":
+                return bootstrapName(lookup, mType, name, tokens);
+            case "BIND":
+                return bootstrapBind(lookup, mType, name, tokens);
+            case "GETFUNCTHIS":
+                return bootstrapFuncThis(lookup, mType, name, tokens);
+            case "OBJ":
+                return bootstrapObject(lookup, mType, name, tokens);
+            case "CALL":
+                return bootstrapCall(lookup, mType, name, tokens);
+            case "MATH":
+                return bootstrapMath(lookup, mType, name, tokens);
+            case "CONVERT":
+                return bootstrapConvert(lookup, mType, name, tokens);
+            default:
+                throw new NoSuchMethodException(name);
+        }
+    }
+
+    private static CallSite bootstrapProperties(
+            MethodHandles.Lookup lookup, MethodType mType, String name, String[] tokens)
+            throws NoSuchMethodException, IllegalAccessException {
+        String prop = getPropertyName(name, tokens, 2);
+        MethodType tt;
+        MethodHandle m;
+        MethodHandle mh;
+
+        switch (tokens[1]) {
+            case "GET":
+                tt = mType.insertParameterTypes(1, String.class);
+                m = lookup.findStatic(ScriptRuntime.class, "getObjectProp", tt);
                 mh = MethodHandles.insertArguments(m, 1, prop);
                 return new ConstantCallSite(mh);
-            }
-            switch (opName) {
-                case "TYPEOF":
-                    mh = lookup.findStatic(ScriptRuntime.class, "typeof", mType);
-                    return new ConstantCallSite(mh);
-                case "TOBOOLEAN":
-                    mh = lookup.findStatic(ScriptRuntime.class, "toBoolean", mType);
-                    return new ConstantCallSite(mh);
-                case "TONUMBER":
-                    mh = lookup.findStatic(ScriptRuntime.class, "toNumber", mType);
-                    return new ConstantCallSite(mh);
-                case "TONUMERIC":
-                    mh = lookup.findStatic(ScriptRuntime.class, "toNumeric", mType);
-                    return new ConstantCallSite(mh);
-                case "TOINT32":
-                    mh = lookup.findStatic(ScriptRuntime.class, "toInt32", mType);
-                    return new ConstantCallSite(mh);
-                case "TOUINT32":
-                    mh = lookup.findStatic(ScriptRuntime.class, "toUint32", mType);
-                    return new ConstantCallSite(mh);
-            }
+            case "GETNOWARN":
+                tt = mType.insertParameterTypes(1, String.class);
+                m = lookup.findStatic(ScriptRuntime.class, "getObjectPropNoWarn", tt);
+                mh = MethodHandles.insertArguments(m, 1, prop);
+                return new ConstantCallSite(mh);
+            case "SET":
+                tt = mType.insertParameterTypes(1, String.class);
+                m = lookup.findStatic(ScriptRuntime.class, "setObjectProp", tt);
+                mh = MethodHandles.insertArguments(m, 1, prop);
+                return new ConstantCallSite(mh);
+            case "INCRDECR":
+                tt = mType.insertParameterTypes(1, String.class);
+                m = lookup.findStatic(ScriptRuntime.class, "propIncrDecr", tt);
+                mh = MethodHandles.insertArguments(m, 1, prop);
+                return new ConstantCallSite(mh);
+            default:
+                throw new NoSuchMethodException(name);
         }
-        throw new NoSuchMethodException(name);
+    }
+
+    private static CallSite bootstrapName(
+            MethodHandles.Lookup lookup, MethodType mType, String name, String[] tokens)
+            throws NoSuchMethodException, IllegalAccessException {
+        String prop = getPropertyName(name, tokens, 2);
+        MethodType tt;
+        MethodHandle m;
+        MethodHandle mh;
+
+        switch (tokens[1]) {
+            case "GET":
+                tt = mType.insertParameterTypes(2, String.class);
+                m = lookup.findStatic(ScriptRuntime.class, "name", tt);
+                mh = MethodHandles.insertArguments(m, 2, prop);
+                return new ConstantCallSite(mh);
+            case "SET":
+                tt = mType.insertParameterTypes(4, String.class);
+                m = lookup.findStatic(ScriptRuntime.class, "setName", tt);
+                mh = MethodHandles.insertArguments(m, 4, prop);
+                return new ConstantCallSite(mh);
+            case "SETSTRICT":
+                tt = mType.insertParameterTypes(4, String.class);
+                m = lookup.findStatic(ScriptRuntime.class, "strictSetName", tt);
+                mh = MethodHandles.insertArguments(m, 4, prop);
+                return new ConstantCallSite(mh);
+            case "INCRDECR":
+                tt = mType.insertParameterTypes(1, String.class);
+                m = lookup.findStatic(ScriptRuntime.class, "nameIncrDecr", tt);
+                mh = MethodHandles.insertArguments(m, 1, prop);
+                return new ConstantCallSite(mh);
+            default:
+                throw new NoSuchMethodException(name);
+        }
+    }
+
+    private static CallSite bootstrapBind(
+            MethodHandles.Lookup lookup, MethodType mType, String name, String[] tokens)
+            throws NoSuchMethodException, IllegalAccessException {
+        String prop = getPropertyName(name, tokens, 1);
+        MethodType tt = mType.insertParameterTypes(2, String.class);
+        MethodHandle m = lookup.findStatic(ScriptRuntime.class, "bind", tt);
+        MethodHandle mh = MethodHandles.insertArguments(m, 2, prop);
+        return new ConstantCallSite(mh);
+    }
+
+    private static CallSite bootstrapFuncThis(
+            MethodHandles.Lookup lookup, MethodType mType, String name, String[] tokens)
+            throws NoSuchMethodException, IllegalAccessException {
+        String prop;
+        MethodType tt;
+        MethodHandle m;
+        MethodHandle mh;
+
+        switch (tokens[1]) {
+            case "PROP":
+                prop = getPropertyName(name, tokens, 2);
+                tt = mType.insertParameterTypes(1, String.class);
+                m = lookup.findStatic(ScriptRuntime.class, "getPropFunctionAndThis", tt);
+                mh = MethodHandles.insertArguments(m, 1, prop);
+                return new ConstantCallSite(mh);
+            case "NAME":
+                prop = getPropertyName(name, tokens, 2);
+                tt = mType.insertParameterTypes(0, String.class);
+                m = lookup.findStatic(ScriptRuntime.class, "getNameFunctionAndThis", tt);
+                mh = MethodHandles.insertArguments(m, 0, prop);
+                return new ConstantCallSite(mh);
+            case "ELEM":
+                mh = lookup.findStatic(ScriptRuntime.class, "getElemFunctionAndThis", mType);
+                return new ConstantCallSite(mh);
+            case "VALUE":
+                mh = lookup.findStatic(ScriptRuntime.class, "getValueFunctionAndThis", mType);
+                return new ConstantCallSite(mh);
+            default:
+                throw new NoSuchMethodException(name);
+        }
+    }
+
+    private static CallSite bootstrapObject(
+            MethodHandles.Lookup lookup, MethodType mType, String name, String[] tokens)
+            throws NoSuchMethodException, IllegalAccessException {
+        MethodHandle mh;
+
+        if (tokens.length < 3) {
+            throw new NoSuchMethodException(name);
+        }
+
+        switch (tokens[1]) {
+            case "ELEM":
+                switch (tokens[2]) {
+                    case "GET":
+                        mh = lookup.findStatic(ScriptRuntime.class, "getObjectElem", mType);
+                        return new ConstantCallSite(mh);
+                    case "SET":
+                        mh = lookup.findStatic(ScriptRuntime.class, "setObjectElem", mType);
+                        return new ConstantCallSite(mh);
+                    default:
+                        throw new NoSuchMethodException(name);
+                }
+            case "INDEX":
+                switch (tokens[2]) {
+                    case "GET":
+                        mh = lookup.findStatic(ScriptRuntime.class, "getObjectIndex", mType);
+                        return new ConstantCallSite(mh);
+                    case "SET":
+                        mh = lookup.findStatic(ScriptRuntime.class, "setObjectIndex", mType);
+                        return new ConstantCallSite(mh);
+                    default:
+                        throw new NoSuchMethodException(name);
+                }
+            default:
+                throw new NoSuchMethodException(name);
+        }
+    }
+
+    private static CallSite bootstrapCall(
+            MethodHandles.Lookup lookup, MethodType mType, String name, String[] tokens)
+            throws NoSuchMethodException, IllegalAccessException {
+        String prop;
+        MethodType tt;
+        MethodHandle m;
+        MethodHandle mh;
+
+        switch (tokens[1]) {
+            case "NAME0":
+                prop = getPropertyName(name, tokens, 2);
+                tt = mType.insertParameterTypes(0, String.class);
+                m = lookup.findStatic(OptRuntime.class, "callName0", tt);
+                mh = MethodHandles.insertArguments(m, 0, prop);
+                return new ConstantCallSite(mh);
+            case "NAME":
+                prop = getPropertyName(name, tokens, 2);
+                tt = mType.insertParameterTypes(1, String.class);
+                m = lookup.findStatic(OptRuntime.class, "callName", tt);
+                mh = MethodHandles.insertArguments(m, 1, prop);
+                return new ConstantCallSite(mh);
+            case "PROP0":
+                prop = getPropertyName(name, tokens, 2);
+                tt = mType.insertParameterTypes(1, String.class);
+                m = lookup.findStatic(OptRuntime.class, "callProp0", tt);
+                mh = MethodHandles.insertArguments(m, 1, prop);
+                return new ConstantCallSite(mh);
+            case "ZERO":
+                mh = lookup.findStatic(OptRuntime.class, "call0", mType);
+                return new ConstantCallSite(mh);
+            case "ONE":
+                mh = lookup.findStatic(OptRuntime.class, "call1", mType);
+                return new ConstantCallSite(mh);
+            case "TWO":
+                mh = lookup.findStatic(OptRuntime.class, "call2", mType);
+                return new ConstantCallSite(mh);
+            case "N":
+                mh = lookup.findStatic(OptRuntime.class, "callN", mType);
+                return new ConstantCallSite(mh);
+            default:
+                throw new NoSuchMethodException(name);
+        }
+    }
+
+    private static CallSite bootstrapMath(
+            MethodHandles.Lookup lookup, MethodType mType, String name, String[] tokens)
+            throws NoSuchMethodException, IllegalAccessException {
+        MethodHandle mh;
+
+        switch (tokens[1]) {
+            case "SUB":
+                mh = lookup.findStatic(ScriptRuntime.class, "subtract", mType);
+                return new ConstantCallSite(mh);
+            case "MUL":
+                mh = lookup.findStatic(ScriptRuntime.class, "multiply", mType);
+                return new ConstantCallSite(mh);
+            case "DIV":
+                mh = lookup.findStatic(ScriptRuntime.class, "divide", mType);
+                return new ConstantCallSite(mh);
+            case "MOD":
+                mh = lookup.findStatic(ScriptRuntime.class, "remainder", mType);
+                return new ConstantCallSite(mh);
+            case "EXP":
+                mh = lookup.findStatic(ScriptRuntime.class, "exponentiate", mType);
+                return new ConstantCallSite(mh);
+            case "BITOR":
+                mh = lookup.findStatic(ScriptRuntime.class, "bitwiseOR", mType);
+                return new ConstantCallSite(mh);
+            case "BITXOR":
+                mh = lookup.findStatic(ScriptRuntime.class, "bitwiseXOR", mType);
+                return new ConstantCallSite(mh);
+            case "BITAND":
+                mh = lookup.findStatic(ScriptRuntime.class, "bitwiseAND", mType);
+                return new ConstantCallSite(mh);
+            case "BITNOT":
+                mh = lookup.findStatic(ScriptRuntime.class, "bitwiseNOT", mType);
+                return new ConstantCallSite(mh);
+            case "RSH":
+                mh = lookup.findStatic(ScriptRuntime.class, "signedRightShift", mType);
+                return new ConstantCallSite(mh);
+            case "LSH":
+                mh = lookup.findStatic(ScriptRuntime.class, "leftShift", mType);
+                return new ConstantCallSite(mh);
+            case "ADD":
+                mh = lookup.findStatic(ScriptRuntime.class, "add", mType);
+                return new ConstantCallSite(mh);
+            case "ADDLEFT":
+                mh = lookup.findStatic(OptRuntime.class, "add", mType);
+                return new ConstantCallSite(mh);
+            case "ADDRIGHT":
+                mh = lookup.findStatic(OptRuntime.class, "add", mType);
+                return new ConstantCallSite(mh);
+            case "NEGATE":
+                mh = lookup.findStatic(ScriptRuntime.class, "negate", mType);
+                return new ConstantCallSite(mh);
+            case "CMP":
+                mh = lookup.findStatic(ScriptRuntime.class, "compare", mType);
+                return new ConstantCallSite(mh);
+            case "EQ":
+                mh = lookup.findStatic(ScriptRuntime.class, "eq", mType);
+                return new ConstantCallSite(mh);
+            case "SHALLOWEQ":
+                mh = lookup.findStatic(ScriptRuntime.class, "shallowEq", mType);
+                return new ConstantCallSite(mh);
+            default:
+                throw new NoSuchMethodException(name);
+        }
+    }
+
+    private static CallSite bootstrapConvert(
+            MethodHandles.Lookup lookup, MethodType mType, String name, String[] tokens)
+            throws NoSuchMethodException, IllegalAccessException {
+        String prop;
+        MethodType tt;
+        MethodHandle m;
+        MethodHandle mh;
+
+        switch (tokens[1]) {
+            case "TYPEOFNAME":
+                prop = getPropertyName(name, tokens, 2);
+                tt = mType.insertParameterTypes(1, String.class);
+                m = lookup.findStatic(ScriptRuntime.class, "typeofName", tt);
+                mh = MethodHandles.insertArguments(m, 1, prop);
+                return new ConstantCallSite(mh);
+            case "TYPEOF":
+                mh = lookup.findStatic(ScriptRuntime.class, "typeof", mType);
+                return new ConstantCallSite(mh);
+            case "TOBOOLEAN":
+                mh = lookup.findStatic(ScriptRuntime.class, "toBoolean", mType);
+                return new ConstantCallSite(mh);
+            case "TONUMBER":
+                mh = lookup.findStatic(ScriptRuntime.class, "toNumber", mType);
+                return new ConstantCallSite(mh);
+            case "TONUMERIC":
+                mh = lookup.findStatic(ScriptRuntime.class, "toNumeric", mType);
+                return new ConstantCallSite(mh);
+            case "TOINT32":
+                mh = lookup.findStatic(ScriptRuntime.class, "toInt32", mType);
+                return new ConstantCallSite(mh);
+            case "TOUINT32":
+                mh = lookup.findStatic(ScriptRuntime.class, "toUint32", mType);
+                return new ConstantCallSite(mh);
+            default:
+                throw new NoSuchMethodException(name);
+        }
+    }
+
+    private static String getPropertyName(String name, String[] tokens, int pos)
+            throws NoSuchMethodException {
+        if (tokens.length <= pos) {
+            throw new NoSuchMethodException(name);
+        }
+        // Interning is important here because this is only called once per call site
+        // and repeated calls are much faster when we do
+        return tokens[pos].intern();
     }
 }
