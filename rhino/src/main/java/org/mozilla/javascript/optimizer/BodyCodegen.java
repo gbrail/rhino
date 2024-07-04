@@ -986,12 +986,10 @@ class BodyCodegen {
                 {
                     cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
-                    cfw.addPush(node.getString());
-                    addScriptRuntimeInvoke(
-                            "name",
+                    addDynamicInvoke(
+                            "NAME:GET:" + node.getString(),
                             "(Lorg/mozilla/javascript/Context;"
                                     + "Lorg/mozilla/javascript/Scriptable;"
-                                    + "Ljava/lang/String;"
                                     + ")Ljava/lang/Object;");
                 }
                 break;
@@ -1484,15 +1482,12 @@ class BodyCodegen {
                         generateExpression(child, node);
                         child = child.getNext();
                     }
-                    // Generate code for "ScriptRuntime.bind(varObj, "s")"
                     cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
-                    cfw.addPush(node.getString());
-                    addScriptRuntimeInvoke(
-                            "bind",
+                    addDynamicInvoke(
+                            "NAME:BIND:" + node.getString(),
                             "(Lorg/mozilla/javascript/Context;"
                                     + "Lorg/mozilla/javascript/Scriptable;"
-                                    + "Ljava/lang/String;"
                                     + ")Lorg/mozilla/javascript/Scriptable;");
                 }
                 break;
@@ -3401,13 +3396,11 @@ class BodyCodegen {
                 break;
             case Token.NAME:
                 cfw.addALoad(variableObjectLocal);
-                cfw.addPush(child.getString()); // push name
                 cfw.addALoad(contextLocal);
                 cfw.addPush(incrDecrMask);
-                addScriptRuntimeInvoke(
-                        "nameIncrDecr",
+                addDynamicInvoke(
+                        "NAME:INCRDECR:" + child.getString(),
                         "(Lorg/mozilla/javascript/Scriptable;"
-                                + "Ljava/lang/String;"
                                 + "Lorg/mozilla/javascript/Context;"
                                 + "I)Ljava/lang/Object;");
                 break;
@@ -3882,14 +3875,12 @@ class BodyCodegen {
         }
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        cfw.addPush(name);
-        addScriptRuntimeInvoke(
-                "setName",
+        addDynamicInvoke(
+                "NAME:SET:" + name,
                 "(Lorg/mozilla/javascript/Scriptable;"
                         + "Ljava/lang/Object;"
                         + "Lorg/mozilla/javascript/Context;"
                         + "Lorg/mozilla/javascript/Scriptable;"
-                        + "Ljava/lang/String;"
                         + ")Ljava/lang/Object;");
     }
 
@@ -3901,14 +3892,12 @@ class BodyCodegen {
         }
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        cfw.addPush(name);
-        addScriptRuntimeInvoke(
-                "strictSetName",
+        addDynamicInvoke(
+                "NAME:SETSTRICT:" + name,
                 "(Lorg/mozilla/javascript/Scriptable;"
                         + "Ljava/lang/Object;"
                         + "Lorg/mozilla/javascript/Context;"
                         + "Lorg/mozilla/javascript/Scriptable;"
-                        + "Ljava/lang/String;"
                         + ")Ljava/lang/Object;");
     }
 

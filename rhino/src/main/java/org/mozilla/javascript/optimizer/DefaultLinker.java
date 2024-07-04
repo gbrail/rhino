@@ -3,6 +3,8 @@ package org.mozilla.javascript.optimizer;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.invoke.SwitchPoint;
+
 import jdk.dynalink.NamedOperation;
 import jdk.dynalink.NamespaceOperation;
 import jdk.dynalink.Operation;
@@ -16,6 +18,10 @@ import org.mozilla.javascript.ScriptRuntime;
 
 class DefaultLinker implements GuardingDynamicLinker {
 
+    static final boolean DEBUG = true;
+
+    static final SwitchPoint[] EMPTY_SWITCH_POINTS = new SwitchPoint[]{};
+
     @Override
     public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svc)
             throws Exception {
@@ -23,6 +29,11 @@ class DefaultLinker implements GuardingDynamicLinker {
         Operation op = req.getCallSiteDescriptor().getOperation();
         String name = getName(op);
         op = NamedOperation.getBaseOperation(op);
+
+        if (DEBUG) {
+            System.out.println("Default link: " + op);
+        }
+
         if (NamespaceOperation.contains(op, StandardOperation.GET, StandardNamespace.PROPERTY)) {
             MethodType tt =
                     req.getCallSiteDescriptor()
@@ -49,12 +60,54 @@ class DefaultLinker implements GuardingDynamicLinker {
             MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "setObjectProp", tt);
             mh = MethodHandles.insertArguments(mh, 1, name);
             return new GuardedInvocation(mh);
+
+        } else if (NamespaceOperation.contains(op, StandardOperation.GET, RhinoNamespace.NAME)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(2, String.class);
+            MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "name", tt);
+            mh = MethodHandles.insertArguments(mh, 2, name);
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(op, StandardOperation.SET, RhinoNamespace.NAME)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(4, String.class);
+            MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "setName", tt);
+            mh = MethodHandles.insertArguments(mh, 4, name);
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(op, RhinoOperation.SETSTRICT, RhinoNamespace.NAME)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(4, String.class);
+            MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "strictSetName", tt);
+            mh = MethodHandles.insertArguments(mh, 4, name);
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(op, RhinoOperation.INCRDECR, RhinoNamespace.NAME)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(1, String.class);
+            MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "nameIncrDecr", tt);
+            mh = MethodHandles.insertArguments(mh, 1, name);
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(op, RhinoOperation.BIND, RhinoNamespace.NAME)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(2, String.class);
+            MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "bind", tt);
+            mh = MethodHandles.insertArguments(mh, 2, name);
+            return new GuardedInvocation(mh);
+
         } else {
             throw new UnsupportedOperationException(op.toString());
         }
     }
 
-    private String getName(Operation op) {
+    static String getName(Operation op) {
         Object nameObj = NamedOperation.getName(op);
         if (nameObj instanceof String) {
             return (String) nameObj;

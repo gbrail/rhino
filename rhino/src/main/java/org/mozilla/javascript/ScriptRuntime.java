@@ -1752,6 +1752,11 @@ public class ScriptRuntime {
         return result;
     }
 
+    public static Object getObjectProp(
+            Scriptable obj, String property, Context cx, Scriptable scope) {
+        return getObjectProp(obj, property, cx);
+    }
+
     /** @deprecated Use {@link #getObjectPropNoWarn(Object, String, Context, Scriptable)} instead */
     @Deprecated
     public static Object getObjectPropNoWarn(Object obj, String property, Context cx) {
@@ -1765,6 +1770,15 @@ public class ScriptRuntime {
             throw undefReadError(obj, property);
         }
         Object result = ScriptableObject.getProperty(sobj, property);
+        if (result == Scriptable.NOT_FOUND) {
+            return Undefined.instance;
+        }
+        return result;
+    }
+
+    public static Object getObjectPropNoWarn(
+            Scriptable obj, String property, Context cx, Scriptable scope) {
+        Object result = ScriptableObject.getProperty(obj, property);
         if (result == Scriptable.NOT_FOUND) {
             return Undefined.instance;
         }
@@ -1870,6 +1884,12 @@ public class ScriptRuntime {
     }
 
     public static Object setObjectProp(Scriptable obj, String property, Object value, Context cx) {
+        ScriptableObject.putProperty(obj, property, value);
+        return value;
+    }
+
+    public static Object setObjectProp(
+            Scriptable obj, String property, Object value, Context cx, Scriptable scope) {
         ScriptableObject.putProperty(obj, property, value);
         return value;
     }
@@ -2200,6 +2220,13 @@ public class ScriptRuntime {
             }
             bound.put(id, bound, value);
         }
+        return value;
+    }
+
+    public static Object setBoundName(
+            Scriptable bound, Object value, Context cx, Scriptable scope, String id) {
+        // Will deliberately throw NPE if bound == null
+        ScriptableObject.putProperty(bound, id, value);
         return value;
     }
 

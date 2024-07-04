@@ -3,6 +3,7 @@ package org.mozilla.javascript.optimizer;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.util.Arrays;
 import java.util.regex.Pattern;
 import jdk.dynalink.CallSiteDescriptor;
 import jdk.dynalink.DynamicLinker;
@@ -10,7 +11,7 @@ import jdk.dynalink.DynamicLinkerFactory;
 import jdk.dynalink.Operation;
 import jdk.dynalink.StandardNamespace;
 import jdk.dynalink.StandardOperation;
-import jdk.dynalink.linker.GuardingDynamicLinker;
+import jdk.dynalink.linker.support.CompositeTypeBasedGuardingDynamicLinker;
 import jdk.dynalink.support.SimpleRelinkableCallSite;
 import org.mozilla.classfile.ByteCode;
 import org.mozilla.classfile.ClassFileWriter;
@@ -29,9 +30,10 @@ public class Bootstrapper {
     private static final DynamicLinker linker;
 
     static {
-        GuardingDynamicLinker defaultLinker = new DefaultLinker();
         DynamicLinkerFactory factory = new DynamicLinkerFactory();
-        factory.setPrioritizedLinker(defaultLinker);
+        factory.setPrioritizedLinkers(
+                new CompositeTypeBasedGuardingDynamicLinker(Arrays.asList(new ScriptableLinker())),
+                new DefaultLinker());
         linker = factory.createLinker();
     }
 
@@ -58,6 +60,31 @@ public class Bootstrapper {
                 case "SET":
                     return StandardOperation.SET
                             .withNamespace(StandardNamespace.PROPERTY)
+                            .named(getNameSegment(tokens, name, 2));
+                default:
+                    throw new NoSuchMethodException(name);
+            }
+        } else if ("NAME".equals(namespaceName)) {
+            switch (opName) {
+                case "GET":
+                    return StandardOperation.GET
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+                case "SET":
+                    return StandardOperation.SET
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+                case "SETSTRICT":
+                    return RhinoOperation.SETSTRICT
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+                case "BIND":
+                    return RhinoOperation.BIND
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+                case "INCRDECR":
+                    return RhinoOperation.INCRDECR
+                            .withNamespace(RhinoNamespace.NAME)
                             .named(getNameSegment(tokens, name, 2));
                 default:
                     throw new NoSuchMethodException(name);
