@@ -31,7 +31,7 @@ class ScriptableLinker implements TypeBasedGuardingDynamicLinker {
         op = NamedOperation.getBaseOperation(op);
 
         if (DefaultLinker.DEBUG) {
-            System.out.println("Scriptable link attempt: " + op);
+            System.out.println("Scriptable link attempt: " + op + ':' + name);
         }
 
         if (NamespaceOperation.contains(op, StandardOperation.GET, StandardNamespace.PROPERTY)) {

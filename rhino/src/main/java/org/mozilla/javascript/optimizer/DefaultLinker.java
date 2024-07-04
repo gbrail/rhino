@@ -31,7 +31,7 @@ class DefaultLinker implements GuardingDynamicLinker {
         op = NamedOperation.getBaseOperation(op);
 
         if (DEBUG) {
-            System.out.println("Default link: " + op);
+            System.out.println("Default link: " + op + ':' + name);
         }
 
         if (NamespaceOperation.contains(op, StandardOperation.GET, StandardNamespace.PROPERTY)) {
@@ -110,7 +110,8 @@ class DefaultLinker implements GuardingDynamicLinker {
     static String getName(Operation op) {
         Object nameObj = NamedOperation.getName(op);
         if (nameObj instanceof String) {
-            return (String) nameObj;
+            // Interning this name is super duper important if we want to have good performance
+            return ((String) nameObj).intern();
         } else if (nameObj != null) {
             throw new UnsupportedOperationException(op.toString());
         } else {
