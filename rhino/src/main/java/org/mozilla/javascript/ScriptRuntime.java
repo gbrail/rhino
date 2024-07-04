@@ -3333,6 +3333,214 @@ public class ScriptRuntime {
         return result;
     }
 
+    public static Object namePreIncrement(
+            Scriptable scopeChain, String id, Context cx) {
+        Scriptable target;
+        Object value;
+        search:
+        {
+            do {
+                if (cx.useDynamicScope && scopeChain.getParentScope() == null) {
+                    scopeChain = checkDynamicScope(cx.topCallScope, scopeChain);
+                }
+                target = scopeChain;
+                do {
+                    if (target instanceof NativeWith
+                            && target.getPrototype() instanceof XMLObject) {
+                        break;
+                    }
+                    value = target.get(id, scopeChain);
+                    if (value != Scriptable.NOT_FOUND) {
+                        break search;
+                    }
+                    target = target.getPrototype();
+                } while (target != null);
+                scopeChain = scopeChain.getParentScope();
+            } while (scopeChain != null);
+            throw notFoundError(null, id);
+        }
+        return doScriptablePreIncrement(target, id, scopeChain, value);
+    }
+
+    private static Object doScriptablePreIncrement(
+            Scriptable target,
+            String id,
+            Scriptable protoChainStart,
+            Object value) {
+        Number number;
+        if (value instanceof Number) {
+            number = (Number) value;
+        } else {
+            number = toNumeric(value);
+        }
+
+        Number result;
+        if (number instanceof BigInteger) {
+            result = ((BigInteger) number).add(BigInteger.ONE);
+        } else {
+            result = number.doubleValue() + 1.0;
+        }
+
+        target.put(id, protoChainStart, result);
+        return result;
+    }
+
+    public static Object namePreDecrement(
+            Scriptable scopeChain, String id, Context cx) {
+        Scriptable target;
+        Object value;
+        search:
+        {
+            do {
+                if (cx.useDynamicScope && scopeChain.getParentScope() == null) {
+                    scopeChain = checkDynamicScope(cx.topCallScope, scopeChain);
+                }
+                target = scopeChain;
+                do {
+                    if (target instanceof NativeWith
+                            && target.getPrototype() instanceof XMLObject) {
+                        break;
+                    }
+                    value = target.get(id, scopeChain);
+                    if (value != Scriptable.NOT_FOUND) {
+                        break search;
+                    }
+                    target = target.getPrototype();
+                } while (target != null);
+                scopeChain = scopeChain.getParentScope();
+            } while (scopeChain != null);
+            throw notFoundError(null, id);
+        }
+        return doScriptablePreDecrement(target, id, scopeChain, value);
+    }
+
+    private static Object doScriptablePreDecrement(
+            Scriptable target,
+            String id,
+            Scriptable protoChainStart,
+            Object value) {
+        Number number;
+        if (value instanceof Number) {
+            number = (Number) value;
+        } else {
+            number = toNumeric(value);
+        }
+
+        Number result;
+        if (number instanceof BigInteger) {
+            result = ((BigInteger) number).subtract(BigInteger.ONE);
+        } else {
+            result = number.doubleValue() - 1.0;
+        }
+
+        target.put(id, protoChainStart, result);
+        return result;
+    }
+
+    public static Object namePostIncrement(
+            Scriptable scopeChain, String id, Context cx) {
+        Scriptable target;
+        Object value;
+        search:
+        {
+            do {
+                if (cx.useDynamicScope && scopeChain.getParentScope() == null) {
+                    scopeChain = checkDynamicScope(cx.topCallScope, scopeChain);
+                }
+                target = scopeChain;
+                do {
+                    if (target instanceof NativeWith
+                            && target.getPrototype() instanceof XMLObject) {
+                        break;
+                    }
+                    value = target.get(id, scopeChain);
+                    if (value != Scriptable.NOT_FOUND) {
+                        break search;
+                    }
+                    target = target.getPrototype();
+                } while (target != null);
+                scopeChain = scopeChain.getParentScope();
+            } while (scopeChain != null);
+            throw notFoundError(null, id);
+        }
+        return doScriptablePostIncrement(target, id, scopeChain, value);
+    }
+
+    private static Object doScriptablePostIncrement(
+        Scriptable target,
+        String id,
+        Scriptable protoChainStart,
+        Object value) {
+    Number number;
+    if (value instanceof Number) {
+        number = (Number) value;
+    } else {
+        number = toNumeric(value);
+    }
+
+    Number result;
+    if (number instanceof BigInteger) {
+        result = ((BigInteger) number).add(BigInteger.ONE);
+    } else {
+        result = number.doubleValue() + 1.0;
+    }
+
+    target.put(id, protoChainStart, result);
+    return number;
+}
+
+    public static Object namePostDecrement(
+            Scriptable scopeChain, String id, Context cx) {
+        Scriptable target;
+        Object value;
+        search:
+        {
+            do {
+                if (cx.useDynamicScope && scopeChain.getParentScope() == null) {
+                    scopeChain = checkDynamicScope(cx.topCallScope, scopeChain);
+                }
+                target = scopeChain;
+                do {
+                    if (target instanceof NativeWith
+                            && target.getPrototype() instanceof XMLObject) {
+                        break;
+                    }
+                    value = target.get(id, scopeChain);
+                    if (value != Scriptable.NOT_FOUND) {
+                        break search;
+                    }
+                    target = target.getPrototype();
+                } while (target != null);
+                scopeChain = scopeChain.getParentScope();
+            } while (scopeChain != null);
+            throw notFoundError(null, id);
+        }
+        return doScriptablePostDecrement(target, id, scopeChain, value);
+    }
+
+    private static Object doScriptablePostDecrement(
+        Scriptable target,
+        String id,
+        Scriptable protoChainStart,
+        Object value) {
+    Number number;
+    if (value instanceof Number) {
+        number = (Number) value;
+    } else {
+        number = toNumeric(value);
+    }
+
+    Number result;
+    if (number instanceof BigInteger) {
+        result = ((BigInteger) number).subtract(BigInteger.ONE);
+    } else {
+        result = number.doubleValue() - 1.0;
+    }
+
+    target.put(id, protoChainStart, result);
+    return number;
+}
+
     /** @deprecated Use {@link #elemIncrDecr(Object, Object, Context, Scriptable, int)} instead */
     @Deprecated
     public static Object elemIncrDecr(Object obj, Object index, Context cx, int incrDecrMask) {

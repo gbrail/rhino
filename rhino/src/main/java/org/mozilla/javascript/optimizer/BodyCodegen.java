@@ -3397,12 +3397,36 @@ class BodyCodegen {
             case Token.NAME:
                 cfw.addALoad(variableObjectLocal);
                 cfw.addALoad(contextLocal);
-                cfw.addPush(incrDecrMask);
-                addDynamicInvoke(
-                        "NAME:INCRDECR:" + child.getString(),
+                post = ((incrDecrMask & Node.POST_FLAG) != 0);
+                if (post) {
+                    if ((incrDecrMask & Node.DECR_FLAG) == 0) {
+                        addDynamicInvoke(
+                        "NAME:INCRPOST:" + child.getString(),
                         "(Lorg/mozilla/javascript/Scriptable;"
                                 + "Lorg/mozilla/javascript/Context;"
-                                + "I)Ljava/lang/Object;");
+                                + ")Ljava/lang/Object;");
+                    } else {
+                        addDynamicInvoke(
+                        "NAME:DECRPOST:" + child.getString(),
+                        "(Lorg/mozilla/javascript/Scriptable;"
+                                + "Lorg/mozilla/javascript/Context;"
+                                + ")Ljava/lang/Object;");
+                    }
+                } else {
+                    if ((incrDecrMask & Node.DECR_FLAG) == 0) {
+                        addDynamicInvoke(
+                        "NAME:INCRPRE:" + child.getString(),
+                        "(Lorg/mozilla/javascript/Scriptable;"
+                                + "Lorg/mozilla/javascript/Context;"
+                                + ")Ljava/lang/Object;");
+                    } else {
+                        addDynamicInvoke(
+                        "NAME:DECRPRE:" + child.getString(),
+                        "(Lorg/mozilla/javascript/Scriptable;"
+                                + "Lorg/mozilla/javascript/Context;"
+                                + ")Ljava/lang/Object;");
+                    }
+                }
                 break;
             case Token.GETPROPNOWARN:
                 throw Kit.codeBug();

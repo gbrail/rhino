@@ -85,14 +85,6 @@ class DefaultLinker implements GuardingDynamicLinker {
             MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "strictSetName", tt);
             mh = MethodHandles.insertArguments(mh, 4, name);
             return new GuardedInvocation(mh);
-        } else if (NamespaceOperation.contains(op, RhinoOperation.INCRDECR, RhinoNamespace.NAME)) {
-            MethodType tt =
-                    req.getCallSiteDescriptor()
-                            .getMethodType()
-                            .insertParameterTypes(1, String.class);
-            MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "nameIncrDecr", tt);
-            mh = MethodHandles.insertArguments(mh, 1, name);
-            return new GuardedInvocation(mh);
         } else if (NamespaceOperation.contains(op, RhinoOperation.BIND, RhinoNamespace.NAME)) {
             MethodType tt =
                     req.getCallSiteDescriptor()
@@ -100,6 +92,38 @@ class DefaultLinker implements GuardingDynamicLinker {
                             .insertParameterTypes(2, String.class);
             MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "bind", tt);
             mh = MethodHandles.insertArguments(mh, 2, name);
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(op, RhinoOperation.PREINCREMENT, RhinoNamespace.NAME)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(1, String.class);
+            MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "namePreIncrement", tt);
+            mh = MethodHandles.insertArguments(mh, 1, name);
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(op, RhinoOperation.POSTINCREMENT, RhinoNamespace.NAME)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(1, String.class);
+            MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "namePostIncrement", tt);
+            mh = MethodHandles.insertArguments(mh, 1, name);
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(op, RhinoOperation.PREDECREMENT, RhinoNamespace.NAME)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(1, String.class);
+            MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "namePreDecrement", tt);
+            mh = MethodHandles.insertArguments(mh, 1, name);
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(op, RhinoOperation.POSTDECREMENT, RhinoNamespace.NAME)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(1, String.class);
+            MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "namePostDecrement", tt);
+            mh = MethodHandles.insertArguments(mh, 1, name);
             return new GuardedInvocation(mh);
 
         } else {
