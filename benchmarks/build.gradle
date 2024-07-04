@@ -10,7 +10,7 @@ dependencies {
 
 jmh {
     // use this to include only some
-    includes = ['SunSpiderBenchmark.MathPartialState.mathPartialSums']
+    //includes = ['V8']
     benchmarkMode = ['avgt']
     fork = 1
     timeUnit = 'us'

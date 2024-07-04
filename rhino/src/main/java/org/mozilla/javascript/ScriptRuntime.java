@@ -3333,8 +3333,7 @@ public class ScriptRuntime {
         return result;
     }
 
-    public static Object namePreIncrement(
-            Scriptable scopeChain, String id, Context cx) {
+    public static Object namePreIncrement(Scriptable scopeChain, String id, Context cx) {
         Scriptable target;
         Object value;
         search:
@@ -3363,10 +3362,7 @@ public class ScriptRuntime {
     }
 
     private static Object doScriptablePreIncrement(
-            Scriptable target,
-            String id,
-            Scriptable protoChainStart,
-            Object value) {
+            Scriptable target, String id, Scriptable protoChainStart, Object value) {
         Number number;
         if (value instanceof Number) {
             number = (Number) value;
@@ -3385,8 +3381,7 @@ public class ScriptRuntime {
         return result;
     }
 
-    public static Object namePreDecrement(
-            Scriptable scopeChain, String id, Context cx) {
+    public static Object namePreDecrement(Scriptable scopeChain, String id, Context cx) {
         Scriptable target;
         Object value;
         search:
@@ -3415,10 +3410,7 @@ public class ScriptRuntime {
     }
 
     private static Object doScriptablePreDecrement(
-            Scriptable target,
-            String id,
-            Scriptable protoChainStart,
-            Object value) {
+            Scriptable target, String id, Scriptable protoChainStart, Object value) {
         Number number;
         if (value instanceof Number) {
             number = (Number) value;
@@ -3437,8 +3429,7 @@ public class ScriptRuntime {
         return result;
     }
 
-    public static Object namePostIncrement(
-            Scriptable scopeChain, String id, Context cx) {
+    public static Object namePostIncrement(Scriptable scopeChain, String id, Context cx) {
         Scriptable target;
         Object value;
         search:
@@ -3467,30 +3458,26 @@ public class ScriptRuntime {
     }
 
     private static Object doScriptablePostIncrement(
-        Scriptable target,
-        String id,
-        Scriptable protoChainStart,
-        Object value) {
-    Number number;
-    if (value instanceof Number) {
-        number = (Number) value;
-    } else {
-        number = toNumeric(value);
+            Scriptable target, String id, Scriptable protoChainStart, Object value) {
+        Number number;
+        if (value instanceof Number) {
+            number = (Number) value;
+        } else {
+            number = toNumeric(value);
+        }
+
+        Number result;
+        if (number instanceof BigInteger) {
+            result = ((BigInteger) number).add(BigInteger.ONE);
+        } else {
+            result = number.doubleValue() + 1.0;
+        }
+
+        target.put(id, protoChainStart, result);
+        return number;
     }
 
-    Number result;
-    if (number instanceof BigInteger) {
-        result = ((BigInteger) number).add(BigInteger.ONE);
-    } else {
-        result = number.doubleValue() + 1.0;
-    }
-
-    target.put(id, protoChainStart, result);
-    return number;
-}
-
-    public static Object namePostDecrement(
-            Scriptable scopeChain, String id, Context cx) {
+    public static Object namePostDecrement(Scriptable scopeChain, String id, Context cx) {
         Scriptable target;
         Object value;
         search:
@@ -3519,27 +3506,24 @@ public class ScriptRuntime {
     }
 
     private static Object doScriptablePostDecrement(
-        Scriptable target,
-        String id,
-        Scriptable protoChainStart,
-        Object value) {
-    Number number;
-    if (value instanceof Number) {
-        number = (Number) value;
-    } else {
-        number = toNumeric(value);
-    }
+            Scriptable target, String id, Scriptable protoChainStart, Object value) {
+        Number number;
+        if (value instanceof Number) {
+            number = (Number) value;
+        } else {
+            number = toNumeric(value);
+        }
 
-    Number result;
-    if (number instanceof BigInteger) {
-        result = ((BigInteger) number).subtract(BigInteger.ONE);
-    } else {
-        result = number.doubleValue() - 1.0;
-    }
+        Number result;
+        if (number instanceof BigInteger) {
+            result = ((BigInteger) number).subtract(BigInteger.ONE);
+        } else {
+            result = number.doubleValue() - 1.0;
+        }
 
-    target.put(id, protoChainStart, result);
-    return number;
-}
+        target.put(id, protoChainStart, result);
+        return number;
+    }
 
     /** @deprecated Use {@link #elemIncrDecr(Object, Object, Context, Scriptable, int)} instead */
     @Deprecated

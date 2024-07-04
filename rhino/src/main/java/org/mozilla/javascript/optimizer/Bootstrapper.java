@@ -1,8 +1,6 @@
 package org.mozilla.javascript.optimizer;
 
 import java.lang.invoke.CallSite;
-import java.lang.invoke.ConstantCallSite;
-import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.Arrays;
@@ -10,8 +8,6 @@ import java.util.regex.Pattern;
 import jdk.dynalink.CallSiteDescriptor;
 import jdk.dynalink.DynamicLinker;
 import jdk.dynalink.DynamicLinkerFactory;
-import jdk.dynalink.NamedOperation;
-import jdk.dynalink.NamespaceOperation;
 import jdk.dynalink.Operation;
 import jdk.dynalink.StandardNamespace;
 import jdk.dynalink.StandardOperation;
@@ -19,7 +15,6 @@ import jdk.dynalink.linker.support.CompositeTypeBasedGuardingDynamicLinker;
 import jdk.dynalink.support.ChainedCallSite;
 import org.mozilla.classfile.ByteCode;
 import org.mozilla.classfile.ClassFileWriter;
-import org.mozilla.javascript.ScriptRuntime;
 
 public class Bootstrapper {
     private static final Pattern SEPARATOR = Pattern.compile(":");
@@ -93,16 +88,16 @@ public class Bootstrapper {
                             .named(getNameSegment(tokens, name, 2));
                 case "DECRPRE":
                     return RhinoOperation.PREDECREMENT
-                        .withNamespace(RhinoNamespace.NAME)
-                        .named(getNameSegment(tokens, name, 2));
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
                 case "INCRPOST":
                     return RhinoOperation.POSTINCREMENT
                             .withNamespace(RhinoNamespace.NAME)
                             .named(getNameSegment(tokens, name, 2));
                 case "DECRPOST":
                     return RhinoOperation.POSTDECREMENT
-                        .withNamespace(RhinoNamespace.NAME)
-                        .named(getNameSegment(tokens, name, 2));
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
                 default:
                     throw new NoSuchMethodException(name);
             }

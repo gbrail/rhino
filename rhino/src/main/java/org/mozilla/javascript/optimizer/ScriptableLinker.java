@@ -42,7 +42,8 @@ class ScriptableLinker implements TypeBasedGuardingDynamicLinker {
                             .insertParameterTypes(1, String.class);
             MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "getObjectProp", tt);
             mh = MethodHandles.insertArguments(mh, 1, name);
-            return new GuardedInvocation(mh, null, DefaultLinker.EMPTY_SWITCH_POINTS, ClassCastException.class);
+            return new GuardedInvocation(
+                    mh, null, DefaultLinker.EMPTY_SWITCH_POINTS, ClassCastException.class);
         } else if (NamespaceOperation.contains(
                 op, RhinoOperation.GETNOWARN, StandardNamespace.PROPERTY)) {
             MethodType tt =
@@ -52,7 +53,8 @@ class ScriptableLinker implements TypeBasedGuardingDynamicLinker {
                             .insertParameterTypes(1, String.class);
             MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "getObjectPropNoWarn", tt);
             mh = MethodHandles.insertArguments(mh, 1, name);
-            return new GuardedInvocation(mh, null, DefaultLinker.EMPTY_SWITCH_POINTS, ClassCastException.class);
+            return new GuardedInvocation(
+                    mh, null, DefaultLinker.EMPTY_SWITCH_POINTS, ClassCastException.class);
         } else if (NamespaceOperation.contains(
                 op, StandardOperation.SET, StandardNamespace.PROPERTY)) {
             MethodType tt =
@@ -62,7 +64,8 @@ class ScriptableLinker implements TypeBasedGuardingDynamicLinker {
                             .insertParameterTypes(1, String.class);
             MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "setObjectProp", tt);
             mh = MethodHandles.insertArguments(mh, 1, name);
-            return new GuardedInvocation(mh, null, DefaultLinker.EMPTY_SWITCH_POINTS, ClassCastException.class);
+            return new GuardedInvocation(
+                    mh, null, DefaultLinker.EMPTY_SWITCH_POINTS, ClassCastException.class);
 
         } else if (NamespaceOperation.contains(op, StandardOperation.SET, RhinoNamespace.NAME)) {
             // If we get here, first argument is not null and we can skip the check
@@ -72,7 +75,8 @@ class ScriptableLinker implements TypeBasedGuardingDynamicLinker {
                             .insertParameterTypes(4, String.class);
             MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "setBoundName", tt);
             mh = MethodHandles.insertArguments(mh, 4, name);
-            return new GuardedInvocation(mh, null, DefaultLinker.EMPTY_SWITCH_POINTS, NullPointerException.class);
+            return new GuardedInvocation(
+                    mh, null, DefaultLinker.EMPTY_SWITCH_POINTS, NullPointerException.class);
 
         } else {
             if (DefaultLinker.DEBUG) {

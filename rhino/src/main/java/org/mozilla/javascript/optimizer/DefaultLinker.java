@@ -4,7 +4,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.SwitchPoint;
-
 import jdk.dynalink.NamedOperation;
 import jdk.dynalink.NamespaceOperation;
 import jdk.dynalink.Operation;
@@ -18,9 +17,9 @@ import org.mozilla.javascript.ScriptRuntime;
 
 class DefaultLinker implements GuardingDynamicLinker {
 
-    static final boolean DEBUG = true;
+    static final boolean DEBUG = false;
 
-    static final SwitchPoint[] EMPTY_SWITCH_POINTS = new SwitchPoint[]{};
+    static final SwitchPoint[] EMPTY_SWITCH_POINTS = new SwitchPoint[] {};
 
     @Override
     public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svc)
@@ -93,7 +92,8 @@ class DefaultLinker implements GuardingDynamicLinker {
             MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "bind", tt);
             mh = MethodHandles.insertArguments(mh, 2, name);
             return new GuardedInvocation(mh);
-        } else if (NamespaceOperation.contains(op, RhinoOperation.PREINCREMENT, RhinoNamespace.NAME)) {
+        } else if (NamespaceOperation.contains(
+                op, RhinoOperation.PREINCREMENT, RhinoNamespace.NAME)) {
             MethodType tt =
                     req.getCallSiteDescriptor()
                             .getMethodType()
@@ -101,7 +101,8 @@ class DefaultLinker implements GuardingDynamicLinker {
             MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "namePreIncrement", tt);
             mh = MethodHandles.insertArguments(mh, 1, name);
             return new GuardedInvocation(mh);
-        } else if (NamespaceOperation.contains(op, RhinoOperation.POSTINCREMENT, RhinoNamespace.NAME)) {
+        } else if (NamespaceOperation.contains(
+                op, RhinoOperation.POSTINCREMENT, RhinoNamespace.NAME)) {
             MethodType tt =
                     req.getCallSiteDescriptor()
                             .getMethodType()
@@ -109,7 +110,8 @@ class DefaultLinker implements GuardingDynamicLinker {
             MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "namePostIncrement", tt);
             mh = MethodHandles.insertArguments(mh, 1, name);
             return new GuardedInvocation(mh);
-        } else if (NamespaceOperation.contains(op, RhinoOperation.PREDECREMENT, RhinoNamespace.NAME)) {
+        } else if (NamespaceOperation.contains(
+                op, RhinoOperation.PREDECREMENT, RhinoNamespace.NAME)) {
             MethodType tt =
                     req.getCallSiteDescriptor()
                             .getMethodType()
@@ -117,7 +119,8 @@ class DefaultLinker implements GuardingDynamicLinker {
             MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "namePreDecrement", tt);
             mh = MethodHandles.insertArguments(mh, 1, name);
             return new GuardedInvocation(mh);
-        } else if (NamespaceOperation.contains(op, RhinoOperation.POSTDECREMENT, RhinoNamespace.NAME)) {
+        } else if (NamespaceOperation.contains(
+                op, RhinoOperation.POSTDECREMENT, RhinoNamespace.NAME)) {
             MethodType tt =
                     req.getCallSiteDescriptor()
                             .getMethodType()

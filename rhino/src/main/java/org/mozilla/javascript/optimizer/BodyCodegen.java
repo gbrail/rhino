@@ -3401,30 +3401,30 @@ class BodyCodegen {
                 if (post) {
                     if ((incrDecrMask & Node.DECR_FLAG) == 0) {
                         addDynamicInvoke(
-                        "NAME:INCRPOST:" + child.getString(),
-                        "(Lorg/mozilla/javascript/Scriptable;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + ")Ljava/lang/Object;");
+                                "NAME:INCRPOST:" + child.getString(),
+                                "(Lorg/mozilla/javascript/Scriptable;"
+                                        + "Lorg/mozilla/javascript/Context;"
+                                        + ")Ljava/lang/Object;");
                     } else {
                         addDynamicInvoke(
-                        "NAME:DECRPOST:" + child.getString(),
-                        "(Lorg/mozilla/javascript/Scriptable;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + ")Ljava/lang/Object;");
+                                "NAME:DECRPOST:" + child.getString(),
+                                "(Lorg/mozilla/javascript/Scriptable;"
+                                        + "Lorg/mozilla/javascript/Context;"
+                                        + ")Ljava/lang/Object;");
                     }
                 } else {
                     if ((incrDecrMask & Node.DECR_FLAG) == 0) {
                         addDynamicInvoke(
-                        "NAME:INCRPRE:" + child.getString(),
-                        "(Lorg/mozilla/javascript/Scriptable;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + ")Ljava/lang/Object;");
+                                "NAME:INCRPRE:" + child.getString(),
+                                "(Lorg/mozilla/javascript/Scriptable;"
+                                        + "Lorg/mozilla/javascript/Context;"
+                                        + ")Ljava/lang/Object;");
                     } else {
                         addDynamicInvoke(
-                        "NAME:DECRPRE:" + child.getString(),
-                        "(Lorg/mozilla/javascript/Scriptable;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + ")Ljava/lang/Object;");
+                                "NAME:DECRPRE:" + child.getString(),
+                                "(Lorg/mozilla/javascript/Scriptable;"
+                                        + "Lorg/mozilla/javascript/Context;"
+                                        + ")Ljava/lang/Object;");
                     }
                 }
                 break;
