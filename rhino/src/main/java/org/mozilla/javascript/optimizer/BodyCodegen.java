@@ -21,6 +21,7 @@ import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Token;
 import org.mozilla.javascript.ast.FunctionNode;
 import org.mozilla.javascript.ast.Jump;
+import org.mozilla.javascript.ast.ParenthesizedExpression;
 import org.mozilla.javascript.ast.ScriptNode;
 
 class BodyCodegen {
@@ -3395,38 +3396,37 @@ class BodyCodegen {
                 }
                 break;
             case Token.NAME:
-                cfw.addALoad(variableObjectLocal);
-                cfw.addALoad(contextLocal);
                 post = ((incrDecrMask & Node.POST_FLAG) != 0);
+                cfw.addALoad(contextLocal);
+                cfw.addALoad(variableObjectLocal);
+                addDynamicInvoke(
+                            "NAME:GET:" + child.getString(),
+                            "(Lorg/mozilla/javascript/Context;"
+                                    + "Lorg/mozilla/javascript/Scriptable;"
+                                    + ")Ljava/lang/Object;");
                 if (post) {
-                    if ((incrDecrMask & Node.DECR_FLAG) == 0) {
-                        addDynamicInvoke(
-                                "NAME:INCRPOST:" + child.getString(),
-                                "(Lorg/mozilla/javascript/Scriptable;"
-                                        + "Lorg/mozilla/javascript/Context;"
-                                        + ")Ljava/lang/Object;");
-                    } else {
-                        addDynamicInvoke(
-                                "NAME:DECRPOST:" + child.getString(),
-                                "(Lorg/mozilla/javascript/Scriptable;"
-                                        + "Lorg/mozilla/javascript/Context;"
-                                        + ")Ljava/lang/Object;");
-                    }
-                } else {
-                    if ((incrDecrMask & Node.DECR_FLAG) == 0) {
-                        addDynamicInvoke(
-                                "NAME:INCRPRE:" + child.getString(),
-                                "(Lorg/mozilla/javascript/Scriptable;"
-                                        + "Lorg/mozilla/javascript/Context;"
-                                        + ")Ljava/lang/Object;");
-                    } else {
-                        addDynamicInvoke(
-                                "NAME:DECRPRE:" + child.getString(),
-                                "(Lorg/mozilla/javascript/Scriptable;"
-                                        + "Lorg/mozilla/javascript/Context;"
-                                        + ")Ljava/lang/Object;");
-                    }
+                    cfw.add(ByteCode.DUP);
                 }
+                if ((incrDecrMask & Node.DECR_FLAG) == 0) {
+                    addScriptRuntimeInvoke("increment", "(Ljava/lang/Object;)Ljava/lang/Object;");
+                } else {
+                    addScriptRuntimeInvoke("decrement", "(Ljava/lang/Object;)Ljava/lang/Object;");
+                }
+                cfw.addALoad(variableObjectLocal);
+                cfw.add(ByteCode.SWAP);
+                cfw.addALoad(contextLocal);
+                cfw.addALoad(variableObjectLocal);
+                addDynamicInvoke(
+                "NAME:SET:" + child.getString(),
+                "(Lorg/mozilla/javascript/Scriptable;"
+                        + "Ljava/lang/Object;"
+                        + "Lorg/mozilla/javascript/Context;"
+                        + "Lorg/mozilla/javascript/Scriptable;"
+                        + ")Ljava/lang/Object;");
+                if (post) {
+                    cfw.add(ByteCode.POP);
+                }
+            
                 break;
             case Token.GETPROPNOWARN:
                 throw Kit.codeBug();

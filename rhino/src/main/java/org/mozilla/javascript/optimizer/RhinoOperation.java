@@ -6,8 +6,4 @@ public enum RhinoOperation implements Operation {
     GETNOWARN,
     SETSTRICT,
     BIND,
-    PREINCREMENT,
-    POSTINCREMENT,
-    PREDECREMENT,
-    POSTDECREMENT,
 }

@@ -82,22 +82,6 @@ public class Bootstrapper {
                     return RhinoOperation.BIND
                             .withNamespace(RhinoNamespace.NAME)
                             .named(getNameSegment(tokens, name, 2));
-                case "INCRPRE":
-                    return RhinoOperation.PREINCREMENT
-                            .withNamespace(RhinoNamespace.NAME)
-                            .named(getNameSegment(tokens, name, 2));
-                case "DECRPRE":
-                    return RhinoOperation.PREDECREMENT
-                            .withNamespace(RhinoNamespace.NAME)
-                            .named(getNameSegment(tokens, name, 2));
-                case "INCRPOST":
-                    return RhinoOperation.POSTINCREMENT
-                            .withNamespace(RhinoNamespace.NAME)
-                            .named(getNameSegment(tokens, name, 2));
-                case "DECRPOST":
-                    return RhinoOperation.POSTDECREMENT
-                            .withNamespace(RhinoNamespace.NAME)
-                            .named(getNameSegment(tokens, name, 2));
                 default:
                     throw new NoSuchMethodException(name);
             }
