@@ -23,6 +23,11 @@ public class ShapedSlotMap implements SlotMap {
     }
 
     @Override
+    public ObjectShape getShape() {
+        return shape;
+    }
+
+    @Override
     public int size() {
         return slots.size();
     }
@@ -42,11 +47,13 @@ public class ShapedSlotMap implements SlotMap {
         return null;
     }
 
+    @Override
     public OptionalInt queryFastIndex(Object name, int index) {
         Object key = makeKey(name, index);
         return shape.getProperty(key);
     }
 
+    @Override
     public Slot queryFast(int fastIndex) {
         return slots.get(fastIndex);
     }

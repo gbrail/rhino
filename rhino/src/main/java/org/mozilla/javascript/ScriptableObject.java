@@ -176,6 +176,11 @@ public abstract class ScriptableObject
         slotMap = createSlotMap(0);
     }
 
+    /** Used by internal implementations, mainly the bytecode, to access properties quickly. */
+    public SlotMap getSlotMap() {
+        return slotMap;
+    }
+
     /**
      * Gets the value that will be returned by calling the typeof operator on this object.
      *

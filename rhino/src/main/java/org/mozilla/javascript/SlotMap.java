@@ -6,6 +6,8 @@
 
 package org.mozilla.javascript;
 
+import java.util.OptionalInt;
+
 /**
  * A SlotMap is an interface to the main data structure that contains all the "Slots" that back a
  * ScriptableObject. It is the primary property map in Rhino. It is Iterable but does not implement
@@ -64,4 +66,30 @@ public interface SlotMap extends Iterable<Slot> {
      * ScriptableObject generally adds slots via the "modify" method.
      */
     void add(Slot newSlot);
+
+    /**
+     * Return the shape of the object represented by this slot map. If the implementation is not
+     * based on shapes, it will return null.
+     */
+    public default ObjectShape getShape() {
+        return null;
+    }
+
+    /**
+     * Return an integer that may be used later by "queryFast" to quickly access the slot with the
+     * matching name and index, or return an empty result if there is no such property or if the
+     * slot map is not based on object shapes.
+     */
+    public default OptionalInt queryFastIndex(Object name, int index) {
+        return OptionalInt.empty();
+    }
+
+    /**
+     * Return the slot using the index retured by queryFastIndex(). This will always return the slot
+     * so long as the result of "getShape()" is the same as it was when queryFastIndex() was called.
+     * Otherwise, the results are undefined. It is up to the caller to check this.
+     */
+    public default Slot queryFast(int fastIndex) {
+        throw new UnsupportedOperationException("queryFast");
+    }
 }
