@@ -38,10 +38,10 @@ class SlotMapContainer implements SlotMap {
     SlotMapContainer(int initialSize) {
         if (initialSize > LARGE_HASH_SIZE) {
             map = new HashSlotMap();
-        } else if (initialSize > SMALL_HASH_SIZE) {
+        } else { // if (initialSize > SMALL_HASH_SIZE) {
             map = new EmbeddedSlotMap();
-        } else {
-            map = new ShapedSlotMap();
+            // } else {
+            //    map = new ShapedSlotMap();
         }
     }
 

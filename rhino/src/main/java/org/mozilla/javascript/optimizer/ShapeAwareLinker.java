@@ -144,6 +144,74 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
                     return new GuardedInvocation(callHandle, guardHandle);
                 */
             }
+
+        } else if (NamespaceOperation.contains(op, StandardOperation.GET, RhinoNamespace.NAME)
+                && (target.getParentScope() == null)) {
+            OptionalInt fastIndex = target.getSlotMap().queryFastIndex(name, 0);
+            if (fastIndex.isPresent()) {
+                // Same basic algorithm as getting a property, in that we get the index
+                // and use it later for fast access.
+                MethodType guardType =
+                        req.getCallSiteDescriptor()
+                                .getMethodType()
+                                .changeReturnType(Boolean.TYPE)
+                                .insertParameterTypes(2, ObjectShape.class);
+                MethodHandle guardHandle =
+                        lookup.findStatic(
+                                ShapeAwareLinker.class, "isFastIndexValidForNameRead", guardType);
+                guardHandle =
+                        MethodHandles.insertArguments(
+                                guardHandle, 2, target.getSlotMap().getShape());
+
+                MethodType callType =
+                        req.getCallSiteDescriptor()
+                                .getMethodType()
+                                .insertParameterTypes(2, Integer.TYPE);
+                MethodHandle callHandle =
+                        lookup.findStatic(ShapeAwareLinker.class, "queryNameFastIndex", callType);
+                callHandle = MethodHandles.insertArguments(callHandle, 2, fastIndex.getAsInt());
+
+                if (DefaultLinker.DEBUG) {
+                    System.out.println(
+                            "Fast link: " + op + ':' + name + " index " + fastIndex.getAsInt());
+                }
+
+                return new GuardedInvocation(callHandle, guardHandle);
+            }
+
+        } else if (NamespaceOperation.contains(op, StandardOperation.SET, RhinoNamespace.NAME)
+                || NamespaceOperation.contains(op, RhinoOperation.SETSTRICT, RhinoNamespace.NAME)) {
+            OptionalInt fastIndex = target.getSlotMap().queryFastIndex(name, 0);
+            if (fastIndex.isPresent()) {
+                // Same basic algorithm as getting a property, in that we get the index
+                // and use it later for fast access.
+                MethodType guardType =
+                        req.getCallSiteDescriptor()
+                                .getMethodType()
+                                .changeReturnType(Boolean.TYPE)
+                                .insertParameterTypes(4, ObjectShape.class);
+                MethodHandle guardHandle =
+                        lookup.findStatic(
+                                ShapeAwareLinker.class, "isFastIndexValidForNameWrite", guardType);
+                guardHandle =
+                        MethodHandles.insertArguments(
+                                guardHandle, 4, target.getSlotMap().getShape());
+
+                MethodType callType =
+                        req.getCallSiteDescriptor()
+                                .getMethodType()
+                                .insertParameterTypes(4, Integer.TYPE);
+                MethodHandle callHandle =
+                        lookup.findStatic(ShapeAwareLinker.class, "setNameFastIndex", callType);
+                callHandle = MethodHandles.insertArguments(callHandle, 4, fastIndex.getAsInt());
+
+                if (DefaultLinker.DEBUG) {
+                    System.out.println(
+                            "Fast link: " + op + ':' + name + " index " + fastIndex.getAsInt());
+                }
+
+                return new GuardedInvocation(callHandle, guardHandle);
+            }
         }
 
         // If we get here, fall through to the next linker in the chain
@@ -165,8 +233,31 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
     }
 
     @SuppressWarnings("unused")
+    private static boolean isFastIndexValidForNameRead(
+            Scriptable t, Context cx, ObjectShape shape) {
+        if (!(t instanceof ScriptableObject)) {
+            return false;
+        }
+        ScriptableObject target = (ScriptableObject) t;
+        if (target.getParentScope() != null) {
+            return false;
+        }
+        return Objects.equals(shape, target.getSlotMap().getShape());
+    }
+
+    @SuppressWarnings("unused")
     private static boolean isFastIndexValidForWrite(
             Object t, Object v, Context cx, Scriptable scope, ObjectShape shape) {
+        if (!(t instanceof ScriptableObject)) {
+            return false;
+        }
+        ScriptableObject target = (ScriptableObject) t;
+        return Objects.equals(shape, target.getSlotMap().getShape());
+    }
+
+    @SuppressWarnings("unused")
+    private static boolean isFastIndexValidForNameWrite(
+            Scriptable t, Object v, Context cx, Scriptable scope, ObjectShape shape) {
         if (!(t instanceof ScriptableObject)) {
             return false;
         }
@@ -182,10 +273,25 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
         return slot.getValue(target);
     }
 
+    @SuppressWarnings("unused")
+    private static Object queryNameFastIndex(Scriptable t, Context cx, int fastIndex) {
+        ScriptableObject target = (ScriptableObject) t;
+        Slot slot = target.getSlotMap().queryFast(fastIndex);
+        return slot.getValue(target);
+    }
+
     /** And the method to set it quickly, since we know that it is already present. */
     @SuppressWarnings("unused")
     private static Object setFastIndex(
             Object t, Object value, Context cx, Scriptable scope, int fastIndex) {
+        ScriptableObject target = (ScriptableObject) t;
+        Slot slot = target.getSlotMap().queryFast(fastIndex);
+        return slot.setValue(value, target, target, cx.isStrictMode());
+    }
+
+    @SuppressWarnings("unused")
+    private static Object setNameFastIndex(
+            Scriptable t, Object value, Context cx, Scriptable scope, int fastIndex) {
         ScriptableObject target = (ScriptableObject) t;
         Slot slot = target.getSlotMap().queryFast(fastIndex);
         return slot.setValue(value, target, target, cx.isStrictMode());
