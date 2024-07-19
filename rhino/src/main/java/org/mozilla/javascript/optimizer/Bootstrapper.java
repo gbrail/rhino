@@ -43,6 +43,7 @@ public class Bootstrapper {
         String[] tokens = SEPARATOR.split(name, -1);
         String namespaceName = getNameSegment(tokens, name, 0);
         String opName = getNameSegment(tokens, name, 1);
+
         if ("PROP".equals(namespaceName)) {
             switch (opName) {
                 case "GET":
@@ -57,12 +58,30 @@ public class Bootstrapper {
                     return StandardOperation.SET
                             .withNamespace(StandardNamespace.PROPERTY)
                             .named(getNameSegment(tokens, name, 2));
-                default:
-                    throw new NoSuchMethodException(name);
             }
-        } else {
-            throw new NoSuchMethodException(name);
+        } else if ("NAME".equals(namespaceName)) {
+            switch (opName) {
+                case "BIND":
+                    return RhinoOperation.BIND
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+                case "GET":
+                    return StandardOperation.GET
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+                case "SET":
+                    return StandardOperation.SET
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+                case "SETSTRICT":
+                    return RhinoOperation.SETSTRICT
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+            }
         }
+
+        // Fall through to no match
+        throw new NoSuchMethodException(name);
     }
 
     private static String getNameSegment(String[] segments, String name, int pos)
