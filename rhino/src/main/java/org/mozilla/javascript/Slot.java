@@ -18,6 +18,7 @@ public class Slot implements Serializable {
     Object value;
     transient Slot next; // next in hash table bucket
     transient Slot orderedNext; // next in linked list
+    transient int orderedIndex;
 
     Slot(Object name, int index, int attributes) {
         this.name = name;

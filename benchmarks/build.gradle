@@ -10,7 +10,7 @@ dependencies {
 
 jmh {
     // use this to include only some
-    includes = ['SunSpider']
+    includes = ['V8Benchmark.splay']
     benchmarkMode = ['avgt']
     fork = 1
     //timeUnit = 'ns'

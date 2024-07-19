@@ -3,8 +3,8 @@ package org.mozilla.javascript.optimizer;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.util.Objects;
 import java.util.OptionalInt;
+import java.util.function.Predicate;
 import jdk.dynalink.NamedOperation;
 import jdk.dynalink.NamespaceOperation;
 import jdk.dynalink.Operation;
@@ -19,6 +19,7 @@ import org.mozilla.javascript.ObjectShape;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Slot;
+import org.mozilla.javascript.SlotMap;
 
 class ShapeAwareLinker implements GuardingDynamicLinker {
 
@@ -36,6 +37,13 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
         op = NamedOperation.getBaseOperation(op);
         ScriptableObject target = (ScriptableObject) args[0];
 
+        if (req.isCallSiteUnstable()) {
+            if (DefaultLinker.DEBUG) {
+                System.out.println("Unstable: " + op + ':' + name);
+            }
+            return null;
+        }
+
         if (NamespaceOperation.contains(op, StandardOperation.GET, StandardNamespace.PROPERTY)
                 || NamespaceOperation.contains(
                         op, RhinoOperation.GETNOWARN, StandardNamespace.PROPERTY)) {
@@ -47,13 +55,13 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
                         req.getCallSiteDescriptor()
                                 .getMethodType()
                                 .changeReturnType(Boolean.TYPE)
-                                .insertParameterTypes(3, ObjectShape.class);
+                                .insertParameterTypes(3, Predicate.class);
                 MethodHandle guardHandle =
                         lookup.findStatic(
                                 ShapeAwareLinker.class, "isFastIndexValidForRead", guardType);
                 guardHandle =
                         MethodHandles.insertArguments(
-                                guardHandle, 3, target.getSlotMap().getShape());
+                                guardHandle, 3, target.getSlotMap().getDiscriminator());
 
                 MethodType callType =
                         req.getCallSiteDescriptor()
@@ -81,13 +89,13 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
                         req.getCallSiteDescriptor()
                                 .getMethodType()
                                 .changeReturnType(Boolean.TYPE)
-                                .insertParameterTypes(4, ObjectShape.class);
+                                .insertParameterTypes(4, Predicate.class);
                 MethodHandle guardHandle =
                         lookup.findStatic(
                                 ShapeAwareLinker.class, "isFastIndexValidForWrite", guardType);
                 guardHandle =
                         MethodHandles.insertArguments(
-                                guardHandle, 4, target.getSlotMap().getShape());
+                                guardHandle, 4, target.getSlotMap().getDiscriminator());
 
                 MethodType callType =
                         req.getCallSiteDescriptor()
@@ -155,13 +163,13 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
                         req.getCallSiteDescriptor()
                                 .getMethodType()
                                 .changeReturnType(Boolean.TYPE)
-                                .insertParameterTypes(2, ObjectShape.class);
+                                .insertParameterTypes(2, Predicate.class);
                 MethodHandle guardHandle =
                         lookup.findStatic(
                                 ShapeAwareLinker.class, "isFastIndexValidForNameRead", guardType);
                 guardHandle =
                         MethodHandles.insertArguments(
-                                guardHandle, 2, target.getSlotMap().getShape());
+                                guardHandle, 2, target.getSlotMap().getDiscriminator());
 
                 MethodType callType =
                         req.getCallSiteDescriptor()
@@ -189,13 +197,13 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
                         req.getCallSiteDescriptor()
                                 .getMethodType()
                                 .changeReturnType(Boolean.TYPE)
-                                .insertParameterTypes(4, ObjectShape.class);
+                                .insertParameterTypes(4, Predicate.class);
                 MethodHandle guardHandle =
                         lookup.findStatic(
                                 ShapeAwareLinker.class, "isFastIndexValidForNameWrite", guardType);
                 guardHandle =
                         MethodHandles.insertArguments(
-                                guardHandle, 4, target.getSlotMap().getShape());
+                                guardHandle, 4, target.getSlotMap().getDiscriminator());
 
                 MethodType callType =
                         req.getCallSiteDescriptor()
@@ -224,17 +232,17 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
      */
     @SuppressWarnings("unused")
     private static boolean isFastIndexValidForRead(
-            Object t, Context cx, Scriptable scope, ObjectShape shape) {
+            Object t, Context cx, Scriptable scope, Predicate<SlotMap> discriminator) {
         if (!(t instanceof ScriptableObject)) {
             return false;
         }
         ScriptableObject target = (ScriptableObject) t;
-        return Objects.equals(shape, target.getSlotMap().getShape());
+        return discriminator.test(target.getSlotMap());
     }
 
     @SuppressWarnings("unused")
     private static boolean isFastIndexValidForNameRead(
-            Scriptable t, Context cx, ObjectShape shape) {
+            Scriptable t, Context cx, Predicate<SlotMap> discriminator) {
         if (!(t instanceof ScriptableObject)) {
             return false;
         }
@@ -242,27 +250,31 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
         if (target.getParentScope() != null) {
             return false;
         }
-        return Objects.equals(shape, target.getSlotMap().getShape());
+        return discriminator.test(target.getSlotMap());
     }
 
     @SuppressWarnings("unused")
     private static boolean isFastIndexValidForWrite(
-            Object t, Object v, Context cx, Scriptable scope, ObjectShape shape) {
+            Object t, Object v, Context cx, Scriptable scope, Predicate<SlotMap> discriminator) {
         if (!(t instanceof ScriptableObject)) {
             return false;
         }
         ScriptableObject target = (ScriptableObject) t;
-        return Objects.equals(shape, target.getSlotMap().getShape());
+        return discriminator.test(target.getSlotMap());
     }
 
     @SuppressWarnings("unused")
     private static boolean isFastIndexValidForNameWrite(
-            Scriptable t, Object v, Context cx, Scriptable scope, ObjectShape shape) {
+            Scriptable t,
+            Object v,
+            Context cx,
+            Scriptable scope,
+            Predicate<SlotMap> discriminator) {
         if (!(t instanceof ScriptableObject)) {
             return false;
         }
         ScriptableObject target = (ScriptableObject) t;
-        return Objects.equals(shape, target.getSlotMap().getShape());
+        return discriminator.test(target.getSlotMap());
     }
 
     /** The method to read a property quickly. */
@@ -286,7 +298,8 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
             Object t, Object value, Context cx, Scriptable scope, int fastIndex) {
         ScriptableObject target = (ScriptableObject) t;
         Slot slot = target.getSlotMap().queryFast(fastIndex);
-        return slot.setValue(value, target, target, cx.isStrictMode());
+        slot.setValue(value, target, target, cx.isStrictMode());
+        return value;
     }
 
     @SuppressWarnings("unused")
@@ -294,7 +307,8 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
             Scriptable t, Object value, Context cx, Scriptable scope, int fastIndex) {
         ScriptableObject target = (ScriptableObject) t;
         Slot slot = target.getSlotMap().queryFast(fastIndex);
-        return slot.setValue(value, target, target, cx.isStrictMode());
+        slot.setValue(value, target, target, cx.isStrictMode());
+        return value;
     }
 
     /**

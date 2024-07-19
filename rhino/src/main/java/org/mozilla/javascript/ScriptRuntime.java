@@ -3346,32 +3346,18 @@ public class ScriptRuntime {
         return result;
     }
 
-    public static Object increment(Object o) {
-        Number number;
-        if (o instanceof Number) {
-            number = (Number) o;
-        } else {
-            number = toNumeric(o);
-        }
-
+    public static Object increment(Number number) {
         if (number instanceof BigInteger) {
             return ((BigInteger) number).add(BigInteger.ONE);
         }
-        return number.doubleValue() + 1.0;
+        return wrapNumber(number.doubleValue() + 1.0);
     }
 
-    public static Object decrement(Object o) {
-        Number number;
-        if (o instanceof Number) {
-            number = (Number) o;
-        } else {
-            number = toNumeric(o);
-        }
-
+    public static Object decrement(Number number) {
         if (number instanceof BigInteger) {
             return ((BigInteger) number).subtract(BigInteger.ONE);
         }
-        return number.doubleValue() - 1.0;
+        return wrapNumber(number.doubleValue() - 1.0);
     }
 
     /** @deprecated Use {@link #refIncrDecr(Ref, Context, Scriptable, int)} instead */

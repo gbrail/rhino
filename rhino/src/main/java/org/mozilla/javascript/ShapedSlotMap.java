@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.OptionalInt;
+import java.util.function.Predicate;
 
 public class ShapedSlotMap implements SlotMap {
 
@@ -25,6 +26,13 @@ public class ShapedSlotMap implements SlotMap {
     @Override
     public ObjectShape getShape() {
         return shape;
+    }
+
+    @Override
+    public Predicate<SlotMap> getDiscriminator() {
+        // The characteristic of a shaped slot map is that two maps are
+        // equivalent if they have the same shape object.
+        return (m) -> Objects.equals(m.getShape(), shape);
     }
 
     @Override

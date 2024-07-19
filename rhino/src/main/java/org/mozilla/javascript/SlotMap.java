@@ -7,6 +7,7 @@
 package org.mozilla.javascript;
 
 import java.util.OptionalInt;
+import java.util.function.Predicate;
 
 /**
  * A SlotMap is an interface to the main data structure that contains all the "Slots" that back a
@@ -68,9 +69,15 @@ public interface SlotMap extends Iterable<Slot> {
     void add(Slot newSlot);
 
     /**
-     * Return the shape of the object represented by this slot map. If the implementation is not
-     * based on shapes, it will return null.
+     * Return a function that may be used to test whether this slot map is equivalent with another.
+     * If two slot maps are equivalent, then an index from "queryFastIndex" will work with
+     * "queryFast".
      */
+    default Predicate<SlotMap> getDiscriminator() {
+        return (m) -> false;
+    }
+
+    /** Return the shape, which may be used in the descriminator. */
     default ObjectShape getShape() {
         return null;
     }
@@ -86,8 +93,8 @@ public interface SlotMap extends Iterable<Slot> {
 
     /**
      * Return the slot using the index retured by queryFastIndex(). This will always return the slot
-     * so long as the result of "getShape()" is the same as it was when queryFastIndex() was called.
-     * Otherwise, the results are undefined. It is up to the caller to check this.
+     * so long as the function returned from "getDiscriminator" returns true. Otherwise, the result
+     * is undefined.
      */
     default Slot queryFast(int fastIndex) {
         throw new UnsupportedOperationException("queryFast");
