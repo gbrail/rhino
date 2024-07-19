@@ -33,7 +33,8 @@ class SlotMapContainer implements SlotMap {
         if (initialSize > LARGE_HASH_SIZE) {
             map = new HashSlotMap();
         } else {
-            map = new EmbeddedSlotMap();
+            // map = new EmbeddedSlotMap();
+            map = new ShapedSlotMap();
         }
     }
 
@@ -92,7 +93,7 @@ class SlotMapContainer implements SlotMap {
      * map to a HashMap that is more robust against large numbers of hash collisions.
      */
     protected void checkMapSize() {
-        if ((map instanceof EmbeddedSlotMap) && map.size() >= LARGE_HASH_SIZE) {
+        if (!(map instanceof HashSlotMap) && map.size() >= LARGE_HASH_SIZE) {
             SlotMap newMap = new HashSlotMap();
             for (Slot s : map) {
                 newMap.add(s);
