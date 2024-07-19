@@ -7,6 +7,7 @@
 package org.mozilla.javascript;
 
 import java.util.Iterator;
+import java.util.OptionalInt;
 
 /**
  * This class holds the various SlotMaps of various types, and knows how to atomically switch
@@ -100,5 +101,20 @@ class SlotMapContainer implements SlotMap {
             }
             map = newMap;
         }
+    }
+
+    @Override
+    public ObjectShape getShape() {
+        return map.getShape();
+    }
+
+    @Override
+    public OptionalInt queryFastIndex(Object name, int index) {
+        return map.queryFastIndex(name, index);
+    }
+
+    @Override
+    public Slot queryFast(int fastIndex) {
+        return map.queryFast(fastIndex);
     }
 }

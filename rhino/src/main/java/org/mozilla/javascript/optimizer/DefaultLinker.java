@@ -17,7 +17,7 @@ import org.mozilla.javascript.ScriptRuntime;
 
 class DefaultLinker implements GuardingDynamicLinker {
 
-    static final boolean DEBUG = false;
+    static final boolean DEBUG = true;
 
     static final SwitchPoint[] EMPTY_SWITCH_POINTS = new SwitchPoint[] {};
 

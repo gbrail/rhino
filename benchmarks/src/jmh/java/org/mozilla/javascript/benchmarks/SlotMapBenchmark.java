@@ -1,8 +1,10 @@
 package org.mozilla.javascript.benchmarks;
 
+import java.util.Objects;
 import java.util.Random;
 import org.mozilla.javascript.EmbeddedSlotMap;
 import org.mozilla.javascript.HashSlotMap;
+import org.mozilla.javascript.ObjectShape;
 import org.mozilla.javascript.ShapedSlotMap;
 import org.mozilla.javascript.Slot;
 import org.mozilla.javascript.SlotMap;
@@ -146,8 +148,12 @@ public class SlotMapBenchmark {
     @OperationsPerInvocation(100)
     public Object shapedQueryKeyFast10Entries(ShapedState state) {
         int fastIndex = state.size10Map.queryFastIndex(state.size10LastKey, 0).getAsInt();
+        ObjectShape shape = state.size10Map.getShape();
         Slot slot = null;
         for (int i = 0; i < 100; i++) {
+            if (!Objects.equals(shape, state.size10Map.getShape())) {
+                throw new AssertionError();
+            }
             slot = state.size10Map.queryFast(fastIndex);
         }
         if (slot == null) {
