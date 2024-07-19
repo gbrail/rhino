@@ -2,12 +2,13 @@ package org.mozilla.javascript;
 
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.WeakHashMap;
 
 public class ObjectShape {
     private final int level;
     private final ObjectShape parent;
     private final EmbeddedMap<Object, Integer> indices;
-    private final EmbeddedMap<Object, ObjectShape> children = new EmbeddedMap<>();
+    private final WeakHashMap<Object, ObjectShape> children = new WeakHashMap<>();
 
     public ObjectShape() {
         level = -1;
@@ -25,6 +26,10 @@ public class ObjectShape {
     /** Return the parent of this map. */
     public ObjectShape getParent() {
         return parent;
+    }
+
+    public int getLevel() {
+        return level;
     }
 
     /** Return the index of the specified property key in the current shape. */

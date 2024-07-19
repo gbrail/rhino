@@ -71,7 +71,7 @@ public interface SlotMap extends Iterable<Slot> {
      * Return the shape of the object represented by this slot map. If the implementation is not
      * based on shapes, it will return null.
      */
-    public default ObjectShape getShape() {
+    default ObjectShape getShape() {
         return null;
     }
 
@@ -80,7 +80,7 @@ public interface SlotMap extends Iterable<Slot> {
      * matching name and index, or return an empty result if there is no such property or if the
      * slot map is not based on object shapes.
      */
-    public default OptionalInt queryFastIndex(Object name, int index) {
+    default OptionalInt queryFastIndex(Object name, int index) {
         return OptionalInt.empty();
     }
 
@@ -89,7 +89,16 @@ public interface SlotMap extends Iterable<Slot> {
      * so long as the result of "getShape()" is the same as it was when queryFastIndex() was called.
      * Otherwise, the results are undefined. It is up to the caller to check this.
      */
-    public default Slot queryFast(int fastIndex) {
+    default Slot queryFast(int fastIndex) {
         throw new UnsupportedOperationException("queryFast");
+    }
+
+    /**
+     * Insert a new slot to the end of the slot list and set the new object shape to "newShape."
+     * This is used when we know the shape of the existing object and have pre-computed the new
+     * shape.
+     */
+    default Slot addFast(Object name, int index, ObjectShape newShape) {
+        throw new UnsupportedOperationException("addFast");
     }
 }
