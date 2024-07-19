@@ -21,6 +21,11 @@ class SlotMapContainer implements SlotMap {
      * performance for huge objects with many collisions.
      */
     private static final int LARGE_HASH_SIZE = 2000;
+    /**
+     * A slot map hash table, once it reaches this size, will be promoted to a more efficient
+     * representation.
+     */
+    private static final int SMALL_HASH_SIZE = 32;
 
     private static final int DEFAULT_SIZE = 10;
 
@@ -33,8 +38,9 @@ class SlotMapContainer implements SlotMap {
     SlotMapContainer(int initialSize) {
         if (initialSize > LARGE_HASH_SIZE) {
             map = new HashSlotMap();
+        } else if (initialSize > SMALL_HASH_SIZE) {
+            map = new EmbeddedSlotMap();
         } else {
-            // map = new EmbeddedSlotMap();
             map = new ShapedSlotMap();
         }
     }
@@ -95,12 +101,17 @@ class SlotMapContainer implements SlotMap {
      */
     protected void checkMapSize() {
         if (!(map instanceof HashSlotMap) && map.size() >= LARGE_HASH_SIZE) {
-            SlotMap newMap = new HashSlotMap();
-            for (Slot s : map) {
-                newMap.add(s);
-            }
-            map = newMap;
+            replaceMap(new HashSlotMap(map.size() + 1));
+        } else if (map instanceof ShapedSlotMap && map.size() >= SMALL_HASH_SIZE) {
+            replaceMap(new EmbeddedSlotMap(map.size() + 1));
         }
+    }
+
+    private void replaceMap(SlotMap newMap) {
+        for (Slot s : map) {
+            newMap.add(s);
+        }
+        map = newMap;
     }
 
     @Override
@@ -116,5 +127,10 @@ class SlotMapContainer implements SlotMap {
     @Override
     public Slot queryFast(int fastIndex) {
         return map.queryFast(fastIndex);
+    }
+
+    @Override
+    public Slot addFast(Object name, int index, ObjectShape newShape) {
+        return map.addFast(name, index, newShape);
     }
 }

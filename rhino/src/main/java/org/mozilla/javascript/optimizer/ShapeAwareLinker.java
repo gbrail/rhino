@@ -75,7 +75,7 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
                 op, StandardOperation.SET, StandardNamespace.PROPERTY)) {
             OptionalInt fastIndex = target.getSlotMap().queryFastIndex(name, 0);
             if (fastIndex.isPresent()) {
-                // The logic here is like above, because we are optimizing for the case of setting
+                // The logic here is like for get, because we are optimizing for the case of setting
                 // a property that we know already exists.
                 MethodType guardType =
                         req.getCallSiteDescriptor()
@@ -103,6 +103,46 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
                 }
 
                 return new GuardedInvocation(callHandle, guardHandle);
+
+                /*
+                 * This next bit tries to assume the property map. The problem is that we don't
+                 * know that unless we try an insert first, since there are 10 different ways that
+                 * new properties don't end up in the slot map.
+                } else if (target.getSlotMap() != null) {
+                    // We know that the property does not exist, but we know how to insert it quickly
+                    // with a pre-cached object shape table.
+                    ObjectShape shapeBefore = target.getSlotMap().getShape();
+                    ObjectShape.Result r = shapeBefore.putProperty(name);
+                    assert r.getShape().isPresent();
+                    ObjectShape shapeAfter = r.getShape().get();
+
+                    // Guard handle is the same as for read
+                    MethodType guardType =
+                            req.getCallSiteDescriptor()
+                                    .getMethodType()
+                                    .changeReturnType(Boolean.TYPE)
+                                    .insertParameterTypes(4, ObjectShape.class);
+                    MethodHandle guardHandle =
+                            lookup.findStatic(
+                                    ShapeAwareLinker.class, "isFastIndexValidForWrite", guardType);
+                    guardHandle = MethodHandles.insertArguments(guardHandle, 4, shapeBefore);
+
+                    // Write handle needs to pass the new shape table
+                    MethodType callType =
+                            req.getCallSiteDescriptor()
+                                    .getMethodType()
+                                    .insertParameterTypes(4, String.class)
+                                    .insertParameterTypes(5, ObjectShape.class);
+                    MethodHandle callHandle =
+                            lookup.findStatic(ShapeAwareLinker.class, "addNewFastIndex", callType);
+                    callHandle = MethodHandles.insertArguments(callHandle, 4, name, shapeAfter);
+
+                    if (DefaultLinker.DEBUG) {
+                        System.out.println("Fast link: " + op + ':' + name);
+                    }
+
+                    return new GuardedInvocation(callHandle, guardHandle);
+                */
             }
         }
 
@@ -148,6 +188,23 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
             Object t, Object value, Context cx, Scriptable scope, int fastIndex) {
         ScriptableObject target = (ScriptableObject) t;
         Slot slot = target.getSlotMap().queryFast(fastIndex);
+        return slot.setValue(value, target, target, cx.isStrictMode());
+    }
+
+    /**
+     * This method assumes that we know the current object shape, and what the new shape will be,
+     * and we just need to append a slot to the end.
+     */
+    @SuppressWarnings("unused")
+    private static Object addNewFastIndex(
+            Object t,
+            Object value,
+            Context cx,
+            Scriptable scope,
+            String name,
+            ObjectShape newShape) {
+        ScriptableObject target = (ScriptableObject) t;
+        Slot slot = target.getSlotMap().addFast(name, 0, newShape);
         return slot.setValue(value, target, target, cx.isStrictMode());
     }
 }

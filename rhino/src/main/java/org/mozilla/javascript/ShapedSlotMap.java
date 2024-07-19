@@ -59,6 +59,15 @@ public class ShapedSlotMap implements SlotMap {
     }
 
     @Override
+    public Slot addFast(Object name, int index, ObjectShape newShape) {
+        assert (slots.size() == newShape.getLevel());
+        Slot newSlot = new Slot(name, index, 0);
+        slots.add(newSlot);
+        shape = newShape;
+        return newSlot;
+    }
+
+    @Override
     public Slot modify(Object name, int index, int attributes) {
         Object key = makeKey(name, index);
         ObjectShape.Result r = shape.putProperty(key);

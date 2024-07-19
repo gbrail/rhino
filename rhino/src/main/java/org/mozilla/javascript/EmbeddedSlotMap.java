@@ -55,6 +55,16 @@ public class EmbeddedSlotMap implements SlotMap {
 
     public EmbeddedSlotMap() {}
 
+    public EmbeddedSlotMap(int initialCapacity) {
+        // Calculate the smallest power of 2 that leaves more slots than keys
+        int minSlots = (initialCapacity * 4) / 3;
+        int numSlots = INITIAL_SLOT_SIZE;
+        while (numSlots < minSlots) {
+            numSlots <<= 1;
+        }
+        slots = new Slot[numSlots];
+    }
+
     @Override
     public int size() {
         return count;
