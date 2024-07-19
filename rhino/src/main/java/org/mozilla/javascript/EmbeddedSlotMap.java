@@ -13,43 +13,49 @@ package org.mozilla.javascript;
  * to have a measurable performance benefit.
  */
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.OptionalInt;
+import java.util.function.Predicate;
 
 public class EmbeddedSlotMap implements SlotMap {
 
     private Slot[] slots;
 
-    // gateways into the definition-order linked list of slots
-    private Slot firstAdded;
-    private Slot lastAdded;
+    private ArrayList<Slot> orderedSlots = new ArrayList<>();
 
     private int count;
+    private int pendingDeletes;
+    private boolean manyDeletes;
 
     // initial slot array size, must be a power of 2
     private static final int INITIAL_SLOT_SIZE = 4;
+    // After a bunch of deletes, clean up
+    private static final int DELETE_THRESHOLD = Integer.MAX_VALUE - 1;
 
-    private static final class Iter implements Iterator<Slot> {
-        private Slot next;
-
-        Iter(Slot slot) {
-            next = slot;
-        }
+    private final class Iter implements Iterator<Slot> {
+        private int pos;
 
         @Override
         public boolean hasNext() {
-            return next != null;
+            while ((pos < orderedSlots.size()) && (orderedSlots.get(pos) == null)) {
+                // Need to skip nulls because of how we do deletes
+                pos++;
+            }
+            return pos < orderedSlots.size();
         }
 
         @Override
         public Slot next() {
-            Slot ret = next;
-            if (ret == null) {
-                throw new NoSuchElementException();
+            while ((pos < orderedSlots.size()) && (orderedSlots.get(pos) == null)) {
+                pos++;
             }
-            next = next.orderedNext;
-            return ret;
+            if (pos < orderedSlots.size()) {
+                return orderedSlots.get(pos++);
+            }
+            throw new NoSuchElementException();
         }
     }
 
@@ -77,7 +83,7 @@ public class EmbeddedSlotMap implements SlotMap {
 
     @Override
     public Iterator<Slot> iterator() {
-        return new Iter(firstAdded);
+        return new Iter();
     }
 
     /** Locate the slot with the given name or index. */
@@ -95,6 +101,22 @@ public class EmbeddedSlotMap implements SlotMap {
             }
         }
         return null;
+    }
+
+    @Override
+    public OptionalInt queryFastIndex(Object name, int index) {
+        Slot slot = query(name, index);
+        return slot == null ? OptionalInt.empty() : OptionalInt.of(slot.orderedIndex);
+    }
+
+    @Override
+    public Slot queryFast(int fastIndex) {
+        return orderedSlots.get(fastIndex);
+    }
+
+    @Override
+    public Predicate<SlotMap> getDiscriminator() {
+        return (m) -> !manyDeletes && Objects.equals(m, this);
     }
 
     /**
@@ -171,22 +193,9 @@ public class EmbeddedSlotMap implements SlotMap {
                         prev.next = newSlot;
                     }
                     newSlot.next = slot.next;
-                    // Replace new slot in linked list, keeping same order
-                    if (slot == firstAdded) {
-                        firstAdded = newSlot;
-                    } else {
-                        Slot ps = firstAdded;
-                        while ((ps != null) && (ps.orderedNext != slot)) {
-                            ps = ps.orderedNext;
-                        }
-                        if (ps != null) {
-                            ps.orderedNext = newSlot;
-                        }
-                    }
-                    newSlot.orderedNext = slot.orderedNext;
-                    if (slot == lastAdded) {
-                        lastAdded = newSlot;
-                    }
+                    // Replace slot in ordered list
+                    newSlot.orderedIndex = slot.orderedIndex;
+                    orderedSlots.set(newSlot.orderedIndex, newSlot);
                 }
                 return newSlot;
             }
@@ -210,14 +219,8 @@ public class EmbeddedSlotMap implements SlotMap {
 
     private void insertNewSlot(Slot newSlot) {
         ++count;
-        // add new slot to linked list
-        if (lastAdded != null) {
-            lastAdded.orderedNext = newSlot;
-        }
-        if (firstAdded == null) {
-            firstAdded = newSlot;
-        }
-        lastAdded = newSlot;
+        newSlot.orderedIndex = orderedSlots.size();
+        orderedSlots.add(newSlot);
         addKnownAbsentSlot(slots, newSlot);
     }
 
@@ -230,23 +233,12 @@ public class EmbeddedSlotMap implements SlotMap {
             prev.next = slot.next;
         }
 
-        // remove from ordered list. Previously this was done lazily in
-        // getIds() but delete is an infrequent operation so O(n)
-        // should be ok
-
-        // ordered list always uses the actual slot
-        if (slot == firstAdded) {
-            prev = null;
-            firstAdded = slot.orderedNext;
-        } else {
-            prev = firstAdded;
-            while (prev.orderedNext != slot) {
-                prev = prev.orderedNext;
-            }
-            prev.orderedNext = slot.orderedNext;
-        }
-        if (slot == lastAdded) {
-            lastAdded = prev;
+        // Mark ordered slot null. After a number of deletions we'll clean it up.
+        orderedSlots.set(slot.orderedIndex, null);
+        if (++pendingDeletes > DELETE_THRESHOLD) {
+            manyDeletes = true;
+            cleanUpNulls();
+            pendingDeletes = 0;
         }
     }
 
@@ -259,6 +251,17 @@ public class EmbeddedSlotMap implements SlotMap {
                 slot = nextSlot;
             }
         }
+    }
+
+    private void cleanUpNulls() {
+        ArrayList<Slot> newSlots = new ArrayList<>(count);
+        for (Slot slot : orderedSlots) {
+            if (slot != null) {
+                slot.orderedIndex = newSlots.size();
+                newSlots.add(slot);
+            }
+        }
+        orderedSlots = newSlots;
     }
 
     /**

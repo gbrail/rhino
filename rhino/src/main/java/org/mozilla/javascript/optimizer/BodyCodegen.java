@@ -3396,13 +3396,14 @@ class BodyCodegen {
                         "(Lorg/mozilla/javascript/Scriptable;"
                                 + "Lorg/mozilla/javascript/Context;"
                                 + ")Ljava/lang/Object;");
+                addScriptRuntimeInvoke("toNumeric", "(Ljava/lang/Object;)Ljava/lang/Number;");
                 if (post) {
                     cfw.add(ByteCode.DUP);
                 }
                 if ((incrDecrMask & Node.DECR_FLAG) == 0) {
-                    addScriptRuntimeInvoke("increment", "(Ljava/lang/Object;)Ljava/lang/Object;");
+                    addScriptRuntimeInvoke("increment", "(Ljava/lang/Number;)Ljava/lang/Object;");
                 } else {
-                    addScriptRuntimeInvoke("decrement", "(Ljava/lang/Object;)Ljava/lang/Object;");
+                    addScriptRuntimeInvoke("decrement", "(Ljava/lang/Number;)Ljava/lang/Object;");
                 }
                 cfw.addALoad(variableObjectLocal);
                 cfw.add(ByteCode.SWAP);
