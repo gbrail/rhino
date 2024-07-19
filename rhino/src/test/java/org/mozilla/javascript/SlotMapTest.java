@@ -3,10 +3,12 @@ package org.mozilla.javascript;
 import static org.junit.Assert.*;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Random;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,6 +33,7 @@ public class SlotMapTest {
                 new Object[][] {
                     {EmbeddedSlotMap.class},
                     {HashSlotMap.class},
+                    {ShapedSlotMap.class},
                     {SlotMapContainer.class},
                     {ThreadSafeSlotMapContainer.class},
                 });
@@ -146,6 +149,45 @@ public class SlotMapTest {
         slot = map.query("one", 0);
         assertNull(slot);
         assertEquals(map.size(), 0);
+    }
+
+    // White-box tests for complex removal behavior of ShapedSlotMap
+    @Test
+    public void removeLast() {
+        for (int i = 0; i < 10; i++) {
+            Slot slot = map.modify(null, i, 0);
+            slot.value = i;
+        }
+        assertEquals(10, map.size());
+        map.compute(null, 9, (k, ii, e) -> null);
+        assertEquals(9, map.size());
+        assertNull(map.query(null, 9));
+    }
+
+    @Test
+    public void removeNotLast() {
+        for (int i = 0; i < 5; i++) {
+            Slot slot = map.modify(null, i, 0);
+            slot.value = i;
+        }
+        assertEquals(5, map.size());
+        map.compute(null, 2, (k, ii, e) -> null);
+        assertEquals(4, map.size());
+        assertNull(map.query(null, 2));
+        ArrayList<Integer> keys = new ArrayList<>();
+        long lockStamp = 0L;
+        if (map instanceof SlotMapContainer) {
+            lockStamp = ((SlotMapContainer) map).readLock();
+        }
+        try {
+            map.iterator().forEachRemaining(s -> keys.add((Integer) s.value));
+        } finally {
+            if (map instanceof SlotMapContainer) {
+                ((SlotMapContainer) map).unlockRead(lockStamp);
+            }
+        }
+        List<Integer> expected = List.of(0, 1, 3, 4);
+        assertEquals(expected, keys);
     }
 
     private static final int NUM_INDICES = 67;

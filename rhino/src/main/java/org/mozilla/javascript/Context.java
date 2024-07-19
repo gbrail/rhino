@@ -2661,6 +2661,10 @@ public class Context implements Closeable {
         return cx.isStrictMode();
     }
 
+    public ObjectShape getRootShape() {
+        return rootShape;
+    }
+
     private final ContextFactory factory;
     private boolean sealed;
     private Object sealKey;
@@ -2728,4 +2732,7 @@ public class Context implements Closeable {
     boolean generateObserverCount = false;
 
     boolean isTopLevelStrict;
+
+    // Shape table for keeping track of object shapes
+    private final ObjectShape rootShape = new ObjectShape();
 }
