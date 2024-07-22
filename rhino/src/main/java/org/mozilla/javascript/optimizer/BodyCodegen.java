@@ -3388,37 +3388,16 @@ class BodyCodegen {
                 }
                 break;
             case Token.NAME:
-                post = ((incrDecrMask & Node.POST_FLAG) != 0);
                 cfw.addALoad(variableObjectLocal);
+                cfw.addPush(child.getString()); // push name
                 cfw.addALoad(contextLocal);
-                addDynamicInvoke(
-                        "NAME:GET:" + child.getString(),
+                cfw.addPush(incrDecrMask);
+                addScriptRuntimeInvoke(
+                        "nameIncrDecr",
                         "(Lorg/mozilla/javascript/Scriptable;"
+                                + "Ljava/lang/String;"
                                 + "Lorg/mozilla/javascript/Context;"
-                                + ")Ljava/lang/Object;");
-                addScriptRuntimeInvoke("toNumeric", "(Ljava/lang/Object;)Ljava/lang/Number;");
-                if (post) {
-                    cfw.add(ByteCode.DUP);
-                }
-                if ((incrDecrMask & Node.DECR_FLAG) == 0) {
-                    addScriptRuntimeInvoke("increment", "(Ljava/lang/Number;)Ljava/lang/Object;");
-                } else {
-                    addScriptRuntimeInvoke("decrement", "(Ljava/lang/Number;)Ljava/lang/Object;");
-                }
-                cfw.addALoad(variableObjectLocal);
-                cfw.add(ByteCode.SWAP);
-                cfw.addALoad(contextLocal);
-                cfw.addALoad(variableObjectLocal);
-                addDynamicInvoke(
-                        "NAME:SET:" + child.getString(),
-                        "(Lorg/mozilla/javascript/Scriptable;"
-                                + "Ljava/lang/Object;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;");
-                if (post) {
-                    cfw.add(ByteCode.POP);
-                }
+                                + "I)Ljava/lang/Object;");
                 break;
             case Token.GETPROPNOWARN:
                 throw Kit.codeBug();
