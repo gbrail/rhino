@@ -32,7 +32,7 @@ class SlotMapContainer implements SlotMap {
 
     protected SlotMap map;
 
-    private static final boolean ENABLE_OBJECT_MAPS = true;
+    private static final boolean ENABLE_OBJECT_MAPS = false;
 
     SlotMapContainer() {
         this(DEFAULT_SIZE);
