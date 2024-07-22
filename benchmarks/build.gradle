@@ -10,10 +10,11 @@ dependencies {
 
 jmh {
     // use this to include only some
-    includes = ['V8Benchmark.splay']
+    if (System.getenv('BENCHMARK') != null) {
+        includes = [System.getenv('BENCHMARK')]
+    }
     benchmarkMode = ['avgt']
     fork = 1
-    //timeUnit = 'ns'
     iterations = 3
     timeOnIteration = '5s'
     warmupIterations = 3

@@ -33,7 +33,7 @@ public class EmbeddedSlotMap implements SlotMap {
     // initial slot array size, must be a power of 2
     private static final int INITIAL_SLOT_SIZE = 4;
     // After a bunch of deletes, clean up
-    private static final int DELETE_THRESHOLD = Integer.MAX_VALUE - 1;
+    private static final int DELETE_THRESHOLD = 10;
 
     private final class Iter implements Iterator<Slot> {
         private int pos;
