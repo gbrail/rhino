@@ -2,6 +2,7 @@ package org.mozilla.javascript.benchmarks;
 
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
@@ -79,6 +80,7 @@ public class V8Benchmark {
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public Object splay(SplayState state) {
         return state.splay.call(state.cx, state.scope, state.scope, emptyArgs);
     }
@@ -107,11 +109,13 @@ public class V8Benchmark {
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public Object cryptoEncrpyt(CryptoState state) {
         return state.encrypt.call(state.cx, state.scope, state.scope, emptyArgs);
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public Object cryptoDecrypt(CryptoState state) {
         return state.decrypt.call(state.cx, state.scope, state.scope, emptyArgs);
     }
@@ -136,6 +140,7 @@ public class V8Benchmark {
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public Object deltaBlue(DeltaBlueState state) {
         return state.db.call(state.cx, state.scope, state.scope, emptyArgs);
     }
@@ -160,6 +165,7 @@ public class V8Benchmark {
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public Object rayTrace(RayTraceState state) {
         return state.rt.call(state.cx, state.scope, state.scope, emptyArgs);
     }
@@ -210,6 +216,7 @@ public class V8Benchmark {
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public Object richards(RichardsState state) {
         return state.r.call(state.cx, state.scope, state.scope, emptyArgs);
     }
@@ -236,11 +243,13 @@ public class V8Benchmark {
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public Object earley(EarleyBoyerState state) {
         return state.earley.call(state.cx, state.scope, state.scope, emptyArgs);
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public Object boyer(EarleyBoyerState state) {
         return state.boyer.call(state.cx, state.scope, state.scope, emptyArgs);
     }
