@@ -13,7 +13,6 @@ package org.mozilla.javascript;
  * to have a measurable performance benefit.
  */
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -24,7 +23,8 @@ public class EmbeddedSlotMap implements SlotMap {
 
     private Slot[] slots;
 
-    private ArrayList<Slot> orderedSlots = new ArrayList<>();
+    private Slot[] orderedSlots;
+    private int orderedSize;
 
     private int count;
     private int pendingDeletes;
@@ -34,26 +34,29 @@ public class EmbeddedSlotMap implements SlotMap {
     private static final int INITIAL_SLOT_SIZE = 4;
     // After a bunch of deletes, clean up
     private static final int DELETE_THRESHOLD = 10;
+    // Compute hash indices for this number of properties
+    private static final int NUM_FAST_PROPERTIES = 16;
 
     private final class Iter implements Iterator<Slot> {
         private int pos;
 
         @Override
         public boolean hasNext() {
-            while ((pos < orderedSlots.size()) && (orderedSlots.get(pos) == null)) {
+            while ((pos < orderedSize) && (orderedSlots[pos] == null)) {
                 // Need to skip nulls because of how we do deletes
                 pos++;
             }
-            return pos < orderedSlots.size();
+            return pos < orderedSize;
         }
 
         @Override
         public Slot next() {
-            while ((pos < orderedSlots.size()) && (orderedSlots.get(pos) == null)) {
+            while ((pos < orderedSize) && (orderedSlots[pos] == null)) {
+                // Need to skip nulls because of how we do deletes
                 pos++;
             }
-            if (pos < orderedSlots.size()) {
-                return orderedSlots.get(pos++);
+            if (pos < orderedSize) {
+                return orderedSlots[pos++];
             }
             throw new NoSuchElementException();
         }
@@ -64,11 +67,8 @@ public class EmbeddedSlotMap implements SlotMap {
     public EmbeddedSlotMap(int initialCapacity) {
         // Calculate the smallest power of 2 that leaves more slots than keys
         int minSlots = (initialCapacity * 4) / 3;
-        int numSlots = INITIAL_SLOT_SIZE;
-        while (numSlots < minSlots) {
-            numSlots <<= 1;
-        }
-        slots = new Slot[numSlots];
+        slots = new Slot[getNextPowerOfTwo(minSlots)];
+        orderedSlots = new Slot[getNextPowerOfTwo(initialCapacity)];
     }
 
     @Override
@@ -106,12 +106,15 @@ public class EmbeddedSlotMap implements SlotMap {
     @Override
     public OptionalInt queryFastIndex(Object name, int index) {
         Slot slot = query(name, index);
-        return slot == null ? OptionalInt.empty() : OptionalInt.of(slot.orderedIndex);
+        if (slot != null && index < NUM_FAST_PROPERTIES) {
+            return OptionalInt.of(slot.orderedIndex);
+        }
+        return OptionalInt.empty();
     }
 
     @Override
     public Slot queryFast(int fastIndex) {
-        return orderedSlots.get(fastIndex);
+        return orderedSlots[fastIndex];
     }
 
     @Override
@@ -195,7 +198,7 @@ public class EmbeddedSlotMap implements SlotMap {
                     newSlot.next = slot.next;
                     // Replace slot in ordered list
                     newSlot.orderedIndex = slot.orderedIndex;
-                    orderedSlots.set(newSlot.orderedIndex, newSlot);
+                    orderedSlots[newSlot.orderedIndex] = newSlot;
                 }
                 return newSlot;
             }
@@ -218,9 +221,16 @@ public class EmbeddedSlotMap implements SlotMap {
     }
 
     private void insertNewSlot(Slot newSlot) {
-        ++count;
-        newSlot.orderedIndex = orderedSlots.size();
-        orderedSlots.add(newSlot);
+        if (orderedSlots == null) {
+            orderedSlots = new Slot[INITIAL_SLOT_SIZE];
+        } else if (orderedSize >= orderedSlots.length) {
+            Slot[] newOrdered = new Slot[orderedSlots.length * 2];
+            System.arraycopy(orderedSlots, 0, newOrdered, 0, orderedSlots.length);
+            orderedSlots = newOrdered;
+        }
+        newSlot.orderedIndex = orderedSize;
+        orderedSlots[orderedSize++] = newSlot;
+        count++;
         addKnownAbsentSlot(slots, newSlot);
     }
 
@@ -234,7 +244,7 @@ public class EmbeddedSlotMap implements SlotMap {
         }
 
         // Mark ordered slot null. After a number of deletions we'll clean it up.
-        orderedSlots.set(slot.orderedIndex, null);
+        orderedSlots[slot.orderedIndex] = null;
         if (++pendingDeletes > DELETE_THRESHOLD) {
             manyDeletes = true;
             cleanUpNulls();
@@ -254,14 +264,17 @@ public class EmbeddedSlotMap implements SlotMap {
     }
 
     private void cleanUpNulls() {
-        ArrayList<Slot> newSlots = new ArrayList<>(count);
-        for (Slot slot : orderedSlots) {
+        Slot[] newOrderedSlots = new Slot[orderedSlots.length];
+        int newPos = 0;
+        for (int pos = 0; pos < orderedSize; pos++) {
+            Slot slot = orderedSlots[pos];
             if (slot != null) {
-                slot.orderedIndex = newSlots.size();
-                newSlots.add(slot);
+                slot.orderedIndex = newPos;
+                newOrderedSlots[newPos++] = slot;
             }
         }
-        orderedSlots = newSlots;
+        orderedSlots = newOrderedSlots;
+        orderedSize = newPos;
     }
 
     /**
@@ -280,5 +293,13 @@ public class EmbeddedSlotMap implements SlotMap {
         // It only works if the table size is a power of 2.
         // The performance improvement is measurable.
         return indexOrHash & (tableSize - 1);
+    }
+
+    private static int getNextPowerOfTwo(int min) {
+        int p = INITIAL_SLOT_SIZE;
+        while (p < min) {
+            p <<= 1;
+        }
+        return p;
     }
 }
