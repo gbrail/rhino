@@ -111,7 +111,7 @@
         <!-- Checks for imports                              -->
         <!-- See http://checkstyle.sf.net/config_import.html -->
         <module name="AvoidStarImport">
-          <property name="excludes" value="org.junit,org.junit.Assert"/>
+          <property name="excludes" value="org.junit,org.junit.Assert,org.junit.jupiter.api.Assertions"/>
         </module>
         <module name="IllegalImport"/>
         <!-- defaults to sun.* packages -->
