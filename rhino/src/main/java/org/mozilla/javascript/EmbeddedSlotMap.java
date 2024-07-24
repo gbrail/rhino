@@ -16,8 +16,8 @@ package org.mozilla.javascript;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.OptionalInt;
-import java.util.function.Predicate;
+import java.util.Optional;
+import java.util.OptionalLong;
 
 public class EmbeddedSlotMap implements SlotMap {
 
@@ -28,14 +28,22 @@ public class EmbeddedSlotMap implements SlotMap {
 
     private int count;
     private int pendingDeletes;
-    private boolean manyDeletes;
+    private boolean cleanedNulls;
+    private OptionalLong keyHash = OptionalLong.empty();
 
     // initial slot array size, must be a power of 2
     private static final int INITIAL_SLOT_SIZE = 4;
     // After a bunch of deletes, clean up
     private static final int DELETE_THRESHOLD = 10;
     // Compute hash indices for this number of properties
-    private static final int NUM_FAST_PROPERTIES = 16;
+    public static final int NUM_FAST_PROPERTIES = 16;
+
+    static {
+        // A reminder that our hash algorithm doesn't work with large numbers
+        if (NUM_FAST_PROPERTIES >= 32) {
+            throw new AssertionError("Hash algorithm needs value to be less than 32");
+        }
+    }
 
     private final class Iter implements Iterator<Slot> {
         private int pos;
@@ -104,12 +112,19 @@ public class EmbeddedSlotMap implements SlotMap {
     }
 
     @Override
-    public OptionalInt queryFastIndex(Object name, int index) {
+    public Optional<FastQueryResult> queryFastIndex(Object name, int index) {
         Slot slot = query(name, index);
-        if (slot != null && index < NUM_FAST_PROPERTIES) {
-            return OptionalInt.of(slot.orderedIndex);
+        if (slot != null) {
+            if (slot.orderedIndex < NUM_FAST_PROPERTIES) {
+                return Optional.of(
+                        new FastQueryResult(slot.orderedIndex, getFastDiscriminator(name, index)));
+            } else {
+                return Optional.of(
+                        new FastQueryResult(
+                                slot.orderedIndex, getIdentityDiscriminator(name, index)));
+            }
         }
-        return OptionalInt.empty();
+        return Optional.empty();
     }
 
     @Override
@@ -117,9 +132,56 @@ public class EmbeddedSlotMap implements SlotMap {
         return orderedSlots[fastIndex];
     }
 
+    private FastTester getFastDiscriminator(Object expectedName, int expectedIndex) {
+        // Need to store this so that the discriminator is invalidated
+        // when the hash changes.
+        long hash = getFastHash();
+        return (map, name, index) -> {
+            if (hash != map.getFastHash()) {
+                return false;
+            }
+            if (name == null) {
+                return expectedIndex == index;
+            }
+            return Objects.equals(expectedName, name);
+        };
+    }
+
+    private FastTester getIdentityDiscriminator(Object expectedName, int expectedIndex) {
+        return (m, name, index) -> {
+            SlotMap map = m;
+            if (map instanceof SlotMapContainer) {
+                m = ((SlotMapContainer) map).getChild();
+            }
+            if (name == null) {
+                return expectedIndex == index;
+            }
+            return Objects.equals(expectedName, name) && Objects.equals(this, map);
+        };
+    }
+
+    private void forceRehash() {
+        keyHash = OptionalLong.empty();
+    }
+
     @Override
-    public Predicate<SlotMap> getDiscriminator() {
-        return (m) -> !manyDeletes && Objects.equals(m, this);
+    public long getFastHash() {
+        return keyHash.orElseGet(() -> computeKeyHash());
+    }
+
+    private long computeKeyHash() {
+        long hash = 0L;
+        for (int i = 0; i < orderedSize && i < NUM_FAST_PROPERTIES; i++) {
+            Slot slot = orderedSlots[i];
+            if (slot != null) {
+                // Account for ordering, so that objects with the same keys
+                // don't end up with the same hash. Shifting produces enough of
+                // a difference -- adding or oring doesn't because arithmetic
+                hash += ((long) slot.indexOrHash << (long) i);
+            }
+        }
+        keyHash = OptionalLong.of(hash);
+        return hash;
     }
 
     /**
@@ -166,6 +228,10 @@ public class EmbeddedSlotMap implements SlotMap {
         }
 
         insertNewSlot(newSlot);
+
+        if (newSlot.orderedIndex < NUM_FAST_PROPERTIES) {
+            forceRehash();
+        }
     }
 
     @Override
@@ -246,9 +312,13 @@ public class EmbeddedSlotMap implements SlotMap {
         // Mark ordered slot null. After a number of deletions we'll clean it up.
         orderedSlots[slot.orderedIndex] = null;
         if (++pendingDeletes > DELETE_THRESHOLD) {
-            manyDeletes = true;
             cleanUpNulls();
             pendingDeletes = 0;
+            cleanedNulls = true;
+        }
+
+        if (slot.orderedIndex < NUM_FAST_PROPERTIES) {
+            forceRehash();
         }
     }
 
@@ -275,6 +345,8 @@ public class EmbeddedSlotMap implements SlotMap {
         }
         orderedSlots = newOrderedSlots;
         orderedSize = newPos;
+        // Every time we change indices we must rehash
+        forceRehash();
     }
 
     /**

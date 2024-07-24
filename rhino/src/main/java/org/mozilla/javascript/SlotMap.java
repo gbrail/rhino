@@ -6,8 +6,7 @@
 
 package org.mozilla.javascript;
 
-import java.util.OptionalInt;
-import java.util.function.Predicate;
+import java.util.Optional;
 
 /**
  * A SlotMap is an interface to the main data structure that contains all the "Slots" that back a
@@ -23,6 +22,33 @@ public interface SlotMap extends Iterable<Slot> {
     @FunctionalInterface
     public interface SlotComputer<S extends Slot> {
         S compute(Object key, int index, Slot existing);
+    }
+
+    @FunctionalInterface
+    public interface FastTester {
+        boolean test(SlotMap map, Object name, int index);
+    }
+
+    public static final class FastQueryResult {
+        private int index;
+        private FastTester tester;
+
+        public FastQueryResult(int index, FastTester tester) {
+            this.index = index;
+            this.tester = tester;
+        }
+
+        public int getIndex() {
+            return index;
+        }
+
+        public FastTester getDiscriminator() {
+            return tester;
+        }
+
+        public boolean test(SlotMap map, Object name, int index) {
+            return tester.test(map, name, index);
+        }
     }
 
     /** Return the size of the map. */
@@ -69,32 +95,26 @@ public interface SlotMap extends Iterable<Slot> {
     void add(Slot newSlot);
 
     /**
-     * Return a function that may be used to test whether this slot map is equivalent with another.
-     * If two slot maps are equivalent, then an index from "queryFastIndex" will work with
-     * "queryFast".
-     */
-    default Predicate<SlotMap> getDiscriminator() {
-        return (m) -> false;
-    }
-
-    /** Return the shape, which may be used in the descriminator. */
-    default ObjectShape getShape() {
-        return null;
-    }
-
-    /**
      * Return an integer that may be used later by "queryFast" to quickly access the slot with the
      * matching name and index, or return an empty result if there is no such property or if the
      * slot map is not based on object shapes.
      */
-    default OptionalInt queryFastIndex(Object name, int index) {
-        return OptionalInt.empty();
+    default Optional<FastQueryResult> queryFastIndex(Object name, int index) {
+        return Optional.empty();
+    }
+
+    /**
+     * Return the hash value of the keys in the map. This is used internally along with the "fast
+     * query" capability and should not be used for anything else.
+     */
+    default long getFastHash() {
+        return Long.MIN_VALUE;
     }
 
     /**
      * Return the slot using the index retured by queryFastIndex(). This will always return the slot
-     * so long as the function returned from "getDiscriminator" returns true. Otherwise, the result
-     * is undefined.
+     * so long as the "test" method on the the "FastQueryResult" instance is called before every
+     * invocation and returns true.
      */
     default Slot queryFast(int fastIndex) {
         throw new UnsupportedOperationException("queryFast");

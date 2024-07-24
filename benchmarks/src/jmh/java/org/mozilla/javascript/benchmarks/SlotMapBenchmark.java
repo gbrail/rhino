@@ -1,11 +1,10 @@
 package org.mozilla.javascript.benchmarks;
 
-import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import org.mozilla.javascript.EmbeddedSlotMap;
 import org.mozilla.javascript.HashSlotMap;
-import org.mozilla.javascript.ObjectShape;
-import org.mozilla.javascript.ShapedSlotMap;
 import org.mozilla.javascript.Slot;
 import org.mozilla.javascript.SlotMap;
 import org.openjdk.jmh.annotations.*;
@@ -41,6 +40,7 @@ public class SlotMapBenchmark {
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.NANOSECONDS)
     @OperationsPerInvocation(100)
     public Object embeddedInsert1Key(EmbeddedState state) {
         Slot newSlot = null;
@@ -54,6 +54,7 @@ public class SlotMapBenchmark {
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.NANOSECONDS)
     @OperationsPerInvocation(100)
     public Object embeddedQueryKey10Entries(EmbeddedState state) {
         Slot slot = null;
@@ -67,6 +68,7 @@ public class SlotMapBenchmark {
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.NANOSECONDS)
     @OperationsPerInvocation(100)
     public Object embeddedQueryKey100Entries(EmbeddedState state) {
         Slot slot = null;
@@ -79,82 +81,19 @@ public class SlotMapBenchmark {
         return slot;
     }
 
-    @State(Scope.Thread)
-    public static class ShapedState {
-        final ShapedSlotMap emptyMap = new ShapedSlotMap();
-        final ShapedSlotMap size10Map = new ShapedSlotMap();
-        final ShapedSlotMap size100Map = new ShapedSlotMap();
-        final String[] randomKeys = new String[100];
-        String size100LastKey;
-        String size10LastKey;
-
-        @Setup(Level.Trial)
-        public void create() {
-            String lastKey = null;
-            for (int i = 0; i < 10; i++) {
-                lastKey = insertRandomEntry(size10Map);
-            }
-            size10LastKey = lastKey;
-            for (int i = 0; i < 100; i++) {
-                lastKey = insertRandomEntry(size100Map);
-            }
-            size100LastKey = lastKey;
-            for (int i = 0; i < 100; i++) {
-                randomKeys[i] = makeRandomString();
-            }
-        }
-    }
-
     @Benchmark
+    @OutputTimeUnit(TimeUnit.NANOSECONDS)
     @OperationsPerInvocation(100)
-    public Object shapedInsert1Key(ShapedState state) {
-        Slot newSlot = null;
-        for (int i = 0; i < 100; i++) {
-            newSlot = state.emptyMap.modify(state.randomKeys[i], 0, 0);
-        }
-        if (newSlot == null) {
-            throw new AssertionError();
-        }
-        return newSlot;
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(100)
-    public Object shapedQueryKey10Entries(ShapedState state) {
+    public Object embeddedFastQueryKey10Entries(EmbeddedState state) {
+        Optional<SlotMap.FastQueryResult> r =
+                state.size10Map.queryFastIndex(state.size10LastKey, 0);
         Slot slot = null;
         for (int i = 0; i < 100; i++) {
-            slot = state.size10Map.query(state.size10LastKey, 0);
-        }
-        if (slot == null) {
-            throw new AssertionError();
-        }
-        return slot;
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(100)
-    public Object shapedQueryKey100Entries(ShapedState state) {
-        Slot slot = null;
-        for (int i = 0; i < 100; i++) {
-            slot = state.size100Map.query(state.size100LastKey, 0);
-        }
-        if (slot == null) {
-            throw new AssertionError();
-        }
-        return slot;
-    }
-
-    @Benchmark
-    @OperationsPerInvocation(100)
-    public Object shapedQueryKeyFast10Entries(ShapedState state) {
-        int fastIndex = state.size10Map.queryFastIndex(state.size10LastKey, 0).getAsInt();
-        ObjectShape shape = state.size10Map.getShape();
-        Slot slot = null;
-        for (int i = 0; i < 100; i++) {
-            if (!Objects.equals(shape, state.size10Map.getShape())) {
+            boolean valid = r.get().test(state.size10Map, state.size10LastKey, 0);
+            if (!valid) {
                 throw new AssertionError();
             }
-            slot = state.size10Map.queryFast(fastIndex);
+            slot = state.size10Map.queryFast(r.get().getIndex());
         }
         if (slot == null) {
             throw new AssertionError();
@@ -189,6 +128,7 @@ public class SlotMapBenchmark {
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.NANOSECONDS)
     @OperationsPerInvocation(100)
     public Object hashInsert1Key(HashState state) {
         Slot newSlot = null;
@@ -202,6 +142,7 @@ public class SlotMapBenchmark {
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.NANOSECONDS)
     @OperationsPerInvocation(100)
     public Object hashQueryKey10Entries(HashState state) {
         Slot slot = null;
@@ -215,6 +156,7 @@ public class SlotMapBenchmark {
     }
 
     @Benchmark
+    @OutputTimeUnit(TimeUnit.NANOSECONDS)
     @OperationsPerInvocation(100)
     public Object hashQueryKey100Entries(HashState state) {
         Slot slot = null;

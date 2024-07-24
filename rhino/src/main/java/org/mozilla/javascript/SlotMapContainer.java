@@ -7,8 +7,7 @@
 package org.mozilla.javascript;
 
 import java.util.Iterator;
-import java.util.OptionalInt;
-import java.util.function.Predicate;
+import java.util.Optional;
 
 /**
  * This class holds the various SlotMaps of various types, and knows how to atomically switch
@@ -46,6 +45,10 @@ class SlotMapContainer implements SlotMap {
         } else {
             map = new EmbeddedSlotMap();
         }
+    }
+
+    SlotMap getChild() {
+        return map;
     }
 
     @Override
@@ -118,18 +121,13 @@ class SlotMapContainer implements SlotMap {
     }
 
     @Override
-    public ObjectShape getShape() {
-        return map.getShape();
-    }
-
-    @Override
-    public Predicate<SlotMap> getDiscriminator() {
-        return map.getDiscriminator();
-    }
-
-    @Override
-    public OptionalInt queryFastIndex(Object name, int index) {
+    public Optional<FastQueryResult> queryFastIndex(Object name, int index) {
         return map.queryFastIndex(name, index);
+    }
+
+    @Override
+    public long getFastHash() {
+        return map.getFastHash();
     }
 
     @Override

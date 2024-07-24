@@ -56,7 +56,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -74,7 +74,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -92,7 +92,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -110,7 +110,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -128,7 +128,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -146,7 +146,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -164,7 +164,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -182,7 +182,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -200,7 +200,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -218,7 +218,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -236,7 +236,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -254,7 +254,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -272,7 +272,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -290,7 +290,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -308,7 +308,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -326,7 +326,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -344,7 +344,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -362,7 +362,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -380,7 +380,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -398,7 +398,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -416,7 +416,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -434,7 +434,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -452,7 +452,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -470,7 +470,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -488,7 +488,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
@@ -506,7 +506,7 @@ public class SunSpiderBenchmark {
         }
 
         @Benchmark
-        @OutputTimeUnit(TimeUnit.MILLISECONDS)
+        @OutputTimeUnit(TimeUnit.MICROSECONDS)
         @Warmup(iterations = WARMUP_RUNS, time = DURATION_SECONDS, timeUnit = TimeUnit.SECONDS)
         @Measurement(
                 iterations = MEASUREMENT_RUNS,
