@@ -2627,16 +2627,15 @@ class BodyCodegen {
                     Node id = target.getNext();
                     if (type == Token.GETPROP) {
                         String property = id.getString();
-                        cfw.addPush(property);
                         cfw.addALoad(contextLocal);
                         cfw.addALoad(variableObjectLocal);
-                        addScriptRuntimeInvoke(
-                                "getPropFunctionAndThis",
+                        addDynamicInvoke(
+                                "PROP:GETWITHTHIS:" + property,
                                 "(Ljava/lang/Object;"
-                                        + "Ljava/lang/String;"
                                         + "Lorg/mozilla/javascript/Context;"
                                         + "Lorg/mozilla/javascript/Scriptable;"
                                         + ")Lorg/mozilla/javascript/Callable;");
+
                     } else {
                         generateExpression(id, node); // id
                         if (node.getIntProp(Node.ISNUMBER_PROP, -1) != -1) addDoubleWrap();
@@ -2656,14 +2655,12 @@ class BodyCodegen {
             case Token.NAME:
                 {
                     String name = node.getString();
-                    cfw.addPush(name);
-                    cfw.addALoad(contextLocal);
                     cfw.addALoad(variableObjectLocal);
-                    addScriptRuntimeInvoke(
-                            "getNameFunctionAndThis",
-                            "(Ljava/lang/String;"
+                    cfw.addALoad(contextLocal);
+                    addDynamicInvoke(
+                            "NAME:GETWITHTHIS:" + name,
+                            "(Lorg/mozilla/javascript/Scriptable;"
                                     + "Lorg/mozilla/javascript/Context;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
                                     + ")Lorg/mozilla/javascript/Callable;");
                     break;
                 }

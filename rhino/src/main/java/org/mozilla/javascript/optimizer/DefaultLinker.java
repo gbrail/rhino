@@ -12,6 +12,7 @@ import jdk.dynalink.linker.GuardedInvocation;
 import jdk.dynalink.linker.GuardingDynamicLinker;
 import jdk.dynalink.linker.LinkRequest;
 import jdk.dynalink.linker.LinkerServices;
+import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
@@ -50,6 +51,15 @@ class DefaultLinker implements GuardingDynamicLinker {
             mh = MethodHandles.insertArguments(mh, 1, name);
             return new GuardedInvocation(mh);
         } else if (NamespaceOperation.contains(
+                op, RhinoOperation.GETWITHTHIS, StandardNamespace.PROPERTY)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(1, String.class);
+            MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "getPropFunctionAndThis", tt);
+            mh = MethodHandles.insertArguments(mh, 1, name);
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(
                 op, StandardOperation.SET, StandardNamespace.PROPERTY)) {
             MethodType tt =
                     req.getCallSiteDescriptor()
@@ -73,6 +83,15 @@ class DefaultLinker implements GuardingDynamicLinker {
                             .getMethodType()
                             .insertParameterTypes(2, String.class);
             MethodHandle mh = lookup.findStatic(DefaultLinker.class, "name", tt);
+            mh = MethodHandles.insertArguments(mh, 2, name);
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(
+                op, RhinoOperation.GETWITHTHIS, RhinoNamespace.NAME)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(2, String.class);
+            MethodHandle mh = lookup.findStatic(DefaultLinker.class, "getNameFunctionAndThis", tt);
             mh = MethodHandles.insertArguments(mh, 2, name);
             return new GuardedInvocation(mh);
         } else if (NamespaceOperation.contains(op, StandardOperation.SET, RhinoNamespace.NAME)) {
@@ -109,13 +128,15 @@ class DefaultLinker implements GuardingDynamicLinker {
         }
     }
 
-    @SuppressWarnings("unused")
-    private static Scriptable bind(Scriptable scope, Context cx, String name) {
+    static Scriptable bind(Scriptable scope, Context cx, String name) {
         return ScriptRuntime.bind(cx, scope, name);
     }
 
-    @SuppressWarnings("unused")
-    private static Object name(Scriptable scope, Context cx, String name) {
+    static Object name(Scriptable scope, Context cx, String name) {
         return ScriptRuntime.name(cx, scope, name);
+    }
+
+    static Callable getNameFunctionAndThis(Scriptable target, Context cx, String name) {
+        return ScriptRuntime.getNameFunctionAndThis(name, cx, target);
     }
 }
