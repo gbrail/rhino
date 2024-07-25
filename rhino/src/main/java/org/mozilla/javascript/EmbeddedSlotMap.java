@@ -156,7 +156,7 @@ public class EmbeddedSlotMap implements SlotMap {
             if (name == null) {
                 return expectedIndex == index;
             }
-            return Objects.equals(expectedName, name) && Objects.equals(this, map);
+            return Objects.equals(expectedName, name) && Objects.equals(this, m);
         };
     }
 

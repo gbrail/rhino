@@ -151,76 +151,81 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
                 */
             }
 
-            /*
-            } else if (NamespaceOperation.contains(op, StandardOperation.GET, RhinoNamespace.NAME)
-                    && (target.getParentScope() == null)) {
-                OptionalInt fastIndex = target.getSlotMap().queryFastIndex(name, 0);
-                if (fastIndex.isPresent()) {
+        } else if (NamespaceOperation.contains(op, StandardOperation.GET, RhinoNamespace.NAME)) {
+            Context cx = (Context) args[1];
+            if ((target.getParentScope() == null) && !cx.isUsingDynamicScope()) {
+                Optional<SlotMap.FastQueryResult> r = target.getSlotMap().queryFastIndex(name, 0);
+                if (r.isPresent()) {
                     // Same basic algorithm as getting a property, in that we get the index
                     // and use it later for fast access.
                     MethodType guardType =
                             req.getCallSiteDescriptor()
                                     .getMethodType()
                                     .changeReturnType(Boolean.TYPE)
-                                    .insertParameterTypes(2, Predicate.class);
+                                    .insertParameterTypes(
+                                            2, String.class, SlotMap.FastTester.class);
                     MethodHandle guardHandle =
                             lookup.findStatic(
-                                    ShapeAwareLinker.class, "isFastIndexValidForNameRead", guardType);
+                                    ShapeAwareLinker.class,
+                                    "isFastIndexValidForNameRead",
+                                    guardType);
                     guardHandle =
                             MethodHandles.insertArguments(
-                                    guardHandle, 2, target.getSlotMap().getDiscriminator());
-
+                                    guardHandle, 2, name, r.get().getDiscriminator());
                     MethodType callType =
                             req.getCallSiteDescriptor()
                                     .getMethodType()
                                     .insertParameterTypes(2, Integer.TYPE);
                     MethodHandle callHandle =
-                            lookup.findStatic(ShapeAwareLinker.class, "queryNameFastIndex", callType);
-                    callHandle = MethodHandles.insertArguments(callHandle, 2, fastIndex.getAsInt());
-
-                    if (DefaultLinker.DEBUG) {
-                        System.out.println(
-                                "Fast link: " + op + ':' + name + " index " + fastIndex.getAsInt());
-                    }
-
-                    return new GuardedInvocation(callHandle, guardHandle);
-                }
-
-            } else if (NamespaceOperation.contains(op, StandardOperation.SET, RhinoNamespace.NAME)
-                    || NamespaceOperation.contains(op, RhinoOperation.SETSTRICT, RhinoNamespace.NAME)) {
-                OptionalInt fastIndex = target.getSlotMap().queryFastIndex(name, 0);
-                if (fastIndex.isPresent()) {
-                    // Same basic algorithm as getting a property, in that we get the index
-                    // and use it later for fast access.
-                    MethodType guardType =
-                            req.getCallSiteDescriptor()
-                                    .getMethodType()
-                                    .changeReturnType(Boolean.TYPE)
-                                    .insertParameterTypes(4, Predicate.class);
-                    MethodHandle guardHandle =
                             lookup.findStatic(
-                                    ShapeAwareLinker.class, "isFastIndexValidForNameWrite", guardType);
-                    guardHandle =
-                            MethodHandles.insertArguments(
-                                    guardHandle, 4, target.getSlotMap().getDiscriminator());
-
-                    MethodType callType =
-                            req.getCallSiteDescriptor()
-                                    .getMethodType()
-                                    .insertParameterTypes(4, Integer.TYPE);
-                    MethodHandle callHandle =
-                            lookup.findStatic(ShapeAwareLinker.class, "setNameFastIndex", callType);
-                    callHandle = MethodHandles.insertArguments(callHandle, 4, fastIndex.getAsInt());
+                                    ShapeAwareLinker.class, "queryNameFastIndex", callType);
+                    callHandle = MethodHandles.insertArguments(callHandle, 2, r.get().getIndex());
 
                     if (DefaultLinker.DEBUG) {
                         System.out.println(
-                                "Fast link: " + op + ':' + name + " index " + fastIndex.getAsInt());
+                                "Fast link: " + op + ':' + name + " index " + r.get().getIndex());
                     }
 
                     return new GuardedInvocation(callHandle, guardHandle);
                 }
-            */
+            }
         }
+
+        /*
+        } else if (NamespaceOperation.contains(op, StandardOperation.SET, RhinoNamespace.NAME)
+                || NamespaceOperation.contains(op, RhinoOperation.SETSTRICT, RhinoNamespace.NAME)) {
+            OptionalInt fastIndex = target.getSlotMap().queryFastIndex(name, 0);
+            if (fastIndex.isPresent()) {
+                // Same basic algorithm as getting a property, in that we get the index
+                // and use it later for fast access.
+                MethodType guardType =
+                        req.getCallSiteDescriptor()
+                                .getMethodType()
+                                .changeReturnType(Boolean.TYPE)
+                                .insertParameterTypes(4, Predicate.class);
+                MethodHandle guardHandle =
+                        lookup.findStatic(
+                                ShapeAwareLinker.class, "isFastIndexValidForNameWrite", guardType);
+                guardHandle =
+                        MethodHandles.insertArguments(
+                                guardHandle, 4, target.getSlotMap().getDiscriminator());
+
+                MethodType callType =
+                        req.getCallSiteDescriptor()
+                                .getMethodType()
+                                .insertParameterTypes(4, Integer.TYPE);
+                MethodHandle callHandle =
+                        lookup.findStatic(ShapeAwareLinker.class, "setNameFastIndex", callType);
+                callHandle = MethodHandles.insertArguments(callHandle, 4, fastIndex.getAsInt());
+
+                if (DefaultLinker.DEBUG) {
+                    System.out.println(
+                            "Fast link: " + op + ':' + name + " index " + fastIndex.getAsInt());
+                }
+
+                return new GuardedInvocation(callHandle, guardHandle);
+            }
+            */
 
         // If we get here, fall through to the next linker in the chain
         return null;
@@ -270,20 +275,23 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
         return value;
     }
 
-    /*
-    @SuppressWarnings("unused")
-    private static boolean isFastIndexValidForNameRead(
-            Scriptable t, Context cx, Predicate<SlotMap> discriminator) {
+    static boolean isFastIndexValidForNameRead(
+            Scriptable t, Context cx, String name, SlotMap.FastTester tester) {
         if (!(t instanceof ScriptableObject)) {
             return false;
         }
         ScriptableObject target = (ScriptableObject) t;
-        if (target.getParentScope() != null) {
+        if ((target.getParentScope() != null) || cx.isUsingDynamicScope()) {
             return false;
         }
-        return discriminator.test(target.getSlotMap());
+        return tester.test(target.getSlotMap(), name, 0);
     }
-    */
+
+    static Object queryNameFastIndex(Scriptable t, Context cx, int fastIndex) {
+        ScriptableObject target = (ScriptableObject) t;
+        Slot slot = target.getSlotMap().queryFast(fastIndex);
+        return slot.getValue(target);
+    }
 
     /*
     @SuppressWarnings("unused")
@@ -298,14 +306,6 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
         }
         ScriptableObject target = (ScriptableObject) t;
         return discriminator.test(target.getSlotMap());
-    }
-    */
-
-    /*
-    static Object queryNameFastIndex(Scriptable t, Context cx, int fastIndex) {
-        ScriptableObject target = (ScriptableObject) t;
-        Slot slot = target.getSlotMap().queryFast(fastIndex);
-        return slot.getValue(target);
     }
     */
 
