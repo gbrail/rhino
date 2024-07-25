@@ -2653,6 +2653,10 @@ public class Context implements Closeable {
                 || (currentActivationCall != null && currentActivationCall.isStrict);
     }
 
+    public boolean isUsingDynamicScope() {
+        return useDynamicScope;
+    }
+
     public static boolean isCurrentContextStrict() {
         Context cx = getCurrentContext();
         if (cx == null) {
