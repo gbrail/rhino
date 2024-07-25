@@ -13,11 +13,14 @@ import jdk.dynalink.linker.GuardedInvocation;
 import jdk.dynalink.linker.GuardingDynamicLinker;
 import jdk.dynalink.linker.LinkRequest;
 import jdk.dynalink.linker.LinkerServices;
+import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Slot;
 import org.mozilla.javascript.SlotMap;
+import org.mozilla.javascript.SlotMap.FastQueryResult;
 
 class ShapeAwareLinker implements GuardingDynamicLinker {
 
@@ -47,188 +50,71 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
                         op, RhinoOperation.GETNOWARN, StandardNamespace.PROPERTY)) {
             Optional<SlotMap.FastQueryResult> r = target.getSlotMap().queryFastIndex(name, 0);
             if (r.isPresent()) {
-                // Off to the races! The target has a shape-aware slot map and we know where to go
-                // to fetch the object rather quickly.
-                MethodType guardType =
-                        req.getCallSiteDescriptor()
-                                .getMethodType()
-                                .changeReturnType(Boolean.TYPE)
-                                .insertParameterTypes(3, String.class, SlotMap.FastTester.class);
-                MethodHandle guardHandle =
-                        lookup.findStatic(
-                                ShapeAwareLinker.class, "isFastIndexValidForRead", guardType);
-                guardHandle =
-                        MethodHandles.insertArguments(
-                                guardHandle, 3, name, r.get().getDiscriminator());
-
-                MethodType callType =
-                        req.getCallSiteDescriptor()
-                                .getMethodType()
-                                .insertParameterTypes(3, Integer.TYPE);
-                MethodHandle callHandle =
-                        lookup.findStatic(ShapeAwareLinker.class, "queryFastIndex", callType);
-                callHandle = MethodHandles.insertArguments(callHandle, 3, r.get().getIndex());
-
-                if (DefaultLinker.DEBUG) {
-                    System.out.println(
-                            "Fast link: " + op + ':' + name + " index " + r.get().getIndex());
-                }
-
-                return new GuardedInvocation(callHandle, guardHandle);
+                return linkGetObjectProp(op, req, lookup, name, r.get());
             }
+
+            /*
+            } else if (NamespaceOperation.contains(op, RhinoOperation.GETWITHTHIS, StandardNamespace.PROPERTY)) {
+            Optional<SlotMap.FastQueryResult> r = target.getSlotMap().queryFastIndex(name, 0);
+                if (r.isPresent()) {
+                    return linkGetObjectPropAndThis(op, req, lookup, name, r.get());
+                }
+            */
 
         } else if (NamespaceOperation.contains(
                 op, StandardOperation.SET, StandardNamespace.PROPERTY)) {
             Optional<SlotMap.FastQueryResult> r = target.getSlotMap().queryFastIndex(name, 0);
             if (r.isPresent()) {
-                // The logic here is like for get, because we are optimizing for the case of setting
-                // a property that we know already exists.
-                MethodType guardType =
-                        req.getCallSiteDescriptor()
-                                .getMethodType()
-                                .changeReturnType(Boolean.TYPE)
-                                .insertParameterTypes(4, String.class, SlotMap.FastTester.class);
-                MethodHandle guardHandle =
-                        lookup.findStatic(
-                                ShapeAwareLinker.class, "isFastIndexValidForWrite", guardType);
-                guardHandle =
-                        MethodHandles.insertArguments(
-                                guardHandle, 4, name, r.get().getDiscriminator());
+                return linkSetObjectProp(op, req, lookup, name, r.get());
+            }
 
-                MethodType callType =
-                        req.getCallSiteDescriptor()
-                                .getMethodType()
-                                .insertParameterTypes(4, Integer.TYPE);
-                MethodHandle callHandle =
-                        lookup.findStatic(ShapeAwareLinker.class, "setFastIndex", callType);
-                callHandle = MethodHandles.insertArguments(callHandle, 4, r.get().getIndex());
-
-                if (DefaultLinker.DEBUG) {
-                    System.out.println(
-                            "Fast link: " + op + ':' + name + " index " + r.get().getIndex());
-                }
-
-                return new GuardedInvocation(callHandle, guardHandle);
-
-                /*
-                 * This next bit tries to assume the property map. The problem is that we don't
-                 * know that unless we try an insert first, since there are 10 different ways that
-                 * new properties don't end up in the slot map.
-                } else if (target.getSlotMap() != null) {
-                    // We know that the property does not exist, but we know how to insert it quickly
-                    // with a pre-cached object shape table.
-                    ObjectShape shapeBefore = target.getSlotMap().getShape();
-                    ObjectShape.Result r = shapeBefore.putProperty(name);
-                    assert r.getShape().isPresent();
-                    ObjectShape shapeAfter = r.getShape().get();
-
-                    // Guard handle is the same as for read
-                    MethodType guardType =
-                            req.getCallSiteDescriptor()
-                                    .getMethodType()
-                                    .changeReturnType(Boolean.TYPE)
-                                    .insertParameterTypes(4, ObjectShape.class);
-                    MethodHandle guardHandle =
-                            lookup.findStatic(
-                                    ShapeAwareLinker.class, "isFastIndexValidForWrite", guardType);
-                    guardHandle = MethodHandles.insertArguments(guardHandle, 4, shapeBefore);
-
-                    // Write handle needs to pass the new shape table
-                    MethodType callType =
-                            req.getCallSiteDescriptor()
-                                    .getMethodType()
-                                    .insertParameterTypes(4, String.class)
-                                    .insertParameterTypes(5, ObjectShape.class);
-                    MethodHandle callHandle =
-                            lookup.findStatic(ShapeAwareLinker.class, "addNewFastIndex", callType);
-                    callHandle = MethodHandles.insertArguments(callHandle, 4, name, shapeAfter);
-
-                    if (DefaultLinker.DEBUG) {
-                        System.out.println("Fast link: " + op + ':' + name);
+            /*
+            } else if (NamespaceOperation.contains(op, StandardOperation.GET, RhinoNamespace.NAME)) {
+                Context cx = (Context) args[1];
+                if ((target.getParentScope() == null) && !cx.isUsingDynamicScope()) {
+                    Optional<SlotMap.FastQueryResult> r = target.getSlotMap().queryFastIndex(name, 0);
+                    if (r.isPresent()) {
+                        return linkName(op, req, lookup, name, r.get());
                     }
-
-                    return new GuardedInvocation(callHandle, guardHandle);
-                */
-            }
-
-        } else if (NamespaceOperation.contains(op, StandardOperation.GET, RhinoNamespace.NAME)) {
-            Context cx = (Context) args[1];
-            if ((target.getParentScope() == null) && !cx.isUsingDynamicScope()) {
-                Optional<SlotMap.FastQueryResult> r = target.getSlotMap().queryFastIndex(name, 0);
-                if (r.isPresent()) {
-                    // Same basic algorithm as getting a property, in that we get the index
-                    // and use it later for fast access.
-                    MethodType guardType =
-                            req.getCallSiteDescriptor()
-                                    .getMethodType()
-                                    .changeReturnType(Boolean.TYPE)
-                                    .insertParameterTypes(
-                                            2, String.class, SlotMap.FastTester.class);
-                    MethodHandle guardHandle =
-                            lookup.findStatic(
-                                    ShapeAwareLinker.class,
-                                    "isFastIndexValidForNameRead",
-                                    guardType);
-                    guardHandle =
-                            MethodHandles.insertArguments(
-                                    guardHandle, 2, name, r.get().getDiscriminator());
-                    MethodType callType =
-                            req.getCallSiteDescriptor()
-                                    .getMethodType()
-                                    .insertParameterTypes(2, Integer.TYPE);
-                    MethodHandle callHandle =
-                            lookup.findStatic(
-                                    ShapeAwareLinker.class, "queryNameFastIndex", callType);
-                    callHandle = MethodHandles.insertArguments(callHandle, 2, r.get().getIndex());
-
-                    if (DefaultLinker.DEBUG) {
-                        System.out.println(
-                                "Fast link: " + op + ':' + name + " index " + r.get().getIndex());
-                    }
-
-                    return new GuardedInvocation(callHandle, guardHandle);
                 }
-            }
-        }
-
-        /*
-        } else if (NamespaceOperation.contains(op, StandardOperation.SET, RhinoNamespace.NAME)
-                || NamespaceOperation.contains(op, RhinoOperation.SETSTRICT, RhinoNamespace.NAME)) {
-            OptionalInt fastIndex = target.getSlotMap().queryFastIndex(name, 0);
-            if (fastIndex.isPresent()) {
-                // Same basic algorithm as getting a property, in that we get the index
-                // and use it later for fast access.
-                MethodType guardType =
-                        req.getCallSiteDescriptor()
-                                .getMethodType()
-                                .changeReturnType(Boolean.TYPE)
-                                .insertParameterTypes(4, Predicate.class);
-                MethodHandle guardHandle =
-                        lookup.findStatic(
-                                ShapeAwareLinker.class, "isFastIndexValidForNameWrite", guardType);
-                guardHandle =
-                        MethodHandles.insertArguments(
-                                guardHandle, 4, target.getSlotMap().getDiscriminator());
-
-                MethodType callType =
-                        req.getCallSiteDescriptor()
-                                .getMethodType()
-                                .insertParameterTypes(4, Integer.TYPE);
-                MethodHandle callHandle =
-                        lookup.findStatic(ShapeAwareLinker.class, "setNameFastIndex", callType);
-                callHandle = MethodHandles.insertArguments(callHandle, 4, fastIndex.getAsInt());
-
-                if (DefaultLinker.DEBUG) {
-                    System.out.println(
-                            "Fast link: " + op + ':' + name + " index " + fastIndex.getAsInt());
-                }
-
-                return new GuardedInvocation(callHandle, guardHandle);
-            }
             */
+        }
 
         // If we get here, fall through to the next linker in the chain
         return null;
+    }
+
+    /**
+     * Equivalent code to ScriptRuntinme.getObjectProp(). Optimizes using a fast lookup if the
+     * property is already present in the base object and not in the prototype chain.
+     */
+    private GuardedInvocation linkGetObjectProp(
+            Operation op,
+            LinkRequest req,
+            MethodHandles.Lookup lookup,
+            String name,
+            FastQueryResult r)
+            throws NoSuchMethodException, IllegalAccessException {
+        MethodType guardType =
+                req.getCallSiteDescriptor()
+                        .getMethodType()
+                        .changeReturnType(Boolean.TYPE)
+                        .insertParameterTypes(3, String.class, SlotMap.FastTester.class);
+        MethodHandle guardHandle =
+                lookup.findStatic(ShapeAwareLinker.class, "isFastIndexValidForRead", guardType);
+        guardHandle = MethodHandles.insertArguments(guardHandle, 3, name, r.getDiscriminator());
+
+        MethodType callType =
+                req.getCallSiteDescriptor().getMethodType().insertParameterTypes(3, Integer.TYPE);
+        MethodHandle callHandle =
+                lookup.findStatic(ShapeAwareLinker.class, "queryFastIndex", callType);
+        callHandle = MethodHandles.insertArguments(callHandle, 3, r.getIndex());
+
+        if (DefaultLinker.DEBUG) {
+            System.out.println("Fast link: " + op + ':' + name + " index " + r.getIndex());
+        }
+
+        return new GuardedInvocation(callHandle, guardHandle);
     }
 
     /**
@@ -250,6 +136,86 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
         ScriptableObject target = (ScriptableObject) t;
         Slot slot = target.getSlotMap().queryFast(fastIndex);
         return slot.getValue(target);
+    }
+
+    /**
+     * Equivalent code to ScriptRuntinme.getPropFunctionAndThis(). Optimizes using a fast lookup if
+     * the property is already present in the base object and not in the prototype chain.
+     */
+    /*
+    private GuardedInvocation linkGetObjectPropAndThis(Operation op, LinkRequest req,
+        MethodHandles.Lookup lookup, String name, FastQueryResult r) throws NoSuchMethodException, IllegalAccessException {
+        MethodType guardType =
+                req.getCallSiteDescriptor()
+                        .getMethodType()
+                        .changeReturnType(Boolean.TYPE)
+                        .insertParameterTypes(3, String.class, SlotMap.FastTester.class);
+        MethodHandle guardHandle =
+                lookup.findStatic(
+                        ShapeAwareLinker.class, "isFastIndexValidForRead", guardType);
+        guardHandle =
+                MethodHandles.insertArguments(
+                        guardHandle, 3, name, r.getDiscriminator());
+
+        MethodType callType =
+                req.getCallSiteDescriptor()
+                        .getMethodType()
+                        .insertParameterTypes(3, Integer.TYPE, String.class);
+        MethodHandle callHandle =
+                lookup.findStatic(ShapeAwareLinker.class, "queryFastIndexAndThis", callType);
+        callHandle = MethodHandles.insertArguments(callHandle, 3, r.getIndex(), name);
+
+        if (DefaultLinker.DEBUG) {
+                System.out.println(
+                        "Fast link: " + op + ':' + name + " index " + r.getIndex());
+        }
+
+        return new GuardedInvocation(callHandle, guardHandle);
+    }
+    */
+
+    static Callable queryFastIndexAndThis(
+            Object t, Context cx, Scriptable scope, int fastIndex, String name) {
+        ScriptableObject target = (ScriptableObject) t;
+        Slot slot = target.getSlotMap().queryFast(fastIndex);
+        Object value = slot.getValue(target);
+        if (value instanceof Callable) {
+            ScriptRuntime.storeScriptable(cx, scope);
+            return (Callable) value;
+        }
+        throw ScriptRuntime.notFunctionError(scope, value, name);
+    }
+
+    /**
+     * Equivalent code to ScriptRuntime.setObjectProp(), for properties in the base object that are
+     * already present at link time.
+     */
+    private GuardedInvocation linkSetObjectProp(
+            Operation op,
+            LinkRequest req,
+            MethodHandles.Lookup lookup,
+            String name,
+            FastQueryResult r)
+            throws NoSuchMethodException, IllegalAccessException {
+        MethodType guardType =
+                req.getCallSiteDescriptor()
+                        .getMethodType()
+                        .changeReturnType(Boolean.TYPE)
+                        .insertParameterTypes(4, String.class, SlotMap.FastTester.class);
+        MethodHandle guardHandle =
+                lookup.findStatic(ShapeAwareLinker.class, "isFastIndexValidForWrite", guardType);
+        guardHandle = MethodHandles.insertArguments(guardHandle, 4, name, r.getDiscriminator());
+        MethodType callType =
+                req.getCallSiteDescriptor().getMethodType().insertParameterTypes(4, Integer.TYPE);
+        MethodHandle callHandle =
+                lookup.findStatic(ShapeAwareLinker.class, "setFastIndex", callType);
+        callHandle = MethodHandles.insertArguments(callHandle, 4, r.getIndex());
+
+        if (DefaultLinker.DEBUG) {
+            System.out.println("Fast link: " + op + ':' + name + " index " + r.getIndex());
+        }
+
+        return new GuardedInvocation(callHandle, guardHandle);
     }
 
     static boolean isFastIndexValidForWrite(
@@ -275,6 +241,42 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
         return value;
     }
 
+    /**
+     * Equivalent code to ScriptRuntinme.name(). Optimizes using a fast lookup if there is no parent
+     * scope and the property already exists inthe base object.
+     */
+    /*
+    private GuardedInvocation linkName(Operation op, LinkRequest req,
+        MethodHandles.Lookup lookup, String name, FastQueryResult r) throws NoSuchMethodException, IllegalAccessException {
+        MethodType guardType =
+                req.getCallSiteDescriptor()
+                        .getMethodType()
+                        .changeReturnType(Boolean.TYPE)
+                        .insertParameterTypes(2, String.class, SlotMap.FastTester.class);
+        MethodHandle guardHandle =
+                lookup.findStatic(
+                        ShapeAwareLinker.class, "isFastIndexValidForNameRead", guardType);
+        guardHandle =
+                MethodHandles.insertArguments(
+                        guardHandle, 2, name, r.getDiscriminator());
+
+        MethodType callType =
+                req.getCallSiteDescriptor()
+                        .getMethodType()
+                        .insertParameterTypes(2, Integer.TYPE);
+        MethodHandle callHandle =
+                lookup.findStatic(ShapeAwareLinker.class, "queryNameFastIndex", callType);
+        callHandle = MethodHandles.insertArguments(callHandle, 2, r.getIndex());
+
+        if (DefaultLinker.DEBUG) {
+                System.out.println(
+                        "Fast link: " + op + ':' + name + " index " + r.getIndex());
+        }
+
+        return new GuardedInvocation(callHandle, guardHandle);
+    }
+    */
+
     static boolean isFastIndexValidForNameRead(
             Scriptable t, Context cx, String name, SlotMap.FastTester tester) {
         if (!(t instanceof ScriptableObject)) {
@@ -294,46 +296,45 @@ class ShapeAwareLinker implements GuardingDynamicLinker {
     }
 
     /*
-    @SuppressWarnings("unused")
-    private static boolean isFastIndexValidForNameWrite(
-            Scriptable t,
-            Object v,
-            Context cx,
-            Scriptable scope,
-            Predicate<SlotMap> discriminator) {
-        if (!(t instanceof ScriptableObject)) {
-            return false;
+    private GuardedInvocation linkNameAndThis(Operation op, LinkRequest req,
+        MethodHandles.Lookup lookup, String name, FastQueryResult r) throws NoSuchMethodException, IllegalAccessException {
+        MethodType guardType =
+                req.getCallSiteDescriptor()
+                        .getMethodType()
+                        .changeReturnType(Boolean.TYPE)
+                        .insertParameterTypes(2, String.class, SlotMap.FastTester.class);
+        MethodHandle guardHandle =
+                lookup.findStatic(
+                        ShapeAwareLinker.class, "isFastIndexValidForNameRead", guardType);
+        guardHandle =
+                MethodHandles.insertArguments(
+                        guardHandle, 2, name, r.getDiscriminator());
+
+        MethodType callType =
+                req.getCallSiteDescriptor()
+                        .getMethodType()
+                        .insertParameterTypes(2, Integer.TYPE, String.class);
+        MethodHandle callHandle =
+                lookup.findStatic(ShapeAwareLinker.class, "queryNameAndThisFastIndex", callType);
+        callHandle = MethodHandles.insertArguments(callHandle, 2, r.getIndex(), name);
+
+        if (DefaultLinker.DEBUG) {
+                System.out.println(
+                        "Fast link: " + op + ':' + name + " index " + r.getIndex());
         }
-        ScriptableObject target = (ScriptableObject) t;
-        return discriminator.test(target.getSlotMap());
+
+        return new GuardedInvocation(callHandle, guardHandle);
     }
     */
 
-    /*
-    static Object setNameFastIndex(
-            Scriptable t, Object value, Context cx, Scriptable scope, int fastIndex) {
+    static Object queryNameAndThisFastIndex(Scriptable t, Context cx, int fastIndex, String name) {
         ScriptableObject target = (ScriptableObject) t;
         Slot slot = target.getSlotMap().queryFast(fastIndex);
-        slot.setValue(value, target, target, cx.isStrictMode());
-        return value;
+        Object value = slot.getValue(target);
+        if (value instanceof Callable) {
+            ScriptRuntime.storeScriptable(cx, target);
+            return (Callable) value;
+        }
+        throw ScriptRuntime.notFunctionError(target, value, name);
     }
-    */
-
-    /**
-     * This method assumes that we know the current object shape, and what the new shape will be,
-     * and we just need to append a slot to the end.
-     */
-    /*
-    static Object addNewFastIndex(
-            Object t,
-            Object value,
-            Context cx,
-            Scriptable scope,
-            String name,
-            ObjectShape newShape) {
-        ScriptableObject target = (ScriptableObject) t;
-        Slot slot = target.getSlotMap().addFast(name, 0, newShape);
-        return slot.setValue(value, target, target, cx.isStrictMode());
-    }
-    */
 }

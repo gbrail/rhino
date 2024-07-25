@@ -54,6 +54,10 @@ public class Bootstrapper {
                     return RhinoOperation.GETNOWARN
                             .withNamespace(StandardNamespace.PROPERTY)
                             .named(getNameSegment(tokens, name, 2));
+                case "GETWITHTHIS":
+                    return RhinoOperation.GETWITHTHIS
+                            .withNamespace(StandardNamespace.PROPERTY)
+                            .named(getNameSegment(tokens, name, 2));
                 case "SET":
                     return StandardOperation.SET
                             .withNamespace(StandardNamespace.PROPERTY)
@@ -67,6 +71,10 @@ public class Bootstrapper {
                             .named(getNameSegment(tokens, name, 2));
                 case "GET":
                     return StandardOperation.GET
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+                case "GETWITHTHIS":
+                    return RhinoOperation.GETWITHTHIS
                             .withNamespace(RhinoNamespace.NAME)
                             .named(getNameSegment(tokens, name, 2));
                 case "SET":
