@@ -7,4 +7,7 @@ public enum RhinoOperation implements Operation {
     GETNOWARN,
     GETWITHTHIS,
     SETSTRICT,
+    CALL_0,
+    CALL_1,
+    CALL_2,
 }

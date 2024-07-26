@@ -29,7 +29,8 @@ public class Bootstrapper {
 
     static {
         DynamicLinkerFactory factory = new DynamicLinkerFactory();
-        factory.setPrioritizedLinkers(new ShapeAwareLinker(), new DefaultLinker());
+        factory.setPrioritizedLinkers(
+                new ShapeAwareLinker(), new CallLinker(), new DefaultLinker());
         linker = factory.createLinker();
     }
 
@@ -62,6 +63,10 @@ public class Bootstrapper {
                     return StandardOperation.SET
                             .withNamespace(StandardNamespace.PROPERTY)
                             .named(getNameSegment(tokens, name, 2));
+                case "CALL0":
+                    return RhinoOperation.CALL_0
+                            .withNamespace(StandardNamespace.PROPERTY)
+                            .named(getNameSegment(tokens, name, 2));
             }
         } else if ("NAME".equals(namespaceName)) {
             switch (opName) {
@@ -85,6 +90,25 @@ public class Bootstrapper {
                     return RhinoOperation.SETSTRICT
                             .withNamespace(RhinoNamespace.NAME)
                             .named(getNameSegment(tokens, name, 2));
+                case "CALL":
+                    return StandardOperation.CALL
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+                case "CALL0":
+                    return RhinoOperation.CALL_0
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+            }
+        } else if ("METHOD".equals(namespaceName)) {
+            switch (opName) {
+                case "CALL":
+                    return StandardOperation.CALL.withNamespace(StandardNamespace.METHOD);
+                case "CALL0":
+                    return RhinoOperation.CALL_0.withNamespace(StandardNamespace.METHOD);
+                case "CALL1":
+                    return RhinoOperation.CALL_1.withNamespace(StandardNamespace.METHOD);
+                case "CALL2":
+                    return RhinoOperation.CALL_2.withNamespace(StandardNamespace.METHOD);
             }
         }
 
