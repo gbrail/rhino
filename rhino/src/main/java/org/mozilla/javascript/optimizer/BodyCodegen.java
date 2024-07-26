@@ -2324,11 +2324,9 @@ class BodyCodegen {
             if (childType == Token.NAME) {
                 // name() call
                 String name = child.getString();
-                cfw.addPush(name);
-                methodName = "callName0";
+                methodName = "NAME:CALL0:" + name;
                 signature =
-                        "(Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
+                        "(Lorg/mozilla/javascript/Context;"
                                 + "Lorg/mozilla/javascript/Scriptable;"
                                 + ")Ljava/lang/Object;";
             } else if (childType == Token.GETPROP) {
@@ -2337,11 +2335,9 @@ class BodyCodegen {
                 generateExpression(propTarget, node);
                 Node id = propTarget.getNext();
                 String property = id.getString();
-                cfw.addPush(property);
-                methodName = "callProp0";
+                methodName = "PROP:CALL0:" + property;
                 signature =
                         "(Ljava/lang/Object;"
-                                + "Ljava/lang/String;"
                                 + "Lorg/mozilla/javascript/Context;"
                                 + "Lorg/mozilla/javascript/Scriptable;"
                                 + ")Ljava/lang/Object;";
@@ -2349,7 +2345,7 @@ class BodyCodegen {
                 throw Kit.codeBug();
             } else {
                 generateFunctionAndThisObj(child, node);
-                methodName = "call0";
+                methodName = "METHOD:CALL0";
                 signature =
                         "(Lorg/mozilla/javascript/Callable;"
                                 + "Lorg/mozilla/javascript/Scriptable;"
@@ -2365,11 +2361,9 @@ class BodyCodegen {
             // there are no checks for it
             String name = child.getString();
             generateCallArgArray(node, firstArgChild, false);
-            cfw.addPush(name);
-            methodName = "callName";
+            methodName = "NAME:CALL:" + name;
             signature =
                     "([Ljava/lang/Object;"
-                            + "Ljava/lang/String;"
                             + "Lorg/mozilla/javascript/Context;"
                             + "Lorg/mozilla/javascript/Scriptable;"
                             + ")Ljava/lang/Object;";
@@ -2382,7 +2376,7 @@ class BodyCodegen {
             // stack: ... functionObj thisObj
             if (argCount == 1) {
                 generateExpression(firstArgChild, node);
-                methodName = "call1";
+                methodName = "METHOD:CALL1";
                 signature =
                         "(Lorg/mozilla/javascript/Callable;"
                                 + "Lorg/mozilla/javascript/Scriptable;"
@@ -2393,7 +2387,7 @@ class BodyCodegen {
             } else if (argCount == 2) {
                 generateExpression(firstArgChild, node);
                 generateExpression(firstArgChild.getNext(), node);
-                methodName = "call2";
+                methodName = "METHOD:CALL2";
                 signature =
                         "(Lorg/mozilla/javascript/Callable;"
                                 + "Lorg/mozilla/javascript/Scriptable;"
@@ -2404,7 +2398,7 @@ class BodyCodegen {
                                 + ")Ljava/lang/Object;";
             } else {
                 generateCallArgArray(node, firstArgChild, false);
-                methodName = "callN";
+                methodName = "METHOD:CALL";
                 signature =
                         "(Lorg/mozilla/javascript/Callable;"
                                 + "Lorg/mozilla/javascript/Scriptable;"
@@ -2417,7 +2411,7 @@ class BodyCodegen {
 
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        addOptRuntimeInvoke(methodName, signature);
+        addDynamicInvoke(methodName, signature);
     }
 
     private void visitStandardNew(Node node, Node child) {

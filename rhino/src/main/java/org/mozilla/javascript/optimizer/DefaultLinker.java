@@ -19,7 +19,7 @@ import org.mozilla.javascript.Scriptable;
 
 class DefaultLinker implements GuardingDynamicLinker {
 
-    static final boolean DEBUG = false;
+    static final boolean DEBUG = true;
 
     @Override
     public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svc)
@@ -30,7 +30,11 @@ class DefaultLinker implements GuardingDynamicLinker {
         op = NamedOperation.getBaseOperation(op);
 
         if (DEBUG) {
-            System.out.println("Default link: " + op + ':' + name);
+            if (name == null) {
+                System.out.println("Default link: " + op);
+            } else {
+                System.out.println("Default link: " + op + ':' + name);
+            }
         }
 
         if (NamespaceOperation.contains(op, StandardOperation.GET, StandardNamespace.PROPERTY)) {
@@ -66,6 +70,15 @@ class DefaultLinker implements GuardingDynamicLinker {
                             .getMethodType()
                             .insertParameterTypes(1, String.class);
             MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "setObjectProp", tt);
+            mh = MethodHandles.insertArguments(mh, 1, name);
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(
+                op, RhinoOperation.CALL_0, StandardNamespace.PROPERTY)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(1, String.class);
+            MethodHandle mh = lookup.findStatic(OptRuntime.class, "callProp0", tt);
             mh = MethodHandles.insertArguments(mh, 1, name);
             return new GuardedInvocation(mh);
 
@@ -109,6 +122,47 @@ class DefaultLinker implements GuardingDynamicLinker {
                             .insertParameterTypes(4, String.class);
             MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "strictSetName", tt);
             mh = MethodHandles.insertArguments(mh, 4, name);
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(op, StandardOperation.CALL, RhinoNamespace.NAME)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(1, String.class);
+            MethodHandle mh = lookup.findStatic(OptRuntime.class, "callName", tt);
+            mh = MethodHandles.insertArguments(mh, 1, name);
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(op, RhinoOperation.CALL_0, RhinoNamespace.NAME)) {
+            MethodType tt =
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .insertParameterTypes(0, String.class);
+            MethodHandle mh = lookup.findStatic(OptRuntime.class, "callName0", tt);
+            mh = MethodHandles.insertArguments(mh, 0, name);
+            return new GuardedInvocation(mh);
+
+        } else if (NamespaceOperation.contains(
+                op, StandardOperation.CALL, StandardNamespace.METHOD)) {
+            MethodHandle mh =
+                    lookup.findStatic(
+                            OptRuntime.class, "callN", req.getCallSiteDescriptor().getMethodType());
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(
+                op, RhinoOperation.CALL_0, StandardNamespace.METHOD)) {
+            MethodHandle mh =
+                    lookup.findStatic(
+                            OptRuntime.class, "call0", req.getCallSiteDescriptor().getMethodType());
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(
+                op, RhinoOperation.CALL_1, StandardNamespace.METHOD)) {
+            MethodHandle mh =
+                    lookup.findStatic(
+                            OptRuntime.class, "call1", req.getCallSiteDescriptor().getMethodType());
+            return new GuardedInvocation(mh);
+        } else if (NamespaceOperation.contains(
+                op, RhinoOperation.CALL_2, StandardNamespace.METHOD)) {
+            MethodHandle mh =
+                    lookup.findStatic(
+                            OptRuntime.class, "call2", req.getCallSiteDescriptor().getMethodType());
             return new GuardedInvocation(mh);
         }
 
