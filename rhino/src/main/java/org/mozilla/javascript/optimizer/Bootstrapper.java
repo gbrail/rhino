@@ -29,8 +29,10 @@ public class Bootstrapper {
 
     static {
         DynamicLinkerFactory factory = new DynamicLinkerFactory();
-        factory.setPrioritizedLinkers(
-                new ShapeAwareLinker(), new CallLinker(), new DefaultLinker());
+        // Other linkers:
+        //  new ShapeAwareLinker()
+        //  new CallLinker()
+        factory.setPrioritizedLinkers(new DefaultLinker());
         linker = factory.createLinker();
     }
 
