@@ -457,7 +457,7 @@ public class ScriptRuntime {
     // Preserve backward-compatibility with historical value of this.
     public static final double negativeZero = Double.longBitsToDouble(0x8000000000000000L);
 
-    public static final Double zeroObj = Double.valueOf(0.0);
+    public static final Integer zeroObj = 0;
     public static final Double negativeZeroObj = Double.valueOf(-0.0);
 
     static double stringPrefixToNumber(String s, int start, int radix) {
@@ -2990,6 +2990,9 @@ public class ScriptRuntime {
                 || (val1 instanceof BigInteger && val2 instanceof Number)) {
             throw ScriptRuntime.typeErrorById("msg.cant.convert.to.number", "BigInt");
         }
+        if (val1 instanceof Integer && val2 instanceof Integer) {
+            return add((Integer)val1, (Integer)val2);
+        }
         if (val1 instanceof Number && val2 instanceof Number) {
             return wrapNumber(((Number) val1).doubleValue() + ((Number) val2).doubleValue());
         }
@@ -3028,6 +3031,15 @@ public class ScriptRuntime {
             return num1.doubleValue() + num2.doubleValue();
         }
         return new ConsString(toCharSequence(val1), toCharSequence(val2));
+    }
+
+    public static Object add(Integer o1, Integer o2) {
+        // Need to test for overflow unfortunately
+        long result = (long)(o1.intValue()) + o2.intValue();
+        if (result > Integer.MAX_VALUE) {
+            return Double.valueOf((double)result);
+        }
+        return Integer.valueOf((int)result);
     }
 
     /**
@@ -3291,6 +3303,21 @@ public class ScriptRuntime {
             } else {
                 result = ((BigInteger) number).subtract(BigInteger.ONE);
             }
+        } else if (number instanceof Integer) {
+            Integer i = (Integer)number;
+            if ((incrDecrMask & Node.DECR_FLAG) == 0) {
+                if (i < Integer.MAX_VALUE) {
+                    result = i + 1;
+                } else {
+                    result = Double.valueOf(i + 1.0);
+                }
+            } else {
+                if (i > Integer.MIN_VALUE) {
+                    result = i - 1;
+                } else {
+                    result = Double.valueOf(i - 1.0);
+                }
+            }
         } else {
             if ((incrDecrMask & Node.DECR_FLAG) == 0) {
                 result = number.doubleValue() + 1.0;
@@ -3330,6 +3357,21 @@ public class ScriptRuntime {
                 result = ((BigInteger) number).add(BigInteger.ONE);
             } else {
                 result = ((BigInteger) number).subtract(BigInteger.ONE);
+            }
+        } else if (number instanceof Integer) {
+            Integer i = (Integer)number;
+            if ((incrDecrMask & Node.DECR_FLAG) == 0) {
+                if (i < Integer.MAX_VALUE) {
+                    result = i + 1;
+                } else {
+                    result = Double.valueOf(i + 1.0);
+                }
+            } else {
+                if (i > Integer.MIN_VALUE) {
+                    result = i - 1;
+                } else {
+                    result = Double.valueOf(i - 1.0);
+                }
             }
         } else {
             if ((incrDecrMask & Node.DECR_FLAG) == 0) {
@@ -3383,6 +3425,21 @@ public class ScriptRuntime {
                 result = ((BigInteger) number).add(BigInteger.ONE);
             } else {
                 result = ((BigInteger) number).subtract(BigInteger.ONE);
+            }
+        } else if (number instanceof Integer) {
+            Integer i = (Integer)number;
+            if ((incrDecrMask & Node.DECR_FLAG) == 0) {
+                if (i < Integer.MAX_VALUE) {
+                    result = i + 1;
+                } else {
+                    result = Double.valueOf(i + 1.0);
+                }
+            } else {
+                if (i > Integer.MIN_VALUE) {
+                    result = i - 1;
+                } else {
+                    result = Double.valueOf(i - 1.0);
+                }
             }
         } else {
             if ((incrDecrMask & Node.DECR_FLAG) == 0) {

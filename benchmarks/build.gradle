@@ -15,7 +15,7 @@ jmh {
     }
     benchmarkMode = ['avgt']
     fork = 1
-    iterations = 3
+    iterations = 2
     timeOnIteration = '5s'
     warmupIterations = 3
     warmup = '5s'

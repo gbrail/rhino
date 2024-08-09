@@ -3,6 +3,7 @@ package org.mozilla.javascript.optimizer;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.util.Collections;
 import java.util.regex.Pattern;
 import jdk.dynalink.CallSiteDescriptor;
 import jdk.dynalink.DynamicLinker;
@@ -10,6 +11,7 @@ import jdk.dynalink.DynamicLinkerFactory;
 import jdk.dynalink.Operation;
 import jdk.dynalink.StandardNamespace;
 import jdk.dynalink.StandardOperation;
+import jdk.dynalink.linker.support.CompositeTypeBasedGuardingDynamicLinker;
 import jdk.dynalink.support.ChainedCallSite;
 import org.mozilla.classfile.ByteCode;
 import org.mozilla.classfile.ClassFileWriter;
@@ -32,7 +34,12 @@ public class Bootstrapper {
         // Other linkers:
         //  new ShapeAwareLinker()
         //  new CallLinker()
-        factory.setPrioritizedLinkers(new DefaultLinker());
+        factory.setPrioritizedLinkers(
+            new CompositeTypeBasedGuardingDynamicLinker(
+                Collections.singleton(new IntegerMathLinker())
+            ),
+            new DefaultLinker()
+        );
         linker = factory.createLinker();
     }
 
@@ -111,6 +118,36 @@ public class Bootstrapper {
                     return RhinoOperation.CALL_1.withNamespace(StandardNamespace.METHOD);
                 case "CALL2":
                     return RhinoOperation.CALL_2.withNamespace(StandardNamespace.METHOD);
+            }
+
+        } else if ("MATH".equals(namespaceName)) {
+            switch (opName) {
+                case "ADD":
+                    return RhinoOperation.ADD.withNamespace(RhinoNamespace.MATH);
+                case "SUBTRACT":
+                    return RhinoOperation.SUBTRACT.withNamespace(RhinoNamespace.MATH);
+                case "MULTIPLY":
+                    return RhinoOperation.MULTIPLY.withNamespace(RhinoNamespace.MATH);
+                case "DIVIDE":
+                    return RhinoOperation.DIVIDE.withNamespace(RhinoNamespace.MATH);
+                case "REMAINDER":
+                    return RhinoOperation.REMAINDER.withNamespace(RhinoNamespace.MATH);
+                case "NEGATE":
+                    return RhinoOperation.NEGATE.withNamespace(RhinoNamespace.MATH);
+                case "EXPONENTIATE":
+                    return RhinoOperation.EXPONENTIATE.withNamespace(RhinoNamespace.MATH);
+                case "BITWISENOT":
+                    return RhinoOperation.BITWISE_NOT.withNamespace(RhinoNamespace.MATH);
+                case "BITWISEOR":
+                    return RhinoOperation.BITWISE_OR.withNamespace(RhinoNamespace.MATH);
+                case "BITWISEXOR":
+                    return RhinoOperation.BITWISE_XOR.withNamespace(RhinoNamespace.MATH);
+                case "BITWISEAND":
+                    return RhinoOperation.BITWISE_AND.withNamespace(RhinoNamespace.MATH);
+                case "SIGNEDRIGHTSHIFT":
+                    return RhinoOperation.SIGNED_RIGHT_SHIFT.withNamespace(RhinoNamespace.MATH);
+                case "LEFTSHIFT":
+                    return RhinoOperation.LEFT_SHIFT.withNamespace(RhinoNamespace.MATH);
             }
         }
 

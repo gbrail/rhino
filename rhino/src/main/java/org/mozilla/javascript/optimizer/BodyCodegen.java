@@ -1248,8 +1248,8 @@ class BodyCodegen {
                             break;
                         default:
                             cfw.addALoad(contextLocal);
-                            addScriptRuntimeInvoke(
-                                    "add",
+                            addDynamicInvoke(
+                                    "MATH:ADD",
                                     "(Ljava/lang/Object;"
                                             + "Ljava/lang/Object;"
                                             + "Lorg/mozilla/javascript/Context;"
@@ -1295,8 +1295,8 @@ class BodyCodegen {
                     generateExpression(child, node);
                     if (childNumberFlag == -1) {
                         addObjectToNumeric();
-                        addScriptRuntimeInvoke(
-                                "negate", "(Ljava/lang/Number;" + ")Ljava/lang/Number;");
+                        addDynamicInvoke(
+                                "MATH:NEGATE", "(Ljava/lang/Number;" + ")Ljava/lang/Number;");
                     } else {
                         cfw.add(ByteCode.DNEG);
                     }
@@ -3496,20 +3496,23 @@ class BodyCodegen {
 
             switch (type) {
                 case Token.SUB:
-                    addScriptRuntimeInvoke(
-                            "subtract", "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke(
+                            "MATH:SUBTRACT",
+                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
                     break;
                 case Token.MUL:
-                    addScriptRuntimeInvoke(
-                            "multiply", "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke(
+                            "MATH:MULTIPLY",
+                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
                     break;
                 case Token.DIV:
-                    addScriptRuntimeInvoke(
-                            "divide", "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+                    addDynamicInvoke(
+                            "MATH:DIVIDE",
+                            "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
                     break;
                 case Token.MOD:
-                    addScriptRuntimeInvoke(
-                            "remainder",
+                    addDynamicInvoke(
+                            "MATH:REMAINDER",
                             "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
                     break;
                 default:
@@ -3534,8 +3537,9 @@ class BodyCodegen {
             cfw.addALoad(reg);
             addObjectToNumeric();
 
-            addScriptRuntimeInvoke(
-                    "exponentiate", "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
+            addDynamicInvoke(
+                    "MATH:EXPONENTIATE",
+                    "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
         }
     }
 
@@ -3544,7 +3548,7 @@ class BodyCodegen {
         generateExpression(child, node);
         if (childNumberFlag == -1) {
             addObjectToNumeric();
-            addScriptRuntimeInvoke("bitwiseNOT", "(Ljava/lang/Number;)Ljava/lang/Number;");
+            addDynamicInvoke("MATH:BITWISENOT", "(Ljava/lang/Number;)Ljava/lang/Number;");
         } else {
             addScriptRuntimeInvoke("toInt32", "(D)I");
             cfw.addPush(-1); // implement ~a as (a ^ -1)
@@ -3580,28 +3584,28 @@ class BodyCodegen {
 
             switch (type) {
                 case Token.BITOR:
-                    addScriptRuntimeInvoke(
-                            "bitwiseOR",
+                    addDynamicInvoke(
+                            "MATH:BITWISEOR",
                             "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
                     break;
                 case Token.BITXOR:
-                    addScriptRuntimeInvoke(
-                            "bitwiseXOR",
+                    addDynamicInvoke(
+                            "MATH:BITWISEXOR",
                             "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
                     break;
                 case Token.BITAND:
-                    addScriptRuntimeInvoke(
-                            "bitwiseAND",
+                    addDynamicInvoke(
+                            "MATH:BITWISEAND",
                             "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
                     break;
                 case Token.RSH:
-                    addScriptRuntimeInvoke(
-                            "signedRightShift",
+                    addDynamicInvoke(
+                            "MATH:SIGNEDRIGHTSHIFT",
                             "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
                     break;
                 case Token.LSH:
-                    addScriptRuntimeInvoke(
-                            "leftShift",
+                    addDynamicInvoke(
+                            "MATH:LEFTSHIFT",
                             "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;");
                     break;
                 default:

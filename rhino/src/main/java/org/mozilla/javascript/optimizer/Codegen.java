@@ -1144,7 +1144,7 @@ public class Codegen implements Evaluator {
                         ByteCode.GETSTATIC,
                         "org/mozilla/javascript/ScriptRuntime",
                         "zeroObj",
-                        "Ljava/lang/Double;");
+                        "Ljava/lang/Integer;");
             } else {
                 cfw.addPush(num);
                 addDoubleWrap(cfw);
@@ -1155,7 +1155,7 @@ public class Codegen implements Evaluator {
                     ByteCode.GETSTATIC,
                     "org/mozilla/javascript/optimizer/OptRuntime",
                     "oneObj",
-                    "Ljava/lang/Double;");
+                    "Ljava/lang/Integer;");
             return;
 
         } else if (num == -1.0) {
@@ -1163,7 +1163,7 @@ public class Codegen implements Evaluator {
                     ByteCode.GETSTATIC,
                     "org/mozilla/javascript/optimizer/OptRuntime",
                     "minusOneObj",
-                    "Ljava/lang/Double;");
+                    "Ljava/lang/Integer;");
 
         } else if (Double.isNaN(num)) {
             cfw.add(
