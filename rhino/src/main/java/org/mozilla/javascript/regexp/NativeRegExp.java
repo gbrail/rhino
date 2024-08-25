@@ -112,7 +112,7 @@ public class NativeRegExp extends IdScriptableObject {
 
     private static final int ANCHOR_BOL = -2;
 
-    public static Object init(Context cx, Scriptable scope, boolean sealed) {
+    public static void init(Context cx, Scriptable scope, boolean sealed) {
 
         NativeRegExp proto = NativeRegExpInstantiator.withLanguageVersion(cx.getLanguageVersion());
         proto.re = compileRE(cx, "", null, false);
@@ -133,9 +133,9 @@ public class NativeRegExp extends IdScriptableObject {
             proto.sealObject();
             ctor.sealObject();
         }
+        defineProperty(scope, "RegExp", ctor, DONTENUM);
 
         ScriptRuntimeES6.addSymbolSpecies(cx, scope, ctor);
-        return ctor;
     }
 
     NativeRegExp(Scriptable scope, RECompiled regexpCompiled) {

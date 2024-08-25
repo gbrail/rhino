@@ -217,7 +217,8 @@ public class ScriptRuntime {
                 cx.hasFeature(Context.FEATURE_E4X) && cx.getE4xImplementationFactory() != null;
 
         // define lazy-loaded properties using their class name
-        initializeNative(cx, scope, "RegExp", sealed, NativeRegExp::init);
+        new LazilyLoadedCtor(
+                            scope, "RegExp", "org.mozilla.javascript.regexp.NativeRegExp", sealed, true);
         new LazilyLoadedCtor(
                 scope, "Continuation", "org.mozilla.javascript.NativeContinuation", sealed, true);
 
