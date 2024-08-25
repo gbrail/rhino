@@ -15,7 +15,7 @@ import java.io.Serializable;
 public class NativeWith implements Scriptable, SymbolScriptable, IdFunctionCall, Serializable {
     private static final long serialVersionUID = 1L;
 
-    static void init(Scriptable scope, boolean sealed) {
+    static Object init(Context cx, Scriptable scope, boolean sealed) {
         NativeWith obj = new NativeWith();
 
         obj.setParentScope(scope);
@@ -26,7 +26,7 @@ public class NativeWith implements Scriptable, SymbolScriptable, IdFunctionCall,
         if (sealed) {
             ctor.sealObject();
         }
-        ctor.exportAsScopeProperty();
+        return ctor;
     }
 
     private NativeWith() {}

@@ -16,9 +16,9 @@ final class NativeBoolean extends IdScriptableObject {
 
     private static final Object BOOLEAN_TAG = "Boolean";
 
-    static void init(Scriptable scope, boolean sealed) {
+    static Object init(Context cx, Scriptable scope, boolean sealed) {
         NativeBoolean obj = new NativeBoolean(false);
-        obj.exportAsJSClass(MAX_PROTOTYPE_ID, scope, sealed);
+        return obj.initializeJSClass(MAX_PROTOTYPE_ID, scope, sealed);
     }
 
     NativeBoolean(boolean b) {

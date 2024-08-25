@@ -15,6 +15,9 @@ import java.security.PrivilegedAction;
  * Avoid loading classes unless they are used.
  *
  * <p>This improves startup time and average memory usage.
+ * 
+ * <p>This is no longer an efficient way to lazily initialize values -- we use
+ * the new LambdaInitializerSlot instead.
  */
 public final class LazilyLoadedCtor implements Serializable {
     private static final long serialVersionUID = 1L;

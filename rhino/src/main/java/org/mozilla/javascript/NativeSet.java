@@ -17,9 +17,9 @@ public class NativeSet extends IdScriptableObject {
 
     private boolean instanceOfSet = false;
 
-    static void init(Context cx, Scriptable scope, boolean sealed) {
+    static Object init(Context cx, Scriptable scope, boolean sealed) {
         NativeSet obj = new NativeSet();
-        IdFunctionObject constructor = obj.exportAsJSClass(MAX_PROTOTYPE_ID, scope, false);
+        IdFunctionObject constructor = obj.initializeJSClass(MAX_PROTOTYPE_ID, scope, false);
 
         ScriptableObject desc = (ScriptableObject) cx.newObject(scope);
         desc.put("enumerable", desc, Boolean.FALSE);
@@ -32,6 +32,7 @@ public class NativeSet extends IdScriptableObject {
         if (sealed) {
             obj.sealObject();
         }
+        return constructor;
     }
 
     @Override

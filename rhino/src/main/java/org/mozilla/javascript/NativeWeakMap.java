@@ -29,9 +29,9 @@ public class NativeWeakMap extends IdScriptableObject {
 
     private static final Object NULL_VALUE = new Object();
 
-    static void init(Scriptable scope, boolean sealed) {
+    static Object init(Context cx, Scriptable scope, boolean sealed) {
         NativeWeakMap m = new NativeWeakMap();
-        m.exportAsJSClass(MAX_PROTOTYPE_ID, scope, sealed);
+        return m.initializeJSClass(MAX_PROTOTYPE_ID, scope, sealed);
     }
 
     @Override

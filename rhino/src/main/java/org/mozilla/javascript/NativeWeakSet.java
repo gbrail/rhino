@@ -25,9 +25,9 @@ public class NativeWeakSet extends IdScriptableObject {
 
     private transient WeakHashMap<Scriptable, Boolean> map = new WeakHashMap<>();
 
-    static void init(Scriptable scope, boolean sealed) {
+    static Object init(Context cx, Scriptable scope, boolean sealed) {
         NativeWeakSet m = new NativeWeakSet();
-        m.exportAsJSClass(MAX_PROTOTYPE_ID, scope, sealed);
+        return m.initializeJSClass(MAX_PROTOTYPE_ID, scope, sealed);
     }
 
     @Override

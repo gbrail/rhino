@@ -23,6 +23,7 @@ import org.mozilla.javascript.v8dtoa.DoubleConversion;
 import org.mozilla.javascript.v8dtoa.FastDtoa;
 import org.mozilla.javascript.xml.XMLLib;
 import org.mozilla.javascript.xml.XMLObject;
+import org.mozilla.javascript.regexp.NativeRegExp;
 
 /**
  * This is the class that implements the runtime.
@@ -139,6 +140,21 @@ public class ScriptRuntime {
                 || ScriptableClass.isAssignableFrom(cl));
     }
 
+    private static void initializeNative(Context cx, ScriptableObject scope,
+        String name, boolean sealed, NativeInitializable i) {
+        if (sealed) {
+            // If we are sealed, then we actually need to initialize the objects
+            // right away
+            Object ctor = i.init(cx, scope, true);
+            scope.defineProperty(name, ctor, ScriptableObject.DONTENUM);
+        } else {
+            // If we are not sealed, then they can be initialized on first use.
+            scope.addLazilyInitializedValue(name, ScriptableObject.DONTENUM,
+              (lcx, lscope) -> i.init(lcx, lscope, false)
+            );
+        }  
+    }
+
     public static ScriptableObject initSafeStandardObjects(
             Context cx, ScriptableObject scope, boolean sealed) {
         if (scope == null) {
@@ -149,9 +165,20 @@ public class ScriptRuntime {
 
         scope.associateValue(LIBRARY_SCOPE_KEY, scope);
         new ClassCache().associate(scope);
-
+        
+        // This stuff is so common the lazy initialization seems complex
         BaseFunction.init(cx, scope, sealed);
         NativeObject.init(scope, sealed);
+        NativeScript.init(cx, scope, sealed);
+
+        // Initializes multiple top-level objects at once
+        NativeIterator.init(cx, scope, sealed); // Also initializes NativeGenerator & ES6Generator
+        // Other iterators don't actually go on the top-level scope, but are
+        // looked up using assocated properties.
+        NativeArrayIterator.init(scope, sealed);
+        NativeStringIterator.init(scope, sealed);
+        NativeJavaObject.init(scope, sealed);   
+        NativeJavaMap.init(scope, sealed);
 
         Scriptable objectProto = ScriptableObject.getObjectPrototype(scope);
 
@@ -166,6 +193,7 @@ public class ScriptRuntime {
         NativeError.init(scope, sealed);
         NativeGlobal.init(cx, scope, sealed);
 
+        // So fundamental it needs to be initialized now
         NativeArray.init(cx, scope, sealed);
         if (cx.getOptimizationLevel() > 0) {
             // When optimizing, attempt to fulfill all requests for new Array(N)
@@ -173,31 +201,23 @@ public class ScriptRuntime {
             // representation
             NativeArray.setMaximumInitialCapacity(200000);
         }
-        NativeString.init(scope, sealed);
-        NativeBoolean.init(scope, sealed);
-        NativeNumber.init(scope, sealed);
-        NativeDate.init(scope, sealed);
-        NativeMath.init(scope, sealed);
-        NativeJSON.init(scope, sealed);
 
-        NativeWith.init(scope, sealed);
-        NativeCall.init(scope, sealed);
-        NativeScript.init(cx, scope, sealed);
+        // Do everything else lazily to try and reduce startup time
+        initializeNative(cx, scope, "String", sealed, NativeString::init);
+        initializeNative(cx, scope, "Boolean", sealed, NativeBoolean::init);
+        initializeNative(cx, scope, "Number", sealed, NativeNumber::init);
+        initializeNative(cx, scope, "Date", sealed, NativeDate::init);
+        initializeNative(cx, scope, "Math", sealed, NativeMath::init);
+        initializeNative(cx, scope, "JSON", sealed, NativeJSON::init);
 
-        NativeIterator.init(cx, scope, sealed); // Also initializes NativeGenerator & ES6Generator
-
-        NativeArrayIterator.init(scope, sealed);
-        NativeStringIterator.init(scope, sealed);
-
-        NativeJavaObject.init(scope, sealed);
-        NativeJavaMap.init(scope, sealed);
+        initializeNative(cx, scope, "With", sealed, NativeWith::init);
+        initializeNative(cx, scope, "Call", sealed, NativeCall::init);
 
         boolean withXml =
                 cx.hasFeature(Context.FEATURE_E4X) && cx.getE4xImplementationFactory() != null;
 
         // define lazy-loaded properties using their class name
-        new LazilyLoadedCtor(
-                scope, "RegExp", "org.mozilla.javascript.regexp.NativeRegExp", sealed, true);
+        initializeNative(cx, scope, "RegExp", sealed, NativeRegExp::init);
         new LazilyLoadedCtor(
                 scope, "Continuation", "org.mozilla.javascript.NativeContinuation", sealed, true);
 
@@ -281,15 +301,17 @@ public class ScriptRuntime {
         }
 
         if (cx.getLanguageVersion() >= Context.VERSION_ES6) {
+            // Needs to create all the standard symbols here
             NativeSymbol.init(cx, scope, sealed);
             NativeCollectionIterator.init(scope, NativeSet.ITERATOR_TAG, sealed);
             NativeCollectionIterator.init(scope, NativeMap.ITERATOR_TAG, sealed);
-            NativeMap.init(cx, scope, sealed);
-            NativePromise.init(cx, scope, sealed);
-            NativeSet.init(cx, scope, sealed);
-            NativeWeakMap.init(scope, sealed);
-            NativeWeakSet.init(scope, sealed);
-            NativeBigInt.init(scope, sealed);
+
+            initializeNative(cx, scope, "Map", sealed, NativeMap::init);
+            initializeNative(cx, scope, "Promise", sealed, NativePromise::init);
+            initializeNative(cx, scope, "Set", sealed, NativeSet::init);
+            initializeNative(cx, scope, "WeakMap", sealed, NativeWeakMap::init);
+            initializeNative(cx, scope, "WeakSet", sealed, NativeWeakSet::init);
+            initializeNative(cx, scope, "BigInt", sealed, NativeBigInt::init);
         }
 
         if (scope instanceof TopLevel) {

@@ -29,6 +29,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.mozilla.javascript.ScriptRuntime.StringIdOrIndex;
@@ -660,6 +661,15 @@ public abstract class ScriptableObject
         LazyLoadSlot lslot = slotMap.compute(name, index, ScriptableObject::ensureLazySlot);
         lslot.setAttributes(attributes);
         lslot.value = init;
+    }
+
+    void addLazilyInitializedValue(String name, int attributes,
+        BiFunction<Context, Scriptable, Object> initializer) {
+        if (name == null) throw new IllegalArgumentException(name);
+        checkNotSealed(name, 0); 
+        LambdaInitializerSlot lslot = slotMap.compute(name, 0, ScriptableObject::ensureLambdaInitializerSlot);
+        lslot.setAttributes(attributes);
+        lslot.setInitializer(initializer);
     }
 
     /**
@@ -2062,6 +2072,8 @@ public abstract class ScriptableObject
                     } finally {
                         slot.value = initializer.getValue();
                     }
+                } else if (value instanceof LambdaInitializerSlot) {
+                    ((LambdaInitializerSlot)value).initialize(this);
                 }
             }
             toInitialize.clear();
@@ -2070,7 +2082,7 @@ public abstract class ScriptableObject
             try {
                 for (Slot slot : slotMap) {
                     Object value = slot.value;
-                    if (value instanceof LazilyLoadedCtor) {
+                    if (value instanceof LazilyLoadedCtor || value instanceof LambdaInitializerSlot) {
                         toInitialize.add(slot);
                     }
                 }
@@ -2777,6 +2789,13 @@ public abstract class ScriptableObject
             var existingDesc = existing.getPropertyDescriptor(cx, this);
             checkPropertyChange(name, existingDesc, newDesc);
             return newSlot;
+    private static LambdaInitializerSlot ensureLambdaInitializerSlot(Object name, int index, Slot existing) {
+        if (existing == null) {
+            return new LambdaInitializerSlot(name, index, 0);
+        } else if (existing instanceof LambdaInitializerSlot) {
+            return (LambdaInitializerSlot) existing;
+        } else {
+            return new LambdaInitializerSlot(existing);
         }
     }
 

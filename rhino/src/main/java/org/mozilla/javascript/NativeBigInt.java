@@ -15,9 +15,9 @@ final class NativeBigInt extends IdScriptableObject {
 
     private static final Object BIG_INT_TAG = "BigInt";
 
-    static void init(Scriptable scope, boolean sealed) {
+    static Object init(Context cx, Scriptable scope, boolean sealed) {
         NativeBigInt obj = new NativeBigInt(BigInteger.ZERO);
-        obj.exportAsJSClass(MAX_PROTOTYPE_ID, scope, sealed);
+        return obj.initializeJSClass(MAX_PROTOTYPE_ID, scope, sealed);
     }
 
     NativeBigInt(BigInteger bigInt) {

@@ -29,11 +29,11 @@ final class NativeDate extends IdScriptableObject {
     private static final Object DATE_TAG = "Date";
     private static final String js_NaN_date_str = "Invalid Date";
 
-    static void init(Scriptable scope, boolean sealed) {
+    static Object init(Context cx, Scriptable scope, boolean sealed) {
         NativeDate obj = new NativeDate();
         // Set the value of the prototype Date to NaN ('invalid date');
         obj.date = ScriptRuntime.NaN;
-        obj.exportAsJSClass(MAX_PROTOTYPE_ID, scope, sealed);
+        return obj.initializeJSClass(MAX_PROTOTYPE_ID, scope, sealed);
     }
 
     private NativeDate() {}
