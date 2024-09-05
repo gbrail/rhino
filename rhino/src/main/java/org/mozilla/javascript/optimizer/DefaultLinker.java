@@ -15,6 +15,8 @@ import jdk.dynalink.linker.LinkerServices;
 import org.mozilla.javascript.ScriptRuntime;
 
 class DefaultLinker implements GuardingDynamicLinker {
+    static final boolean DEBUG = true;
+
     @Override
     public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svc)
             throws Exception {
@@ -42,6 +44,9 @@ class DefaultLinker implements GuardingDynamicLinker {
         }
 
         if (invocation != null) {
+            if (DEBUG) {
+                System.out.println(rootOp + ": default link");
+            }
             return invocation;
         }
         throw new UnsupportedOperationException(rootOp.toString());
