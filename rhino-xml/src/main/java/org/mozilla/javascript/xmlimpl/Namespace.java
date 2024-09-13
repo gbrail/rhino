@@ -38,8 +38,12 @@ class Namespace extends IdScriptableObject {
         return ns;
     }
 
-    public void exportAsJSClass(boolean sealed) {
-        exportAsJSClass(MAX_PROTOTYPE_ID, this.getParentScope(), sealed);
+    public void exportAsJSClass(Scriptable scope, boolean sealed) {
+        exportAsJSClass(MAX_PROTOTYPE_ID, scope, sealed);
+    }
+
+    public Object initializeJSClass(Scriptable scope, boolean sealed) {
+        return initializeJSClass(MAX_PROTOTYPE_ID, scope, sealed);
     }
 
     public String uri() {

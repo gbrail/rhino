@@ -38,12 +38,73 @@ public final class XMLLibImpl extends XMLLib implements Serializable {
         }
     }
 
-    public static void init(Context cx, Scriptable scope, boolean sealed) {
-        XMLLibImpl lib = new XMLLibImpl(scope);
-        XMLLib bound = lib.bindToScope(scope);
-        if (bound == lib) {
-            lib.exportToScope(sealed);
+    private static XMLLibImpl initLibOnce(Scriptable scope) {
+        XMLLib lib = getCurrentLibrary(scope);
+        if (lib == null) {
+            lib = new XMLLibImpl(scope);
+            ((XMLLibImpl)lib).bindToScope(scope);
         }
+        if (lib instanceof XMLLibImpl) {
+            return (XMLLibImpl) lib;
+        }
+        return null;
+    }
+
+    static Object initXML(Context cx, Scriptable scope, boolean sealed) {
+        XMLLibImpl lib = initLibOnce(scope);
+        if (lib != null) {
+            return lib.finishInitXML(cx, scope, sealed);
+        }
+        return null;
+    }
+
+    private Object finishInitXML(Context cx, Scriptable scope, boolean sealed) {
+        xmlPrototype = newXML(XmlNode.createText(options, ""));
+        return xmlPrototype.initializeJSClass(scope, sealed);
+    }
+
+    static Object initXMLList(Context cx, Scriptable scope, boolean sealed) {
+        XMLLibImpl lib = initLibOnce(scope);
+        if (lib != null) {
+            return lib.finishInitXMLList(cx, scope, sealed);
+        }
+        return null;
+    }
+
+    private Object finishInitXMLList(Context cx, Scriptable scope, boolean sealed) {
+        xmlListPrototype = newXMLList();
+        return xmlListPrototype.initializeJSClass(scope, sealed);
+    }
+
+    static Object initNamespace(Context cx, Scriptable scope, boolean sealed) {
+        XMLLibImpl lib = initLibOnce(scope);
+        if (lib != null) {
+            return lib.finishInitNamespace(cx, scope, sealed);
+        }
+        return null;
+    }
+
+    private Object finishInitNamespace(Context cx, Scriptable scope, boolean sealed) {
+        namespacePrototype = Namespace.create(this.globalScope, null, XmlNode.Namespace.GLOBAL);
+        return namespacePrototype.initializeJSClass(scope, sealed);
+    }
+
+    static Object initQName(Context cx, Scriptable scope, boolean sealed) {
+        XMLLibImpl lib = initLibOnce(scope);
+        if (lib != null) {
+            return lib.finishInitQName(cx, scope, sealed);
+        }
+        return null;
+    }
+
+    private Object finishInitQName(Context cx, Scriptable scope, boolean sealed) {
+        qnamePrototype =
+        QName.create(
+                this,
+                this.globalScope,
+                null,
+                XmlNode.QName.create(XmlNode.Namespace.create(""), ""));
+        return qnamePrototype.initializeJSClass(scope, sealed);
     }
 
     @Override
@@ -123,23 +184,6 @@ public final class XMLLibImpl extends XMLLib implements Serializable {
 
     XmlProcessor getProcessor() {
         return options;
-    }
-
-    private void exportToScope(boolean sealed) {
-        xmlPrototype = newXML(XmlNode.createText(options, ""));
-        xmlListPrototype = newXMLList();
-        namespacePrototype = Namespace.create(this.globalScope, null, XmlNode.Namespace.GLOBAL);
-        qnamePrototype =
-                QName.create(
-                        this,
-                        this.globalScope,
-                        null,
-                        XmlNode.QName.create(XmlNode.Namespace.create(""), ""));
-
-        xmlPrototype.exportAsJSClass(sealed);
-        xmlListPrototype.exportAsJSClass(sealed);
-        namespacePrototype.exportAsJSClass(sealed);
-        qnamePrototype.exportAsJSClass(sealed);
     }
 
     /** @deprecated */

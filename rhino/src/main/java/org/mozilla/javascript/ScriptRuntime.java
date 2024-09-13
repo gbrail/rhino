@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.ServiceLoader;
 import java.util.function.BiConsumer;
 import org.mozilla.javascript.ast.FunctionNode;
 import org.mozilla.javascript.v8dtoa.DoubleConversion;
@@ -140,7 +141,7 @@ public class ScriptRuntime {
                 || ScriptableClass.isAssignableFrom(cl));
     }
 
-    private static void initializeNative(Context cx, ScriptableObject scope,
+    public static void initializeNative(Context cx, ScriptableObject scope,
         String name, boolean sealed, NativeInitializable i) {
         if (sealed) {
             // If we are sealed, then we actually need to initialize the objects
@@ -222,6 +223,12 @@ public class ScriptRuntime {
         new LazilyLoadedCtor(
                 scope, "Continuation", "org.mozilla.javascript.NativeContinuation", sealed, true);
 
+        ServiceLoader<LoadableFeature> featureLoader = ServiceLoader.load(LoadableFeature.class);
+        for (LoadableFeature feature : featureLoader) {
+            feature.loadRhinoFeature(cx, scope, sealed);
+        }
+
+        /*
         if (withXml) {
             String xmlImpl = cx.getE4xImplementationFactory().getImplementationClassName();
             new LazilyLoadedCtor(scope, "XML", xmlImpl, sealed, true);
@@ -229,6 +236,7 @@ public class ScriptRuntime {
             new LazilyLoadedCtor(scope, "Namespace", xmlImpl, sealed, true);
             new LazilyLoadedCtor(scope, "QName", xmlImpl, sealed, true);
         }
+        */
 
         if (((cx.getLanguageVersion() >= Context.VERSION_1_8)
                         && cx.hasFeature(Context.FEATURE_V8_EXTENSIONS))

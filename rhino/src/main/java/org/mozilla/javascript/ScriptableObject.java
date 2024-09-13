@@ -2789,6 +2789,9 @@ public abstract class ScriptableObject
             var existingDesc = existing.getPropertyDescriptor(cx, this);
             checkPropertyChange(name, existingDesc, newDesc);
             return newSlot;
+        }
+    }
+    
     private static LambdaInitializerSlot ensureLambdaInitializerSlot(Object name, int index, Slot existing) {
         if (existing == null) {
             return new LambdaInitializerSlot(name, index, 0);

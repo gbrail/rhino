@@ -402,6 +402,11 @@ abstract class XMLObjectImpl extends XMLObject {
         exportAsJSClass(MAX_PROTOTYPE_ID, getParentScope(), sealed);
     }
 
+    final Object initializeJSClass(Scriptable scope, boolean sealed) {
+        prototypeFlag = true;
+        return initializeJSClass(MAX_PROTOTYPE_ID, scope, sealed);
+    }
+
     // #string_id_map#
     private static final int Id_constructor = 1,
             Id_addNamespace = 2,

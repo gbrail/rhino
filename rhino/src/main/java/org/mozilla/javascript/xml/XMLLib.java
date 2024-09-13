@@ -37,6 +37,11 @@ public abstract class XMLLib {
         public abstract String getImplementationClassName();
     }
 
+    protected static XMLLib getCurrentLibrary(Scriptable scope) {
+        ScriptableObject so = (ScriptableObject) scope;
+        return (XMLLib) so.getAssociatedValue(XML_LIB_KEY);
+    }
+
     public static XMLLib extractFromScopeOrNull(Scriptable scope) {
         ScriptableObject so = ScriptRuntime.getLibraryScopeOrNull(scope);
         if (so == null) {

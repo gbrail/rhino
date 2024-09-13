@@ -47,6 +47,10 @@ final class QName extends IdScriptableObject {
         exportAsJSClass(MAX_PROTOTYPE_ID, getParentScope(), sealed);
     }
 
+    Object initializeJSClass(Scriptable scope, boolean sealed) {
+        return initializeJSClass(MAX_PROTOTYPE_ID, scope, sealed);
+    }
+
     @Override
     public String toString() {
         //    ECMA357 13.3.4.2
