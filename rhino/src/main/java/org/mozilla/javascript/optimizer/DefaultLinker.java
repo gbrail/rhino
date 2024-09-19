@@ -19,6 +19,9 @@ class DefaultLinker implements GuardingDynamicLinker {
 
     static {
         String debugVal = System.getProperty("RHINO_DEBUG_LINKER");
+        if (debugVal == null) {
+            debugVal = System.getenv("RHINO_DEBUG_LINKER");
+        }
         DEBUG = Boolean.parseBoolean(debugVal);
     }
 
