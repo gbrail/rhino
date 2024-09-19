@@ -15,7 +15,12 @@ import jdk.dynalink.linker.LinkerServices;
 import org.mozilla.javascript.ScriptRuntime;
 
 class DefaultLinker implements GuardingDynamicLinker {
-    static final boolean DEBUG = true;
+    static final boolean DEBUG;
+
+    static {
+        String debugVal = System.getProperty("RHINO_DEBUG_LINKER");
+        DEBUG = Boolean.parseBoolean(debugVal);
+    }
 
     @Override
     public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svc)
@@ -112,8 +117,7 @@ class DefaultLinker implements GuardingDynamicLinker {
     static String getName(Operation op) {
         Object nameObj = NamedOperation.getName(op);
         if (nameObj instanceof String) {
-            // Interning this name is super duper important if we want to have good performance
-            return ((String) nameObj).intern();
+            return (String) nameObj;
         } else if (nameObj != null) {
             throw new UnsupportedOperationException(op.toString());
         } else {

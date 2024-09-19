@@ -89,6 +89,9 @@ public class Bootstrapper {
         if (pos >= segments.length) {
             throw new NoSuchMethodException(name);
         }
-        return segments[pos];
+        // Because segments of operation names, especially property names, are essentially
+        // wired in to the bootstrapping result, interning works and has a big impact on
+        // performance.
+        return segments[pos].intern();
     }
 }
