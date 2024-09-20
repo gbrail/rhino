@@ -13,7 +13,6 @@ import jdk.dynalink.linker.GuardedInvocation;
 import jdk.dynalink.linker.GuardingDynamicLinker;
 import jdk.dynalink.linker.LinkRequest;
 import jdk.dynalink.linker.LinkerServices;
-import jdk.dynalink.linker.support.Guards;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.RhinoException;
 import org.mozilla.javascript.Scriptable;
@@ -25,7 +24,8 @@ class ConstAwareLinker implements GuardingDynamicLinker {
             throws Exception {
         if (req.isCallSiteUnstable()) {
             if (DefaultLinker.DEBUG) {
-                System.out.println(req.getCallSiteDescriptor().getOperation() + ": volatile call site");
+                System.out.println(
+                        req.getCallSiteDescriptor().getOperation() + ": volatile call site");
             }
             return null;
         }
@@ -38,8 +38,12 @@ class ConstAwareLinker implements GuardingDynamicLinker {
         if (NamespaceOperation.contains(op, StandardOperation.GET, RhinoNamespace.NAME)) {
             Object rawObj = req.getArguments()[1];
             MethodType guardType =
-                    req.getCallSiteDescriptor().getMethodType().appendParameterTypes(Object.class).changeReturnType(Boolean.TYPE);
-            MethodHandle guard = lookup.findStatic(ConstAwareLinker.class, "nameGetGuard", guardType);
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .appendParameterTypes(Object.class)
+                            .changeReturnType(Boolean.TYPE);
+            MethodHandle guard =
+                    lookup.findStatic(ConstAwareLinker.class, "nameGetGuard", guardType);
             return getConstantInvocation(rootOp, req, name, rawObj, guard);
         } else if (NamespaceOperation.contains(
                         op, StandardOperation.GET, StandardNamespace.PROPERTY)
@@ -47,8 +51,12 @@ class ConstAwareLinker implements GuardingDynamicLinker {
                         op, RhinoOperation.GETNOWARN, StandardNamespace.PROPERTY)) {
             Object rawObj = req.getArguments()[0];
             MethodType guardType =
-                    req.getCallSiteDescriptor().getMethodType().appendParameterTypes(Object.class).changeReturnType(Boolean.TYPE);
-            MethodHandle guard = lookup.findStatic(ConstAwareLinker.class, "propGetGuard", guardType);
+                    req.getCallSiteDescriptor()
+                            .getMethodType()
+                            .appendParameterTypes(Object.class)
+                            .changeReturnType(Boolean.TYPE);
+            MethodHandle guard =
+                    lookup.findStatic(ConstAwareLinker.class, "propGetGuard", guardType);
             return getConstantInvocation(rootOp, req, name, rawObj, guard);
         }
 
@@ -108,17 +116,20 @@ class ConstAwareLinker implements GuardingDynamicLinker {
             MethodHandle mh =
                     MethodHandles.dropArguments(
                             MethodHandles.constant(Object.class, constVal.get()),
-                            0, mType.parameterList());
+                            0,
+                            mType.parameterList());
 
             return new GuardedInvocation(mh, guard);
         }
         return null;
     }
 
+    @SuppressWarnings("unused")
     private static boolean nameGetGuard(Context cx, Scriptable scope, Object arg) {
         return arg == scope;
     }
 
+    @SuppressWarnings("unused")
     private static boolean propGetGuard(Object obj, Context cx, Scriptable scope, Object arg) {
         return arg == obj;
     }
