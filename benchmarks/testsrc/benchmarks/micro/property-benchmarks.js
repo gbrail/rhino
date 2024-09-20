@@ -29,3 +29,22 @@ function check(o) {
   }
   return x;
 }
+
+var GLOBAL_COUNT = 1000;
+const CONST_COUNT = 1000;
+
+function loopOverGlobal() {
+    let x = 0;
+    for (var i = 0; i < GLOBAL_COUNT; i++) {
+      x *= 2;
+    }
+    return x;
+}
+
+function loopOverConstant() {
+    let x = 0;
+    for (var i = 0; i < CONST_COUNT; i++) {
+      x *= 2;
+    }
+    return x;
+}

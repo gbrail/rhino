@@ -21,6 +21,8 @@ public class PropertyBenchmark {
         Function createFieldByField;
         Function getName;
         Function check;
+        Function loopOverGlobal;
+        Function loopOverConstant;
 
         Object object;
 
@@ -40,6 +42,8 @@ public class PropertyBenchmark {
                     (Function) ScriptableObject.getProperty(scope, "createObjectFieldByField");
             getName = (Function) ScriptableObject.getProperty(scope, "getName");
             check = (Function) ScriptableObject.getProperty(scope, "check");
+            loopOverGlobal = (Function) ScriptableObject.getProperty(scope, "loopOverGlobal");
+            loopOverConstant = (Function) ScriptableObject.getProperty(scope, "loopOverConstant");
 
             object = create.call(cx, scope, null, new Object[] {"testing"});
         }
@@ -91,5 +95,15 @@ public class PropertyBenchmark {
     @Benchmark
     public Object addTwoProperties(PropertyBenchmark.PropertyState state) {
         return state.check.call(state.cx, state.scope, null, new Object[] {state.object});
+    }
+
+    @Benchmark
+    public Object loopOverGlobal(PropertyBenchmark.PropertyState state) {
+        return state.loopOverGlobal.call(state.cx, state.scope, null, ScriptRuntime.emptyArgs);
+    }
+
+    @Benchmark
+    public Object loopOverConstant(PropertyBenchmark.PropertyState state) {
+        return state.loopOverConstant.call(state.cx, state.scope, null, ScriptRuntime.emptyArgs);
     }
 }
