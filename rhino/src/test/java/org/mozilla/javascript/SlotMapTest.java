@@ -34,7 +34,7 @@ public class SlotMapTest {
         return Arrays.asList(
                 new Object[][] {
                     {EmbeddedSlotMap.class},
-                    {HashSlotMap.class},
+                    {HashSlotMap.class}, {OrderedSlotMap.class},
                     {SlotMapContainer.class},
                     {ThreadSafeSlotMapContainer.class},
                 });
