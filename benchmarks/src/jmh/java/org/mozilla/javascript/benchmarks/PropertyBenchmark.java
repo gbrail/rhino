@@ -21,7 +21,11 @@ public class PropertyBenchmark {
         Function createFieldByField;
         Function getName;
         Function check;
+        Function loopVariable;
+        Function loopConst;
+        Function loopArray;
 
+        Object array;
         Object object;
 
         @Setup(Level.Trial)
@@ -40,8 +44,13 @@ public class PropertyBenchmark {
                     (Function) ScriptableObject.getProperty(scope, "createObjectFieldByField");
             getName = (Function) ScriptableObject.getProperty(scope, "getName");
             check = (Function) ScriptableObject.getProperty(scope, "check");
+            loopVariable = (Function) ScriptableObject.getProperty(scope, "loopVariable");
+            loopConst = (Function) ScriptableObject.getProperty(scope, "loopConstant");
+            loopArray = (Function) ScriptableObject.getProperty(scope, "loopArray");
 
             object = create.call(cx, scope, null, new Object[] {"testing"});
+            Function createArray = (Function) ScriptableObject.getProperty(scope, "createArray");
+            array = createArray.call(cx, scope, null, Context.emptyArgs);
         }
 
         @TearDown(Level.Trial)
@@ -91,5 +100,20 @@ public class PropertyBenchmark {
     @Benchmark
     public Object addTwoProperties(PropertyBenchmark.PropertyState state) {
         return state.check.call(state.cx, state.scope, null, new Object[] {state.object});
+    }
+
+    @Benchmark
+    public Object loopVariable(PropertyBenchmark.PropertyState state) {
+        return state.loopVariable.call(state.cx, state.scope, null, Context.emptyArgs);
+    }
+
+    @Benchmark
+    public Object loopConstant(PropertyBenchmark.PropertyState state) {
+        return state.loopConst.call(state.cx, state.scope, null, Context.emptyArgs);
+    }
+
+    @Benchmark
+    public Object loopArray(PropertyBenchmark.PropertyState state) {
+        return state.loopArray.call(state.cx, state.scope, null, new Object[] {state.array});
     }
 }

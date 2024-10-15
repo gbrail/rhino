@@ -3,6 +3,8 @@ package org.mozilla.javascript.optimizer;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.util.Arrays;
+import java.util.List;
 import java.util.regex.Pattern;
 import jdk.dynalink.CallSiteDescriptor;
 import jdk.dynalink.DynamicLinker;
@@ -10,6 +12,8 @@ import jdk.dynalink.DynamicLinkerFactory;
 import jdk.dynalink.Operation;
 import jdk.dynalink.StandardNamespace;
 import jdk.dynalink.StandardOperation;
+import jdk.dynalink.linker.TypeBasedGuardingDynamicLinker;
+import jdk.dynalink.linker.support.CompositeTypeBasedGuardingDynamicLinker;
 import jdk.dynalink.support.ChainedCallSite;
 import org.mozilla.classfile.ByteCode;
 import org.mozilla.classfile.ClassFileWriter;
@@ -33,9 +37,18 @@ public class Bootstrapper {
     private static final DynamicLinker linker;
 
     static {
-        // Set up the linkers that will be invoked whenever a call site needs to be resolved.
+        // Set up the linkers
         DynamicLinkerFactory factory = new DynamicLinkerFactory();
-        factory.setPrioritizedLinkers(new ConstAwareLinker(), new DefaultLinker());
+        // Each of these linkers can link specific types, based on the first argument.
+        // It optimizes dispatch by caching classes. Add them here in order
+        // of which have the fastest result.
+        List<TypeBasedGuardingDynamicLinker> typeLinkers =
+                Arrays.asList(new ConstAwareLinker(), new NativeArrayLinker());
+        // Check the list of type-based linkers first, and fall back to the
+        // default linker, which will always work by falling back to
+        // generic ScriptRuntime methods.
+        factory.setPrioritizedLinkers(
+                new CompositeTypeBasedGuardingDynamicLinker(typeLinkers), new DefaultLinker());
         linker = factory.createLinker();
     }
 
@@ -44,7 +57,7 @@ public class Bootstrapper {
     public static CallSite bootstrap(MethodHandles.Lookup lookup, String name, MethodType mType)
             throws NoSuchMethodException, IllegalAccessException {
         Operation op = parseOperation(name);
-        // For now, use a very simple call site.
+        // ChainedCallSite lets a call site have a few options for complex situations
         return linker.link(new ChainedCallSite(new CallSiteDescriptor(lookup, op, mType)));
     }
 
