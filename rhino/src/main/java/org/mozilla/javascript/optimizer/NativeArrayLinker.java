@@ -29,10 +29,6 @@ class NativeArrayLinker implements TypeBasedGuardingDynamicLinker {
     public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svc)
             throws Exception {
         if (req.isCallSiteUnstable()) {
-            if (DefaultLinker.DEBUG) {
-                System.out.println(
-                        req.getCallSiteDescriptor().getOperation() + ": unstable call site");
-            }
             return null;
         }
 
@@ -62,6 +58,7 @@ class NativeArrayLinker implements TypeBasedGuardingDynamicLinker {
         return null;
     }
 
+    @SuppressWarnings("unused")
     private static Object getArrayLength(Object target, Context cx, Scriptable scope) {
         // We can assume this cast will work because the guard checked it for us
         NativeArray a = (NativeArray) target;

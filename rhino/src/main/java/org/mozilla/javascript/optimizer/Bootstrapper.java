@@ -43,7 +43,7 @@ public class Bootstrapper {
         // It optimizes dispatch by caching classes. Add them here in order
         // of which have the fastest result.
         List<TypeBasedGuardingDynamicLinker> typeLinkers =
-                Arrays.asList(new ConstAwareLinker(), new NativeArrayLinker());
+                Arrays.asList(new ConstAwareLinker(), new NativeArrayLinker(), new BaseFunctionLinker());
         // Check the list of type-based linkers first, and fall back to the
         // default linker, which will always work by falling back to
         // generic ScriptRuntime methods.
