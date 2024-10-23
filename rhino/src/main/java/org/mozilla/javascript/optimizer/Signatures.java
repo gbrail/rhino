@@ -150,4 +150,14 @@ interface Signatures {
                     + "Ljava/lang/Object;"
                     + "Lorg/mozilla/javascript/Context;"
                     + ")Ljava/lang/Object;";
+
+    /**
+     * MATH:ADD: Add the first two arguments on the stack, which could be numbers, strings, or
+     * really just about anything.
+     */
+    String MATH_ADD =
+            "(Ljava/lang/Object;"
+                    + "Ljava/lang/Object;"
+                    + "Lorg/mozilla/javascript/Context;"
+                    + ")Ljava/lang/Object;";
 }

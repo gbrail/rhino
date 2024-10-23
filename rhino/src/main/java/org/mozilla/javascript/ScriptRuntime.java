@@ -3134,7 +3134,6 @@ public class ScriptRuntime {
         final Object lprim = toPrimitive(lval);
         final Object rprim = toPrimitive(rval);
         if (lprim instanceof CharSequence || rprim instanceof CharSequence) {
-            System.out.println("add CharSequence");
             final CharSequence lstr =
                     (lprim instanceof CharSequence) ? (CharSequence) lprim : toString(lprim);
             final CharSequence rstr =
@@ -3143,7 +3142,6 @@ public class ScriptRuntime {
         }
 
         // Skipping (lval = lprim, rval = rprim) and using xprim values directly.
-        System.out.println("Add fallthrough");
         final Number lnum = toNumeric(lprim);
         final Number rnum = toNumeric(rprim);
         if (lnum instanceof BigInteger && rnum instanceof BigInteger) {
@@ -3704,7 +3702,6 @@ public class ScriptRuntime {
         } else if (x == y) {
             return true;
         } else if (x instanceof CharSequence) {
-            System.out.println("eq CharSequence");
             return eqString((CharSequence) x, y);
         } else if (x instanceof Boolean) {
             boolean b = ((Boolean) x).booleanValue();
@@ -3721,7 +3718,6 @@ public class ScriptRuntime {
         } else if (isSymbol(x) && isObject(y)) {
             return eq(x, toPrimitive(y));
         } else if (x instanceof Scriptable) {
-            System.out.println("eq Scriptable");
             if (x instanceof Delegator) {
                 x = ((Delegator) x).getDelegee();
                 if (y instanceof Delegator) {

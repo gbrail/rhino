@@ -1,5 +1,8 @@
 package org.mozilla.javascript.optimizer;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import jdk.dynalink.NamedOperation;
 import jdk.dynalink.NamespaceOperation;
 import jdk.dynalink.Operation;
@@ -14,10 +17,6 @@ import org.mozilla.javascript.BaseFunction;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
-
 @SuppressWarnings("AndroidJdkLibsChecker")
 class BaseFunctionLinker implements TypeBasedGuardingDynamicLinker {
     @Override
@@ -26,7 +25,8 @@ class BaseFunctionLinker implements TypeBasedGuardingDynamicLinker {
     }
 
     @Override
-    public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svc) throws Exception {
+    public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svc)
+            throws Exception {
         if (req.isCallSiteUnstable()) {
             return null;
         }
@@ -39,12 +39,13 @@ class BaseFunctionLinker implements TypeBasedGuardingDynamicLinker {
         Object target = req.getReceiver();
 
         if ((NamespaceOperation.contains(op, StandardOperation.GET, StandardNamespace.PROPERTY)
-                || NamespaceOperation.contains(
-                op, RhinoOperation.GETNOWARN, StandardNamespace.PROPERTY))
+                        || NamespaceOperation.contains(
+                                op, RhinoOperation.GETNOWARN, StandardNamespace.PROPERTY))
                 && "prototype".equals(name)
                 && (target instanceof BaseFunction)) {
             MethodHandle mh = lookup.findStatic(BaseFunctionLinker.class, "getPrototype", mType);
-            MethodHandle guard = Guards.asType(Guards.getInstanceOfGuard(BaseFunction.class), mType);
+            MethodHandle guard =
+                    Guards.asType(Guards.getInstanceOfGuard(BaseFunction.class), mType);
             if (DefaultLinker.DEBUG) {
                 System.out.println(rootOp + " native function");
             }

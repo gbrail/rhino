@@ -43,7 +43,12 @@ public class Bootstrapper {
         // It optimizes dispatch by caching classes. Add them here in order
         // of which have the fastest result.
         List<TypeBasedGuardingDynamicLinker> typeLinkers =
-                Arrays.asList(new ConstAwareLinker(), new NativeArrayLinker(), new BaseFunctionLinker());
+                Arrays.asList(
+                        new ConstAwareLinker(),
+                        new IntegerLinker(),
+                        new CharSequenceLinker(),
+                        new NativeArrayLinker(),
+                        new BaseFunctionLinker());
         // Check the list of type-based linkers first, and fall back to the
         // default linker, which will always work by falling back to
         // generic ScriptRuntime methods.
@@ -149,6 +154,12 @@ public class Bootstrapper {
                     return RhinoOperation.SETCONST
                             .withNamespace(RhinoNamespace.NAME)
                             .named(getNameSegment(tokens, name, 2));
+            }
+
+        } else if ("MATH".equals(namespaceName)) {
+            switch (opName) {
+                case "ADD":
+                    return RhinoOperation.ADD.withNamespace(RhinoNamespace.MATH);
             }
         }
 

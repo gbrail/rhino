@@ -73,6 +73,8 @@ class DefaultLinker implements GuardingDynamicLinker {
             return getPropertyInvocation(lookup, mType, rootOp, op, name);
         } else if (nsOp.contains(RhinoNamespace.NAME)) {
             return getNameInvocation(lookup, mType, rootOp, op, name);
+        } else if (nsOp.contains(RhinoNamespace.MATH)) {
+            return getMathInvocation(lookup, mType, rootOp, op, name);
         }
         throw new UnsupportedOperationException(rootOp.toString());
     }
@@ -84,7 +86,6 @@ class DefaultLinker implements GuardingDynamicLinker {
             Operation op,
             String name)
             throws NoSuchMethodException, IllegalAccessException {
-        MethodType tt;
         MethodHandle mh = null;
 
         // The name of the property to look up is now not on the Java stack,
@@ -174,6 +175,25 @@ class DefaultLinker implements GuardingDynamicLinker {
             mh = bindStringParameter(lookup, mType, ScriptRuntime.class, "strictSetName", 4, name);
         } else if (RhinoOperation.SETCONST.equals(op)) {
             mh = bindStringParameter(lookup, mType, ScriptRuntime.class, "setConst", 3, name);
+        }
+
+        if (mh != null) {
+            return new GuardedInvocation(mh);
+        }
+        throw new UnsupportedOperationException(rootOp.toString());
+    }
+
+    private GuardedInvocation getMathInvocation(
+            MethodHandles.Lookup lookup,
+            MethodType mType,
+            Operation rootOp,
+            Operation op,
+            String name)
+            throws NoSuchMethodException, IllegalAccessException {
+        MethodHandle mh = null;
+
+        if (RhinoOperation.ADD.equals(op)) {
+            mh = lookup.findStatic(ScriptRuntime.class, "add", mType);
         }
 
         if (mh != null) {

@@ -1245,12 +1245,7 @@ class BodyCodegen {
                             break;
                         default:
                             cfw.addALoad(contextLocal);
-                            addScriptRuntimeInvoke(
-                                    "add",
-                                    "(Ljava/lang/Object;"
-                                            + "Ljava/lang/Object;"
-                                            + "Lorg/mozilla/javascript/Context;"
-                                            + ")Ljava/lang/Object;");
+                            addDynamicInvoke("MATH:ADD", Signatures.MATH_ADD);
                     }
                 }
                 break;
