@@ -46,6 +46,7 @@ public class Bootstrapper {
                 Arrays.asList(
                         new ConstAwareLinker(),
                         new IntegerLinker(),
+                        new StringLinker(),
                         new CharSequenceLinker(),
                         new NativeArrayLinker(),
                         new BaseFunctionLinker());
