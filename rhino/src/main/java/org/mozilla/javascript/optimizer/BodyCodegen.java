@@ -1195,7 +1195,7 @@ class BodyCodegen {
                 {
                     generateExpression(child, node);
                     cfw.add(ByteCode.DUP);
-                    addScriptRuntimeInvoke("toBoolean", "(Ljava/lang/Object;)Z");
+                    addDynamicInvoke("MATH:TOBOOLEAN", Signatures.MATH_TO_BOOLEAN);
                     int falseTarget = cfw.acquireLabel();
                     if (type == Token.AND) cfw.add(ByteCode.IFEQ, falseTarget);
                     else cfw.add(ByteCode.IFNE, falseTarget);
@@ -1210,7 +1210,7 @@ class BodyCodegen {
                     Node ifThen = child.getNext();
                     Node ifElse = ifThen.getNext();
                     generateExpression(child, node);
-                    addScriptRuntimeInvoke("toBoolean", "(Ljava/lang/Object;)Z");
+                    addDynamicInvoke("MATH:TOBOOLEAN", Signatures.MATH_TO_BOOLEAN);
                     int elseTarget = cfw.acquireLabel();
                     cfw.add(ByteCode.IFEQ, elseTarget);
                     int stack = cfw.getStackTop();
@@ -1923,7 +1923,7 @@ class BodyCodegen {
             default:
                 // Generate generic code for non-optimized jump
                 generateExpression(node, parent);
-                addScriptRuntimeInvoke("toBoolean", "(Ljava/lang/Object;)Z");
+                addDynamicInvoke("MATH:TOBOOLEAN", Signatures.MATH_TO_BOOLEAN);
                 cfw.add(ByteCode.IFNE, trueLabel);
                 cfw.add(ByteCode.GOTO, falseLabel);
         }
@@ -3368,8 +3368,7 @@ class BodyCodegen {
             Node test = caseNode.getFirstChild();
             generateExpression(test, caseNode);
             cfw.addALoad(selector);
-            addScriptRuntimeInvoke(
-                    "shallowEq", "(Ljava/lang/Object;" + "Ljava/lang/Object;" + ")Z");
+            addDynamicInvoke("MATH:SHALLOWEQ", Signatures.MATH_SHALLOW_EQ);
             addGoto(caseNode.target, ByteCode.IFNE);
         }
         releaseWordLocal(selector);
@@ -3533,15 +3532,22 @@ class BodyCodegen {
                 break;
             case Token.NAME:
                 cfw.addALoad(variableObjectLocal);
-                cfw.addPush(child.getString()); // push name
                 cfw.addALoad(contextLocal);
-                cfw.addPush(incrDecrMask);
-                addScriptRuntimeInvoke(
-                        "nameIncrDecr",
-                        "(Lorg/mozilla/javascript/Scriptable;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "I)Ljava/lang/Object;");
+                String incrOp;
+                if ((incrDecrMask & Node.POST_FLAG) == 0) {
+                    if ((incrDecrMask & Node.DECR_FLAG) == 0) {
+                        incrOp = "NAME:PREINCREMENT:";
+                    } else {
+                        incrOp = "NAME:PREDECREMENT:";
+                    }
+                } else {
+                    if ((incrDecrMask & Node.DECR_FLAG) == 0) {
+                        incrOp = "NAME:POSTINCREMENT:";
+                    } else {
+                        incrOp = "NAME:POSTDECREMENT:";
+                    }
+                }
+                addDynamicInvoke(incrOp + child.getString(), Signatures.NAME_INCREMENT_GENERIC);
                 break;
             case Token.GETPROPNOWARN:
                 throw Kit.codeBug();
@@ -3714,9 +3720,9 @@ class BodyCodegen {
         // that we can return a 32-bit unsigned value, and call
         // toUint32 instead of toInt32.
         if (type == Token.URSH) {
-            addScriptRuntimeInvoke("toUint32", "(Ljava/lang/Object;)J");
+            addDynamicInvoke("MATH:TOUINT32", Signatures.MATH_TO_UINT32);
             generateExpression(child.getNext(), node);
-            addScriptRuntimeInvoke("toInt32", "(Ljava/lang/Object;)I");
+            addDynamicInvoke("MATH:TOINT32", Signatures.MATH_TO_INT32);
             // Looks like we need to explicitly mask the shift to 5 bits -
             // LUSHR takes 6 bits.
             cfw.addPush(31);
@@ -3911,8 +3917,24 @@ class BodyCodegen {
                 generateExpression(rChild, node);
             }
 
-            cfw.addPush(type);
-            addScriptRuntimeInvoke("compare", "(Ljava/lang/Object;" + "Ljava/lang/Object;" + "I)Z");
+            String compareType;
+            switch (type) {
+                case Token.GE:
+                    compareType = "MATH:COMPAREGE";
+                    break;
+                case Token.GT:
+                    compareType = "MATH:COMPAREGT";
+                    break;
+                case Token.LE:
+                    compareType = "MATH:COMPARELE";
+                    break;
+                case Token.LT:
+                    compareType = "MATH:COMPARELT";
+                    break;
+                default:
+                    throw Kit.codeBug();
+            }
+            addDynamicInvoke(compareType, Signatures.MATH_COMPARE_GENERIC);
             cfw.add(ByteCode.IFNE, trueGOTO);
             cfw.add(ByteCode.GOTO, falseGOTO);
         }
@@ -3981,25 +4003,25 @@ class BodyCodegen {
             int testCode;
             switch (type) {
                 case Token.EQ:
-                    name = "eq";
+                    name = "MATH:EQ";
                     testCode = ByteCode.IFNE;
                     break;
                 case Token.NE:
-                    name = "eq";
+                    name = "MATH:EQ";
                     testCode = ByteCode.IFEQ;
                     break;
                 case Token.SHEQ:
-                    name = "shallowEq";
+                    name = "MATH:SHALLOWEQ";
                     testCode = ByteCode.IFNE;
                     break;
                 case Token.SHNE:
-                    name = "shallowEq";
+                    name = "MATH:SHALLOWEQ";
                     testCode = ByteCode.IFEQ;
                     break;
                 default:
                     throw Codegen.badTree();
             }
-            addScriptRuntimeInvoke(name, "(Ljava/lang/Object;" + "Ljava/lang/Object;" + ")Z");
+            addDynamicInvoke(name, Signatures.MATH_EQ);
             cfw.add(testCode, trueGOTO);
             cfw.add(ByteCode.GOTO, falseGOTO);
         }
@@ -4264,7 +4286,7 @@ class BodyCodegen {
         cfw.add(ByteCode.POP);
 
         generateExpression(child.getNext(), node);
-        addScriptRuntimeInvoke("toBoolean", "(Ljava/lang/Object;)Z");
+        addDynamicInvoke("MATH:TOBOOLEAN", Signatures.MATH_TO_BOOLEAN);
         cfw.addALoad(variableObjectLocal);
         addScriptRuntimeInvoke(
                 "updateDotQuery",
@@ -4321,11 +4343,11 @@ class BodyCodegen {
     }
 
     private void addObjectToDouble() {
-        addScriptRuntimeInvoke("toNumber", "(Ljava/lang/Object;)D");
+        addDynamicInvoke("MATH:TONUMBER", Signatures.MATH_TO_NUMBER);
     }
 
     private void addObjectToNumeric() {
-        addScriptRuntimeInvoke("toNumeric", "(Ljava/lang/Object;)Ljava/lang/Number;");
+        addDynamicInvoke("MATH:TONUMERIC", Signatures.MATH_TO_NUMERIC);
     }
 
     private void addNewObjectArray(int size) {

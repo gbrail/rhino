@@ -3,15 +3,13 @@ package org.mozilla.javascript.optimizer;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import jdk.dynalink.NamespaceOperation;
-import jdk.dynalink.Operation;
+import java.util.Objects;
 import jdk.dynalink.linker.GuardedInvocation;
 import jdk.dynalink.linker.LinkRequest;
 import jdk.dynalink.linker.LinkerServices;
 import jdk.dynalink.linker.TypeBasedGuardingDynamicLinker;
 import org.mozilla.javascript.ConsString;
 import org.mozilla.javascript.Context;
-import org.mozilla.javascript.ScriptRuntime;
 
 @SuppressWarnings("AndroidJdkLibsChecker")
 class StringLinker implements TypeBasedGuardingDynamicLinker {
@@ -26,33 +24,35 @@ class StringLinker implements TypeBasedGuardingDynamicLinker {
         if (req.isCallSiteUnstable()) {
             return null;
         }
+        Object arg2 = null;
+        if (req.getArguments().length > 1) {
+            arg2 = req.getArguments()[1];
+        }
 
         MethodHandles.Lookup lookup = MethodHandles.lookup();
-        Operation rootOp = req.getCallSiteDescriptor().getOperation();
+        ParsedOperation op = new ParsedOperation(req.getCallSiteDescriptor().getOperation());
         MethodType mType = req.getCallSiteDescriptor().getMethodType();
-        Object target = req.getReceiver();
+        MethodHandle mh = null;
+        MethodHandle guard = null;
 
-        if (NamespaceOperation.contains(
-                req.getCallSiteDescriptor().getOperation(),
-                RhinoOperation.ADD,
-                RhinoNamespace.MATH)
-                && target instanceof String) {
-            MethodHandle mh;
-            MethodHandle guard;
-            MethodType guardType = mType.changeReturnType(Boolean.TYPE);
+        if (op.isNamespace(RhinoNamespace.MATH)) {
+            if (op.isOperation(RhinoOperation.ADD)) {
+                MethodType guardType = mType.changeReturnType(Boolean.TYPE);
+                if (arg2 instanceof CharSequence) {
+                    mh = lookup.findStatic(StringLinker.class, "add", mType);
+                    guard = lookup.findStatic(StringLinker.class, "testAdd", guardType);
+                }
+            } else if (op.isOperation(RhinoOperation.EQ, RhinoOperation.SHALLOWEQ)
+                    && (arg2 instanceof String)) {
+                mh = lookup.findStatic(StringLinker.class, "eq", mType);
+                guard = lookup.findStatic(StringLinker.class, "testEq", mType);
+            }
+        }
 
-            if (req.getArguments()[1] instanceof String) {
-                mh = lookup.findStatic(StringLinker.class, "addStrings", mType);
-                guard = lookup.findStatic(StringLinker.class, "testAddStrings", guardType);
-                if (DefaultLinker.DEBUG) {
-                    System.out.println(rootOp + " string + string");
-                }
-            } else {
-                mh = lookup.findStatic(StringLinker.class, "add", mType);
-                guard = lookup.findStatic(StringLinker.class, "testAdd", guardType);
-                if (DefaultLinker.DEBUG) {
-                    System.out.println(rootOp + " string + non-string");
-                }
+        if (mh != null) {
+            assert guard != null;
+            if (DefaultLinker.DEBUG) {
+                System.out.println(op + " string operation");
             }
             return new GuardedInvocation(mh, guard);
         }
@@ -61,26 +61,22 @@ class StringLinker implements TypeBasedGuardingDynamicLinker {
     }
 
     @SuppressWarnings("unused")
-    private static boolean testAddStrings(Object rawLval, Object rawRval, Context cx) {
-        return rawLval instanceof String && rawRval instanceof String;
+    private static boolean testAdd(Object lval, Object rval, Context cx) {
+        return lval instanceof String && rval instanceof CharSequence;
     }
 
     @SuppressWarnings("unused")
-    private static boolean testAdd(Object rawLval, Object rawRval, Context cx) {
-        return rawLval instanceof String;
+    private static Object add(Object lval, Object rval, Context cx) {
+        return new ConsString((String) lval, ((CharSequence) rval).toString());
     }
 
     @SuppressWarnings("unused")
-    private static Object addStrings(Object rawLval, Object rawRval, Context cx) {
-        String lval = (String) rawLval;
-        String rval = (String) rawRval;
-        return new ConsString(lval, rval);
+    private static boolean testEq(Object rawLVal, Object rawRval) {
+        return rawLVal instanceof String && rawRval instanceof String;
     }
 
     @SuppressWarnings("unused")
-    private static Object add(Object rawLval, Object rawRval, Context cx) {
-        String lval = (String) rawLval;
-        String rval = ScriptRuntime.toString(rawRval);
-        return new ConsString(lval, rval);
+    private static boolean eq(Object rawLVal, Object rawRval) {
+        return Objects.equals(rawLVal, rawRval);
     }
 }

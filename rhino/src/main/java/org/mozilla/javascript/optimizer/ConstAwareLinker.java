@@ -3,9 +3,6 @@ package org.mozilla.javascript.optimizer;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import jdk.dynalink.NamedOperation;
-import jdk.dynalink.NamespaceOperation;
-import jdk.dynalink.Operation;
 import jdk.dynalink.StandardNamespace;
 import jdk.dynalink.StandardOperation;
 import jdk.dynalink.linker.GuardedInvocation;
@@ -29,25 +26,17 @@ class ConstAwareLinker implements TypeBasedGuardingDynamicLinker {
     public GuardedInvocation getGuardedInvocation(LinkRequest req, LinkerServices svc)
             throws Exception {
         if (req.isCallSiteUnstable()) {
-            if (DefaultLinker.DEBUG) {
-                System.out.println(
-                        req.getCallSiteDescriptor().getOperation() + ": unstable call site");
-            }
             return null;
         }
 
-        Operation rootOp = req.getCallSiteDescriptor().getOperation();
+        ParsedOperation op = new ParsedOperation(req.getCallSiteDescriptor().getOperation());
         MethodType mType = req.getCallSiteDescriptor().getMethodType();
-        String name = DefaultLinker.getName(rootOp);
-        Operation op = NamedOperation.getBaseOperation(rootOp);
         Object target = req.getReceiver();
 
-        if (NamespaceOperation.contains(op, StandardOperation.GET, RhinoNamespace.NAME)
-                || NamespaceOperation.contains(
-                        op, StandardOperation.GET, StandardNamespace.PROPERTY)
-                || NamespaceOperation.contains(
-                        op, RhinoOperation.GETNOWARN, StandardNamespace.PROPERTY)) {
-            Object constValue = getConstValue(target, name);
+        if ((op.isNamespace(RhinoNamespace.NAME) && op.isOperation(StandardOperation.GET))
+                || (op.isNamespace(StandardNamespace.PROPERTY)
+                        && op.isOperation(StandardOperation.GET, RhinoOperation.GETNOWARN))) {
+            Object constValue = getConstValue(target, op.getName());
             if (constValue != null) {
                 // The guard returns boolean and compares the first argument to the
                 // target here. This works because the target is always our first argument.
@@ -60,7 +49,7 @@ class ConstAwareLinker implements TypeBasedGuardingDynamicLinker {
                                 0,
                                 mType.parameterList());
                 if (DefaultLinker.DEBUG) {
-                    System.out.println(rootOp + " constant");
+                    System.out.println(op + " constant");
                 }
                 return new GuardedInvocation(mh, guard);
             }

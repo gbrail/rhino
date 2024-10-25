@@ -3,9 +3,6 @@ package org.mozilla.javascript.optimizer;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import jdk.dynalink.NamedOperation;
-import jdk.dynalink.NamespaceOperation;
-import jdk.dynalink.Operation;
 import jdk.dynalink.StandardNamespace;
 import jdk.dynalink.StandardOperation;
 import jdk.dynalink.linker.GuardedInvocation;
@@ -32,24 +29,22 @@ class BaseFunctionLinker implements TypeBasedGuardingDynamicLinker {
         }
 
         MethodHandles.Lookup lookup = MethodHandles.lookup();
-        Operation rootOp = req.getCallSiteDescriptor().getOperation();
+        ParsedOperation op = new ParsedOperation(req.getCallSiteDescriptor().getOperation());
         MethodType mType = req.getCallSiteDescriptor().getMethodType();
-        String name = DefaultLinker.getName(rootOp);
-        Operation op = NamedOperation.getBaseOperation(rootOp);
-        Object target = req.getReceiver();
 
-        if ((NamespaceOperation.contains(op, StandardOperation.GET, StandardNamespace.PROPERTY)
-                        || NamespaceOperation.contains(
-                                op, RhinoOperation.GETNOWARN, StandardNamespace.PROPERTY))
-                && "prototype".equals(name)
-                && (target instanceof BaseFunction)) {
-            MethodHandle mh = lookup.findStatic(BaseFunctionLinker.class, "getPrototype", mType);
-            MethodHandle guard =
-                    Guards.asType(Guards.getInstanceOfGuard(BaseFunction.class), mType);
-            if (DefaultLinker.DEBUG) {
-                System.out.println(rootOp + " native function");
+        if (op.isNamespace(StandardNamespace.PROPERTY)) {
+            if (op.isOperation(StandardOperation.GET, RhinoOperation.GETNOWARN)) {
+                if ("prototype".equals(op.getName())) {
+                    MethodHandle mh =
+                            lookup.findStatic(BaseFunctionLinker.class, "getPrototype", mType);
+                    MethodHandle guard =
+                            Guards.asType(Guards.getInstanceOfGuard(BaseFunction.class), mType);
+                    if (DefaultLinker.DEBUG) {
+                        System.out.println(op + " native function");
+                    }
+                    return new GuardedInvocation(mh, guard);
+                }
             }
-            return new GuardedInvocation(mh, guard);
         }
 
         return null;

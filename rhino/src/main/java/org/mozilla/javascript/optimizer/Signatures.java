@@ -151,6 +151,23 @@ interface Signatures {
                     + "Lorg/mozilla/javascript/Context;"
                     + ")Ljava/lang/Object;";
 
+    String NAME_INCREMENT_GENERIC =
+            "(Lorg/mozilla/javascript/Scriptable;"
+                    + "Lorg/mozilla/javascript/Context;"
+                    + ")Ljava/lang/Object;";
+
+    /** NAME:PREINCREMENT:{name}: Increments the name in the context by one. */
+    String NAME_PRE_INCREMENT = NAME_INCREMENT_GENERIC;
+
+    /** NAME:POSTINCREMENT:{name}: Increments the name in the context by one. */
+    String NAME_POST_INCREMENT = NAME_PRE_INCREMENT;
+
+    /** NAME:PREDECREMENT:{name}: Decrements the name in the context by one. */
+    String NAME_PRE_DECREMENT = NAME_PRE_INCREMENT;
+
+    /** NAME:POSTDECREMENT:{name}: Decrements the name in the context by one. */
+    String NAME_DECREMENT = NAME_PRE_INCREMENT;
+
     /**
      * MATH:ADD: Add the first two arguments on the stack, which could be numbers, strings, or
      * really just about anything.
@@ -160,4 +177,39 @@ interface Signatures {
                     + "Ljava/lang/Object;"
                     + "Lorg/mozilla/javascript/Context;"
                     + ")Ljava/lang/Object;";
+
+    /** MATH:TOBOOLEAN: Make the object into a primitive boolean. */
+    String MATH_TO_BOOLEAN = "(Ljava/lang/Object;)Z";
+
+    /** MATH:EQ: Are the two arguments equal? */
+    String MATH_EQ = "(Ljava/lang/Object;Ljava/lang/Object;)Z";
+
+    /** MATH:SHALLOWEQ: Like EQ but not. */
+    String MATH_SHALLOW_EQ = MATH_EQ;
+
+    String MATH_COMPARE_GENERIC = "(Ljava/lang/Object;Ljava/lang/Object;)Z";
+
+    /** MATH:COMPAREGT: Return true if first argument is greater than. */
+    String MATH_COMPARE_GT = MATH_COMPARE_GENERIC;
+
+    /** MATH:COMPARELT: Return true if first argument is less than. */
+    String MATH_COMPARE_LT = MATH_COMPARE_GENERIC;
+
+    /** MATH:COMPAREGE: Return true if first argument is greater than or equal. */
+    String MATH_COMPARE_GE = MATH_COMPARE_GENERIC;
+
+    /** MATH:COMPARELE: Return true if first argument is less than or equal. */
+    String MATH_COMPARE_LE = MATH_COMPARE_GENERIC;
+
+    /** MATH:TONUMBER: Convert the object to a Java "double". */
+    String MATH_TO_NUMBER = "(Ljava/lang/Object;)D";
+
+    /** MATH:TONUMERIC: Convert the object to a Java "Number". */
+    String MATH_TO_NUMERIC = "(Ljava/lang/Object;)Ljava/lang/Number;";
+
+    /** MATH:TOINT32: Convert the object to a Java "int". */
+    String MATH_TO_INT32 = "(Ljava/lang/Object;)I";
+
+    /** MATH:TOUINT32: Convert the object to a Java "long" that represents an unsigned integer. */
+    String MATH_TO_UINT32 = "(Ljava/lang/Object;)J";
 }

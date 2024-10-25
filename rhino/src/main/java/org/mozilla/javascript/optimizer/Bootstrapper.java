@@ -45,9 +45,10 @@ public class Bootstrapper {
         List<TypeBasedGuardingDynamicLinker> typeLinkers =
                 Arrays.asList(
                         new ConstAwareLinker(),
+                        new BooleanLinker(),
                         new IntegerLinker(),
+                        new DoubleLinker(),
                         new StringLinker(),
-                        new CharSequenceLinker(),
                         new NativeArrayLinker(),
                         new BaseFunctionLinker());
         // Check the list of type-based linkers first, and fall back to the
@@ -155,12 +156,50 @@ public class Bootstrapper {
                     return RhinoOperation.SETCONST
                             .withNamespace(RhinoNamespace.NAME)
                             .named(getNameSegment(tokens, name, 2));
+                case "PREINCREMENT":
+                    return RhinoOperation.PREINCREMENT
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+                case "PREDECREMENT":
+                    return RhinoOperation.PREDECREMENT
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+                case "POSTINCREMENT":
+                    return RhinoOperation.POSTINCREMENT
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
+                case "POSTDECREMENT":
+                    return RhinoOperation.POSTDECREMENT
+                            .withNamespace(RhinoNamespace.NAME)
+                            .named(getNameSegment(tokens, name, 2));
             }
 
         } else if ("MATH".equals(namespaceName)) {
             switch (opName) {
                 case "ADD":
                     return RhinoOperation.ADD.withNamespace(RhinoNamespace.MATH);
+                case "TOBOOLEAN":
+                    return RhinoOperation.TOBOOLEAN.withNamespace(RhinoNamespace.MATH);
+                case "TOINT32":
+                    return RhinoOperation.TOINT32.withNamespace(RhinoNamespace.MATH);
+                case "TOUINT32":
+                    return RhinoOperation.TOUINT32.withNamespace(RhinoNamespace.MATH);
+                case "EQ":
+                    return RhinoOperation.EQ.withNamespace(RhinoNamespace.MATH);
+                case "SHALLOWEQ":
+                    return RhinoOperation.SHALLOWEQ.withNamespace(RhinoNamespace.MATH);
+                case "TONUMBER":
+                    return RhinoOperation.TONUMBER.withNamespace(RhinoNamespace.MATH);
+                case "TONUMERIC":
+                    return RhinoOperation.TONUMERIC.withNamespace(RhinoNamespace.MATH);
+                case "COMPAREGT":
+                    return RhinoOperation.COMPAREGT.withNamespace(RhinoNamespace.MATH);
+                case "COMPARELT":
+                    return RhinoOperation.COMPARELT.withNamespace(RhinoNamespace.MATH);
+                case "COMPAREGE":
+                    return RhinoOperation.COMPAREGE.withNamespace(RhinoNamespace.MATH);
+                case "COMPARELE":
+                    return RhinoOperation.COMPARELE.withNamespace(RhinoNamespace.MATH);
             }
         }
 
