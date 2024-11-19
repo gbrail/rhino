@@ -27,6 +27,10 @@ public class EmbeddedSlotMap implements SlotMap {
 
     private int count;
 
+    // Beyond this size, we expect that this map will be replaced with
+    // a more collision-resistant HashSlotMap.
+    static final int SIZE_LIMIT = 2000;
+
     // initial slot array size, must be a power of 2
     private static final int INITIAL_SLOT_SIZE = 4;
 
@@ -63,6 +67,11 @@ public class EmbeddedSlotMap implements SlotMap {
     @Override
     public boolean isEmpty() {
         return count == 0;
+    }
+
+    @Override
+    public boolean isLimitReached() {
+        return count >= SIZE_LIMIT;
     }
 
     @Override

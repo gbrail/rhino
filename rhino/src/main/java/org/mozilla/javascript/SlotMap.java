@@ -65,4 +65,13 @@ public interface SlotMap extends Iterable<Slot> {
      * ScriptableObject generally adds slots via the "modify" method.
      */
     void add(Slot newSlot);
+
+    /**
+     * Return true if this implementation has reached its scaling limit and should be replaced with
+     * a more generic HashSlotMap. This lets us use highly-optimized implementations in some use
+     * cases that can still be replaced with a more generic one.
+     */
+    default boolean isLimitReached() {
+        return false;
+    }
 }

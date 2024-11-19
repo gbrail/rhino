@@ -13,14 +13,6 @@ import java.util.Iterator;
  * between them when we need to so that we use the right data structure at the right time.
  */
 class SlotMapContainer implements SlotMap {
-
-    /**
-     * Once the object has this many properties in it, we will replace the EmbeddedSlotMap with
-     * HashSlotMap. We can adjust this parameter to balance performance for typical objects versus
-     * performance for huge objects with many collisions.
-     */
-    private static final int LARGE_HASH_SIZE = 2000;
-
     private static final int DEFAULT_SIZE = 10;
 
     protected SlotMap map;
@@ -30,10 +22,10 @@ class SlotMapContainer implements SlotMap {
     }
 
     SlotMapContainer(int initialSize) {
-        if (initialSize > LARGE_HASH_SIZE) {
+        if (initialSize > ArraySlotMap.SIZE_LIMIT) {
             map = new HashSlotMap();
         } else {
-            map = new EmbeddedSlotMap();
+            map = new ArraySlotMap();
         }
     }
 
@@ -53,12 +45,13 @@ class SlotMapContainer implements SlotMap {
 
     @Override
     public Slot modify(Object key, int index, int attributes) {
-        checkMapSize();
+        checkLimits();
         return map.modify(key, index, attributes);
     }
 
     @Override
     public <S extends Slot> S compute(Object key, int index, SlotComputer<S> c) {
+        checkLimits();
         return map.compute(key, index, c);
     }
 
@@ -69,7 +62,7 @@ class SlotMapContainer implements SlotMap {
 
     @Override
     public void add(Slot newSlot) {
-        checkMapSize();
+        checkLimits();
         map.add(newSlot);
     }
 
@@ -87,12 +80,9 @@ class SlotMapContainer implements SlotMap {
         // No locking in the default implementation
     }
 
-    /**
-     * Before inserting a new item in the map, check and see if we need to expand from the embedded
-     * map to a HashMap that is more robust against large numbers of hash collisions.
-     */
-    protected void checkMapSize() {
-        if ((map instanceof EmbeddedSlotMap) && map.size() >= LARGE_HASH_SIZE) {
+    /** Give subclasses the opportunity to ask to be replaced with a more generic HashSlotMap. */
+    protected void checkLimits() {
+        if (map.isLimitReached()) {
             SlotMap newMap = new HashSlotMap();
             for (Slot s : map) {
                 newMap.add(s);

@@ -35,6 +35,7 @@ public class SlotMapTest {
                 new Object[][] {
                     {EmbeddedSlotMap.class},
                     {HashSlotMap.class},
+                    {ArraySlotMap.class},
                     {SlotMapContainer.class},
                     {ThreadSafeSlotMapContainer.class},
                 });
@@ -227,12 +228,14 @@ public class SlotMapTest {
             Iterator<Slot> it = map.iterator();
             for (int i = 0; i < NUM_INDICES; i++) {
                 Slot slot = map.query(null, i);
+                System.out.println("Query " + i);
                 assertNotNull(slot);
                 assertEquals(i, slot.value);
                 assertTrue(it.hasNext());
                 assertEquals(slot, it.next());
             }
             for (String key : KEYS) {
+                System.out.println("Query " + key);
                 Slot slot = map.query(key, 0);
                 assertNotNull(slot);
                 assertEquals(key, slot.value);

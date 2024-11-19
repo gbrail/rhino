@@ -66,7 +66,7 @@ class ThreadSafeSlotMapContainer extends SlotMapContainer {
     public Slot modify(Object key, int index, int attributes) {
         final long stamp = lock.writeLock();
         try {
-            checkMapSize();
+            checkLimits();
             return map.modify(key, index, attributes);
         } finally {
             lock.unlockWrite(stamp);
@@ -77,6 +77,7 @@ class ThreadSafeSlotMapContainer extends SlotMapContainer {
     public <S extends Slot> S compute(Object key, int index, SlotComputer<S> c) {
         final long stamp = lock.writeLock();
         try {
+            checkLimits();
             return map.compute(key, index, c);
         } finally {
             lock.unlockWrite(stamp);
@@ -103,7 +104,7 @@ class ThreadSafeSlotMapContainer extends SlotMapContainer {
     public void add(Slot newSlot) {
         final long stamp = lock.writeLock();
         try {
-            checkMapSize();
+            checkLimits();
             map.add(newSlot);
         } finally {
             lock.unlockWrite(stamp);
@@ -140,8 +141,8 @@ class ThreadSafeSlotMapContainer extends SlotMapContainer {
      * map to a HashMap that is more robust against large numbers of hash collisions.
      */
     @Override
-    protected void checkMapSize() {
+    protected void checkLimits() {
         assert lock.isWriteLocked();
-        super.checkMapSize();
+        super.checkLimits();
     }
 }
