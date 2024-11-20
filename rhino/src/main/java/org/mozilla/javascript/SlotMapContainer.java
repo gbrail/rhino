@@ -67,6 +67,21 @@ class SlotMapContainer implements SlotMap {
     }
 
     @Override
+    public int getFastQueryIndex(Object key, int index) {
+        return map.getFastQueryIndex(key, index);
+    }
+
+    @Override
+    public boolean testFastQuery(SlotMap m, int index) {
+        return map.testFastQuery(m, index);
+    }
+
+    @Override
+    public Slot queryFast(int index) {
+        return map.queryFast(index);
+    }
+
+    @Override
     public Iterator<Slot> iterator() {
         return map.iterator();
     }

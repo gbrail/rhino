@@ -37,7 +37,8 @@ public class Bootstrapper {
         DynamicLinkerFactory factory = new DynamicLinkerFactory();
         // The const-aware-linker will only bind a few operations, and everything
         // else will fall back to the default linker, which will always bind.
-        factory.setPrioritizedLinkers(new ConstAwareLinker(), new DefaultLinker());
+        factory.setPrioritizedLinkers(
+                new ConstAwareLinker(), new FastPropertyLinker(), new DefaultLinker());
         linker = factory.createLinker();
     }
 

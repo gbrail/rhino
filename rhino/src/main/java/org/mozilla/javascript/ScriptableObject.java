@@ -2731,6 +2731,36 @@ public abstract class ScriptableObject
         return result;
     }
 
+    /**
+     * Return a key that may be used for faster access to a specific property. The key may be passed
+     * to "getFast" for faster access if and only if "testFastKey" returns true. This must be tested
+     * before every invocation of "getFast". Returns null if the key is not present in this object.
+     */
+    public FastKey getFastKey(String key) {
+        int ix = slotMap.getFastQueryIndex(key, 0);
+        if (ix >= 0) {
+            return new FastKey(slotMap, ix);
+        }
+        return null;
+    }
+
+    /** Return true if a key previously returned by "getFastKey" is still valid. */
+    public boolean testFastKey(FastKey key) {
+        return slotMap.testFastQuery(key.map, key.index);
+    }
+
+    /**
+     * Return the value stored at the location denoted by the fast key. Note that this is only valid
+     * if "testFastKey" returned true and the object has not been modified since.
+     */
+    public Object getFast(FastKey key, Scriptable start) {
+        Slot slot = slotMap.queryFast(key.index);
+        if (slot == null) {
+            return Scriptable.NOT_FOUND;
+        }
+        return slot.getValue(start);
+    }
+
     /*
      * These are handy for changing slot types in one "compute" operation.
      */
@@ -2890,6 +2920,20 @@ public abstract class ScriptableObject
                 return 1;
             }
             return 0;
+        }
+    }
+
+    /**
+     * This class is returned as a key from "getFastKey". It is intended to be opaque to users
+     * outside of this class.
+     */
+    public static final class FastKey {
+        SlotMap map;
+        int index;
+
+        FastKey(SlotMap map, int index) {
+            this.map = map;
+            this.index = index;
         }
     }
 }

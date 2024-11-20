@@ -74,4 +74,28 @@ public interface SlotMap extends Iterable<Slot> {
     default boolean isLimitReached() {
         return false;
     }
+
+    /**
+     * If the slot map is capable of testing whether a specific property is stored at the same index
+     * every time, then return a fast index here, and otherwise return -1.
+     */
+    default int getFastQueryIndex(Object key, int index) {
+        return -1;
+    }
+
+    /**
+     * If the slot map is capable of returning a key from "getFastQueryIndex", test whether it is
+     * still valid.
+     */
+    default boolean testFastQuery(SlotMap map, int index) {
+        return false;
+    }
+
+    /**
+     * Return the key for the index that was returned by "getFastQueryIndex", assuming that
+     * "testFastQuery" returned true.
+     */
+    default Slot queryFast(int index) {
+        return null;
+    }
 }

@@ -68,6 +68,32 @@ public class ArraySlotMap implements SlotMap {
     }
 
     @Override
+    public int getFastQueryIndex(Object key, int index) {
+        if (hashSlots == null) {
+            return -1;
+        }
+
+        int indexOrHash = (key != null ? key.hashCode() : index);
+        int slotIndex = getSlotIndex(hashSlots.length, indexOrHash);
+        for (Slot slot = hashSlots[slotIndex]; slot != null; slot = slot.next) {
+            if (indexOrHash == slot.indexOrHash && Objects.equals(slot.name, key)) {
+                return slot.orderedPos;
+            }
+        }
+        return -1;
+    }
+
+    @Override
+    public boolean testFastQuery(SlotMap map, int index) {
+        return Objects.equals(this, map);
+    }
+
+    @Override
+    public Slot queryFast(int index) {
+        return orderedSlots[index];
+    }
+
+    @Override
     public Slot modify(Object key, int index, int attributes) {
         int indexOrHash = (key != null ? key.hashCode() : index);
         Slot slot;

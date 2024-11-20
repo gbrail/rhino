@@ -133,6 +133,23 @@ public class SlotMapBenchmark {
 
     @Benchmark
     @OperationsPerInvocation(100)
+    public Object arrayQueryKey10EntriesFast(ArrayState state) {
+        int ix = state.size10Map.getFastQueryIndex(state.size10LastKey, 0);
+        Slot slot = null;
+        for (int i = 0; i < 100; i++) {
+            if (!state.size10Map.testFastQuery(state.size10Map, ix)) {
+                throw new AssertionError();
+            }
+            slot = state.size10Map.queryFast(ix);
+        }
+        if (slot == null) {
+            throw new AssertionError();
+        }
+        return slot;
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(100)
     public Object arrayQueryKey100Entries(ArrayState state) {
         Slot slot = null;
         for (int i = 0; i < 100; i++) {
