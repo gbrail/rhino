@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 public class PropertyMapTest {
     @Test
     public void createTree() {
-        PropertyMap root = PropertyMap.emptyMap();
+        ObjectShape root = ObjectShape.emptyMap();
         assertEquals(-1, root.getPosition());
         assertEquals(-1, root.find("one"));
         assertEquals(-1, root.find("two"));
@@ -17,18 +17,18 @@ public class PropertyMapTest {
         assertEquals(-1, root.find("four"));
 
         // New maps should progressively build in order
-        PropertyMap one = root.add("one");
+        ObjectShape one = root.add("one");
         assertNotNull(one);
         assertEquals(0, one.getPosition());
-        PropertyMap two = one.add("two");
+        ObjectShape two = one.add("two");
         assertNotNull(two);
         assertEquals(1, two.getPosition());
-        PropertyMap three = two.add("three");
+        ObjectShape three = two.add("three");
         assertNotNull(three);
         assertEquals(2, three.getPosition());
 
         // Make "four" a branch of "one"
-        PropertyMap four = one.add("four");
+        ObjectShape four = one.add("four");
         assertNotNull(four);
         assertEquals(1, four.getPosition());
 
@@ -51,11 +51,11 @@ public class PropertyMapTest {
         assertEquals(1, four.find("four"));
 
         // Traverse the tree again, should get the same objects
-        PropertyMap one1 = root.add("one");
+        ObjectShape one1 = root.add("one");
         assertSame(one1, one);
-        PropertyMap two2 = one1.add("two");
+        ObjectShape two2 = one1.add("two");
         assertSame(two2, two);
-        PropertyMap three3 = two2.add("three");
+        ObjectShape three3 = two2.add("three");
         assertSame(three3, three);
     }
 }

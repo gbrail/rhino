@@ -2,8 +2,8 @@ package org.mozilla.javascript;
 
 import java.util.Objects;
 
-public class PropertyMap {
-    public static PropertyMap EMPTY = new PropertyMap();
+public class ObjectShape {
+    public static ObjectShape EMPTY = new ObjectShape();
 
     // Hard coded for now
     private static final int NUM_SLOTS = 32;
@@ -13,33 +13,26 @@ public class PropertyMap {
     private ChildSlot[] children = new ChildSlot[NUM_SLOTS];
 
     /** Create an empty map -- should only be used for testing. */
-    public static PropertyMap emptyMap() {
-        return new PropertyMap();
+    public static ObjectShape emptyMap() {
+        return new ObjectShape();
     }
 
     /** Make an empty property map */
-    private PropertyMap() {
+    private ObjectShape() {
         position = -1;
     }
 
     /** Make a property map that is a child of the parent, which means copying its keys. */
-    private PropertyMap(PropertyMap parent, Object key) {
+    private ObjectShape(ObjectShape parent, Object key) {
         position = parent.position + 1;
-        // Copy the key hash table
-        for (int i = 0; i < NUM_SLOTS; i++) {
-            PropSlot s = parent.slots[i];
-            while (s != null) {
-                PropSlot ns = new PropSlot(s.key, s.position);
-                ns.next = slots[i];
-                slots[i] = ns;
-                s = s.next;
-            }
-        }
+        // We can actually copy the old slots because we'll insert
+        // any new keys at the start of one of the buckets.
+        System.arraycopy(parent.slots, 0, slots, 0, NUM_SLOTS);
         // Insert the new key
         PropSlot ns = new PropSlot(key, position);
-        int bucket = getSlotIndex(key);
-        ns.next = slots[bucket];
-        slots[bucket] = ns;
+        int newBucket = getSlotIndex(key);
+        ns.next = slots[newBucket];
+        slots[newBucket] = ns;
     }
 
     /** Return the relative order of the final property in this map. */
@@ -52,7 +45,7 @@ public class PropertyMap {
      * properties. This may return an existing map or create a new one. "getPosition" may be used to
      * understand at what level we are in the new map.
      */
-    public PropertyMap add(Object key) {
+    public synchronized ObjectShape add(Object key) {
         int bucket = getSlotIndex(key);
         ChildSlot s = children[bucket];
         while (s != null) {
@@ -62,7 +55,7 @@ public class PropertyMap {
             s = s.next;
         }
 
-        PropertyMap newMap = new PropertyMap(this, key);
+        ObjectShape newMap = new ObjectShape(this, key);
         ChildSlot ns = new ChildSlot(key, newMap);
         ns.next = children[bucket];
         children[bucket] = ns;
@@ -101,10 +94,10 @@ public class PropertyMap {
 
     private static final class ChildSlot {
         Object key;
-        PropertyMap map;
+        ObjectShape map;
         ChildSlot next;
 
-        ChildSlot(Object key, PropertyMap map) {
+        ChildSlot(Object key, ObjectShape map) {
             this.key = key;
             this.map = map;
         }
