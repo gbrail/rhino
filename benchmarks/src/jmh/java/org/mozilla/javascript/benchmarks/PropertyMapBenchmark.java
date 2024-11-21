@@ -1,5 +1,7 @@
 package org.mozilla.javascript.benchmarks;
 
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import org.mozilla.javascript.PropertyMap;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Level;
@@ -8,8 +10,6 @@ import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 public class PropertyMapBenchmark {
