@@ -22,10 +22,10 @@ class SlotMapContainer implements SlotMap {
     }
 
     SlotMapContainer(int initialSize) {
-        if (initialSize > ArraySlotMap.SIZE_LIMIT) {
+        if (initialSize > ObjectShapeSlotMap.SIZE_LIMIT) {
             map = new HashSlotMap();
         } else {
-            map = new ArraySlotMap();
+            map = new ObjectShapeSlotMap();
         }
     }
 

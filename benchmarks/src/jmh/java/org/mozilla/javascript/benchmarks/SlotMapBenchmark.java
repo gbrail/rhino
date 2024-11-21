@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit;
 import org.mozilla.javascript.ArraySlotMap;
 import org.mozilla.javascript.EmbeddedSlotMap;
 import org.mozilla.javascript.HashSlotMap;
+import org.mozilla.javascript.ObjectShapeSlotMap;
 import org.mozilla.javascript.Slot;
 import org.mozilla.javascript.SlotMap;
 import org.openjdk.jmh.annotations.*;
@@ -151,6 +152,88 @@ public class SlotMapBenchmark {
     @Benchmark
     @OperationsPerInvocation(100)
     public Object arrayQueryKey100Entries(ArrayState state) {
+        Slot slot = null;
+        for (int i = 0; i < 100; i++) {
+            slot = state.size100Map.query(state.size100LastKey, 0);
+        }
+        if (slot == null) {
+            throw new AssertionError();
+        }
+        return slot;
+    }
+
+    @State(Scope.Thread)
+    public static class ShapeState {
+        final ObjectShapeSlotMap emptyMap = new ObjectShapeSlotMap();
+        final ObjectShapeSlotMap size10Map = new ObjectShapeSlotMap();
+        final ObjectShapeSlotMap size100Map = new ObjectShapeSlotMap();
+        final String[] randomKeys = new String[100];
+        String size100LastKey;
+        String size10LastKey;
+
+        @Setup(Level.Trial)
+        public void create() {
+            String lastKey = null;
+            for (int i = 0; i < 10; i++) {
+                lastKey = insertRandomEntry(size10Map);
+            }
+            size10LastKey = lastKey;
+            for (int i = 0; i < 100; i++) {
+                lastKey = insertRandomEntry(size100Map);
+            }
+            size100LastKey = lastKey;
+            for (int i = 0; i < 100; i++) {
+                randomKeys[i] = makeRandomString();
+            }
+        }
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(100)
+    public Object shapeInsert1Key(ShapeState state) {
+        Slot newSlot = null;
+        for (int i = 0; i < 100; i++) {
+            newSlot = state.emptyMap.modify(state.randomKeys[i], 0, 0);
+        }
+        if (newSlot == null) {
+            throw new AssertionError();
+        }
+        return newSlot;
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(100)
+    public Object shapeQueryKey10Entries(ShapeState state) {
+        Slot slot = null;
+        for (int i = 0; i < 100; i++) {
+            slot = state.size10Map.query(state.size10LastKey, 0);
+        }
+        if (slot == null) {
+            throw new AssertionError();
+        }
+        return slot;
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(100)
+    public Object shapeQueryKey10EntriesFast(ShapeState state) {
+        int ix = state.size10Map.getFastQueryIndex(state.size10LastKey, 0);
+        Slot slot = null;
+        for (int i = 0; i < 100; i++) {
+            if (!state.size10Map.testFastQuery(state.size10Map, ix)) {
+                throw new AssertionError();
+            }
+            slot = state.size10Map.queryFast(ix);
+        }
+        if (slot == null) {
+            throw new AssertionError();
+        }
+        return slot;
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(100)
+    public Object shapeQueryKey100Entries(ShapeState state) {
         Slot slot = null;
         for (int i = 0; i < 100; i++) {
             slot = state.size100Map.query(state.size100LastKey, 0);

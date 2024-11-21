@@ -36,6 +36,7 @@ public class SlotMapTest {
                     {EmbeddedSlotMap.class},
                     {HashSlotMap.class},
                     {ArraySlotMap.class},
+                    {ObjectShapeSlotMap.class},
                     {SlotMapContainer.class},
                     {ThreadSafeSlotMapContainer.class},
                 });

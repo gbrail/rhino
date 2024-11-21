@@ -12,6 +12,7 @@ import jdk.dynalink.linker.LinkerServices;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.Undefined;
 
 @SuppressWarnings("AndroidJdkLibsChecker")
 class FastPropertyLinker implements GuardingDynamicLinker {
@@ -78,6 +79,10 @@ class FastPropertyLinker implements GuardingDynamicLinker {
     private static Object propGet(
             Object target, Context cx, Scriptable scope, ScriptableObject.FastKey key) {
         ScriptableObject obj = (ScriptableObject) target;
-        return obj.getFast(key, obj);
+        Object result = obj.getFast(key, obj);
+        if (result == Scriptable.NOT_FOUND) {
+            return Undefined.instance;
+        }
+        return result;
     }
 }
