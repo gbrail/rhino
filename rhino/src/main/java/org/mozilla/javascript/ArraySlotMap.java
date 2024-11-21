@@ -21,12 +21,16 @@ public class ArraySlotMap implements SlotMap {
     private int count;
     // Keep track of deletes because we use a sparse array
     private int deleteCount;
+    // The hash, which takes into account the properties and their order
+    private long hashCode;
 
     // Beyond this size, we expect that this map will be replaced with
     // a more collision-resistant HashSlotMap.
     static final int SIZE_LIMIT = 2000;
     // After this many deletes, we should also be replaced
     private static final int DELETE_LIMIT = 16;
+    // The number of properties to count in the hash
+    private static final int MAX_HASHED_PROPERTIES = 16;
 
     private static final int INITIAL_MAP_SIZE = 4;
     private static final int INITIAL_LIST_SIZE = 8;
@@ -85,7 +89,10 @@ public class ArraySlotMap implements SlotMap {
 
     @Override
     public boolean testFastQuery(SlotMap map, int index) {
-        return Objects.equals(this, map);
+        return Objects.equals(this, map)
+                || (map instanceof ArraySlotMap
+                        && index <= MAX_HASHED_PROPERTIES
+                        && ((ArraySlotMap) map).hashCode == hashCode);
     }
 
     @Override
@@ -197,6 +204,9 @@ public class ArraySlotMap implements SlotMap {
         }
         orderedSlots[orderedLength] = newSlot;
         newSlot.orderedPos = orderedLength;
+        if (hashCode >= 0 && orderedLength <= MAX_HASHED_PROPERTIES) {
+            hashCode += ((long) orderedLength << 32L) | (long) newSlot.indexOrHash;
+        }
         orderedLength++;
         addKnownAbsentSlot(hashSlots, newSlot);
     }
@@ -214,6 +224,8 @@ public class ArraySlotMap implements SlotMap {
         // We use other mechanisms to switch to a hash slot map if there are
         // a lot of removals (i.e. if someone is using an object as a map).
         orderedSlots[slot.orderedPos] = null;
+        // Don't re-calculate hash on rare case of delete -- invalidate it
+        hashCode = -1L;
     }
 
     private static void copyTable(Slot[] oldSlots, Slot[] newSlots) {

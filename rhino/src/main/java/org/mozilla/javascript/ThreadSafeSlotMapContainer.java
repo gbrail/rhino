@@ -101,6 +101,59 @@ class ThreadSafeSlotMapContainer extends SlotMapContainer {
     }
 
     @Override
+    public int getFastQueryIndex(Object key, int index) {
+        long stamp = lock.tryOptimisticRead();
+        int ix = map.getFastQueryIndex(key, index);
+        if (lock.validate(stamp)) {
+            return ix;
+        }
+
+        stamp = lock.readLock();
+        try {
+            return map.getFastQueryIndex(key, index);
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    @Override
+    public boolean testFastQuery(SlotMap m, int index) {
+        SlotMap realMap = m;
+        if (m instanceof SlotMapContainer) {
+            realMap = ((SlotMapContainer) m).map;
+        }
+
+        long stamp = lock.tryOptimisticRead();
+        boolean t = map.testFastQuery(realMap, index);
+        if (lock.validate(stamp)) {
+            return t;
+        }
+
+        stamp = lock.readLock();
+        try {
+            return map.testFastQuery(map, index);
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    @Override
+    public Slot queryFast(int index) {
+        long stamp = lock.tryOptimisticRead();
+        Slot slot = map.queryFast(index);
+        if (lock.validate(stamp)) {
+            return slot;
+        }
+
+        stamp = lock.readLock();
+        try {
+            return map.queryFast(index);
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+
+    @Override
     public void add(Slot newSlot) {
         final long stamp = lock.writeLock();
         try {
