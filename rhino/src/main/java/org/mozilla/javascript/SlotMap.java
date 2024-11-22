@@ -85,10 +85,10 @@ public interface SlotMap extends Iterable<Slot> {
 
     /**
      * If the slot map is capable of returning a key from "getFastQueryIndex", test whether it is
-     * still valid.
+     * still valid, and return the slot if so.
      */
-    default boolean testFastQuery(SlotMap map, int index) {
-        return false;
+    default Slot testFastQuery(SlotMap map, int index) {
+        return null;
     }
 
     /**

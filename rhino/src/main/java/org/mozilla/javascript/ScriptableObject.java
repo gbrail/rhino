@@ -2739,14 +2739,18 @@ public abstract class ScriptableObject
     public FastKey getFastKey(String key) {
         int ix = slotMap.getFastQueryIndex(key, 0);
         if (ix >= 0) {
-            return new FastKey(slotMap, ix);
+            return new FastKey(key, slotMap, ix);
         }
         return null;
     }
 
     /** Return true if a key previously returned by "getFastKey" is still valid. */
     public boolean testFastKey(FastKey key) {
-        return slotMap.testFastQuery(key.map, key.index);
+        Slot slot = slotMap.testFastQuery(key.map, key.index);
+        if (slot != null) {
+            return Objects.equals(key.key, slot.name);
+        }
+        return false;
     }
 
     /**
@@ -2759,6 +2763,21 @@ public abstract class ScriptableObject
             return Scriptable.NOT_FOUND;
         }
         return slot.getValue(start);
+    }
+
+    /**
+     * Set the value stored t the location denoted by the fast key. Note that this is only valid if
+     * "testFastKey" returned true and the object has not been modified since.
+     */
+    public boolean setFast(FastKey key, Scriptable start, Object value) {
+        Slot slot = slotMap.queryFast(key.index);
+        if (slot == null) {
+            return false;
+        }
+        if (isSealed) {
+            checkNotSealed(key, 0);
+        }
+        return slot.setValue(value, this, start);
     }
 
     /*
@@ -2928,10 +2947,12 @@ public abstract class ScriptableObject
      * outside of this class.
      */
     public static final class FastKey {
-        SlotMap map;
-        int index;
+        final String key;
+        final SlotMap map;
+        final int index;
 
-        FastKey(SlotMap map, int index) {
+        FastKey(String key, SlotMap map, int index) {
+            this.key = key;
             this.map = map;
             this.index = index;
         }

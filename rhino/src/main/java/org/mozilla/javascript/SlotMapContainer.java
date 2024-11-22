@@ -72,7 +72,7 @@ class SlotMapContainer implements SlotMap {
     }
 
     @Override
-    public boolean testFastQuery(SlotMap m, int index) {
+    public Slot testFastQuery(SlotMap m, int index) {
         SlotMap realMap = m;
         if (m instanceof SlotMapContainer) {
             realMap = ((SlotMapContainer) m).map;

@@ -85,20 +85,20 @@ public class SlotMapTest {
         }
 
         // Fast query should work now
-        assertTrue(map.testFastQuery(map, ix));
+        assertNotNull(map.testFastQuery(map, ix));
         slot = map.queryFast(ix);
         assertEquals("Testing", slot.value);
 
         // Fast query should return new slot if we switch slots
         Slot newSlot = new Slot(slot);
         map.compute("foo", 0, (k, i, e) -> newSlot);
-        assertTrue(map.testFastQuery(map, ix));
+        assertNotNull(map.testFastQuery(map, ix));
         Slot foundNewSlot = map.queryFast(ix);
         assertEquals("Testing", foundNewSlot.value);
         assertSame(foundNewSlot, newSlot);
 
         map.compute("foo", 0, (k, ii, e) -> null);
-        assertTrue(map.testFastQuery(map, ix));
+        assertNull(map.testFastQuery(map, ix));
         assertNull(map.queryFast(ix));
     }
 

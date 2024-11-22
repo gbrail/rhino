@@ -117,16 +117,16 @@ class ThreadSafeSlotMapContainer extends SlotMapContainer {
     }
 
     @Override
-    public boolean testFastQuery(SlotMap m, int index) {
+    public Slot testFastQuery(SlotMap m, int index) {
         SlotMap realMap = m;
         if (m instanceof SlotMapContainer) {
             realMap = ((SlotMapContainer) m).map;
         }
 
         long stamp = lock.tryOptimisticRead();
-        boolean t = map.testFastQuery(realMap, index);
+        Slot slot = map.testFastQuery(realMap, index);
         if (lock.validate(stamp)) {
-            return t;
+            return slot;
         }
 
         stamp = lock.readLock();

@@ -23,7 +23,7 @@ class FastPropertyLinker implements GuardingDynamicLinker {
             return null;
         }
 
-        // MethodType mType = req.getCallSiteDescriptor().getMethodType();
+        MethodType mType = req.getCallSiteDescriptor().getMethodType();
         ParsedOperation op = new ParsedOperation(req.getCallSiteDescriptor().getOperation());
         Object target = req.getReceiver();
         if (!(target instanceof ScriptableObject)) {
@@ -32,35 +32,44 @@ class FastPropertyLinker implements GuardingDynamicLinker {
         ScriptableObject obj = (ScriptableObject) target;
         MethodHandles.Lookup lookup = MethodHandles.lookup();
 
-        if (op.isNamespace(StandardNamespace.PROPERTY)
-                && op.isOperation(StandardOperation.GET, RhinoOperation.GETNOWARN)) {
-            ScriptableObject.FastKey key = obj.getFastKey(op.getName());
-            if (key == null) {
-                return null;
+        if (op.isNamespace(StandardNamespace.PROPERTY)) {
+            if (op.isOperation(StandardOperation.GET, RhinoOperation.GETNOWARN)) {
+                ScriptableObject.FastKey key = obj.getFastKey(op.getName());
+                if (key == null) {
+                    return null;
+                }
+                MethodType guardType =
+                        mType.changeReturnType(Boolean.TYPE)
+                                .insertParameterTypes(3, ScriptableObject.FastKey.class);
+                MethodHandle guard =
+                        lookup.findStatic(FastPropertyLinker.class, "testPropGet", guardType);
+                guard = MethodHandles.insertArguments(guard, 3, key);
+                mType = mType.insertParameterTypes(3, ScriptableObject.FastKey.class);
+                MethodHandle mh = lookup.findStatic(FastPropertyLinker.class, "propGet", mType);
+                mh = MethodHandles.insertArguments(mh, 3, key);
+                if (DefaultLinker.DEBUG) {
+                    System.out.println(op + ": get fast property");
+                }
+                return new GuardedInvocation(mh, guard);
+            } else if (op.isOperation(StandardOperation.SET)) {
+                ScriptableObject.FastKey key = obj.getFastKey(op.getName());
+                if (key == null) {
+                    return null;
+                }
+                MethodType guardType =
+                        mType.changeReturnType(Boolean.TYPE)
+                                .insertParameterTypes(4, ScriptableObject.FastKey.class);
+                MethodHandle guard =
+                        lookup.findStatic(FastPropertyLinker.class, "testPropSet", guardType);
+                guard = MethodHandles.insertArguments(guard, 4, key);
+                mType = mType.insertParameterTypes(4, ScriptableObject.FastKey.class);
+                MethodHandle mh = lookup.findStatic(FastPropertyLinker.class, "propSet", mType);
+                mh = MethodHandles.insertArguments(mh, 4, key);
+                if (DefaultLinker.DEBUG) {
+                    System.out.println(op + ": set fast property");
+                }
+                return new GuardedInvocation(mh, guard);
             }
-            MethodType guardType =
-                    MethodType.methodType(
-                            Boolean.TYPE,
-                            Object.class,
-                            Context.class,
-                            Scriptable.class,
-                            ScriptableObject.FastKey.class);
-            MethodHandle guard =
-                    lookup.findStatic(FastPropertyLinker.class, "testPropGet", guardType);
-            guard = MethodHandles.insertArguments(guard, 3, key);
-            MethodType mType =
-                    MethodType.methodType(
-                            Object.class,
-                            Object.class,
-                            Context.class,
-                            Scriptable.class,
-                            ScriptableObject.FastKey.class);
-            MethodHandle mh = lookup.findStatic(FastPropertyLinker.class, "propGet", mType);
-            mh = MethodHandles.insertArguments(mh, 3, key);
-            if (DefaultLinker.DEBUG) {
-                System.out.println(op + ": get fast property");
-            }
-            return new GuardedInvocation(mh, guard);
         }
 
         return null;
@@ -84,5 +93,30 @@ class FastPropertyLinker implements GuardingDynamicLinker {
             return Undefined.instance;
         }
         return result;
+    }
+
+    @SuppressWarnings("unused")
+    private static boolean testPropSet(
+            Object target,
+            Object value,
+            Context cx,
+            Scriptable scope,
+            ScriptableObject.FastKey key) {
+        if (target instanceof ScriptableObject) {
+            return ((ScriptableObject) target).testFastKey(key);
+        }
+        return false;
+    }
+
+    @SuppressWarnings("unused")
+    private static Object propSet(
+            Object target,
+            Object value,
+            Context cx,
+            Scriptable scope,
+            ScriptableObject.FastKey key) {
+        ScriptableObject obj = (ScriptableObject) target;
+        obj.setFast(key, obj, value);
+        return value;
     }
 }

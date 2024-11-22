@@ -88,11 +88,15 @@ public class ArraySlotMap implements SlotMap {
     }
 
     @Override
-    public boolean testFastQuery(SlotMap map, int index) {
-        return Objects.equals(this, map)
+    public Slot testFastQuery(SlotMap map, int index) {
+        if (Objects.equals(this, map)
                 || (map instanceof ArraySlotMap
                         && index <= MAX_HASHED_PROPERTIES
-                        && ((ArraySlotMap) map).hashCode == hashCode);
+                        && hashCode >= 0
+                        && ((ArraySlotMap) map).hashCode == hashCode)) {
+            return orderedSlots[index];
+        }
+        return null;
     }
 
     @Override
@@ -193,7 +197,7 @@ public class ArraySlotMap implements SlotMap {
     }
 
     private void insertNewSlot(Slot newSlot) {
-        if (count == 0) {
+        if (orderedSlots == null) {
             orderedSlots = new Slot[INITIAL_LIST_SIZE];
         }
         count++;

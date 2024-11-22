@@ -137,7 +137,7 @@ public class SlotMapBenchmark {
         int ix = state.size10Map.getFastQueryIndex(state.size10LastKey, 0);
         Slot slot = null;
         for (int i = 0; i < 100; i++) {
-            if (!state.size10Map.testFastQuery(state.size10Map, ix)) {
+            if (state.size10Map.testFastQuery(state.size10Map, ix) == null) {
                 throw new AssertionError();
             }
             slot = state.size10Map.queryFast(ix);
