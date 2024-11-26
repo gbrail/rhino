@@ -2378,7 +2378,7 @@ class BodyCodegen {
         int childType = child.getType();
         boolean isOptionalChainingCall = node.getIntProp(Node.OPTIONAL_CHAINING, 0) == 1;
 
-        String methodName;
+        String operation;
         String signature;
         Integer afterLabel = null;
 
@@ -2386,39 +2386,31 @@ class BodyCodegen {
             if (childType == Token.NAME) {
                 // name() call
                 String name = child.getString();
-                cfw.addPush(name);
-                methodName = isOptionalChainingCall ? "callName0Optional" : "callName0";
-                signature =
-                        "(Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = isOptionalChainingCall ? "NAME:CALLOPT0:" : "NAME:CALL0:";
+                operation += name;
+                signature = Signatures.NAME_CALL_0;
+                cfw.addALoad(variableObjectLocal);
+                cfw.addALoad(contextLocal);
+                addDynamicInvoke(operation, signature);
+                // Bail out here because we need a slightly different order of those
+                // last two elements on the stack.
+                return;
             } else if (childType == Token.GETPROP) {
                 // x.name() call
                 Node propTarget = child.getFirstChild();
                 generateExpression(propTarget, node);
                 Node id = propTarget.getNext();
                 String property = id.getString();
-                cfw.addPush(property);
-                methodName = isOptionalChainingCall ? "callProp0Optional" : "callProp0";
-                signature =
-                        "(Ljava/lang/Object;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = isOptionalChainingCall ? "PROP:CALLOPT0:" : "PROP:CALL0:";
+                operation += property;
+                signature = Signatures.PROP_CALL_0;
             } else if (childType == Token.GETPROPNOWARN) {
                 throw Kit.codeBug();
             } else {
                 generateFunctionAndThisObj(child, node);
                 pushThisFromLastScriptable();
-                methodName = isOptionalChainingCall ? "call0Optional" : "call0";
-                signature =
-                        "(Lorg/mozilla/javascript/Callable;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = isOptionalChainingCall ? "METHOD:CALLOPT0" : "METHOD:CALL0";
+                signature = Signatures.METHOD_CALL_0;
             }
 
         } else if (childType == Token.NAME) {
@@ -2453,25 +2445,18 @@ class BodyCodegen {
                 // push this, arguments, and do call
                 cfw.markLabel(doCallLabel);
                 pushThisFromLastScriptable();
-                methodName = "callN";
                 generateCallArgArray(node, firstArgChild, false);
-                signature =
-                        "(Lorg/mozilla/javascript/Callable;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + "[Ljava/lang/Object;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "METHOD:CALL";
+                signature = Signatures.METHOD_CALL;
             } else {
+                cfw.addALoad(variableObjectLocal);
                 generateCallArgArray(node, firstArgChild, false);
-                cfw.addPush(name);
-                methodName = "callName";
-                signature =
-                        "([Ljava/lang/Object;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "NAME:CALL:" + name;
+                signature = Signatures.NAME_CALL;
+                cfw.addALoad(contextLocal);
+                addDynamicInvoke(operation, signature);
+                // Bail out early because we ordered the last two things differently
+                return;
             }
         } else {
             int argCount = 0;
@@ -2505,44 +2490,25 @@ class BodyCodegen {
             pushThisFromLastScriptable();
             if (argCount == 1) {
                 generateExpression(firstArgChild, node);
-                methodName = "call1";
-                signature =
-                        "(Lorg/mozilla/javascript/Callable;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + "Ljava/lang/Object;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
+                operation = "METHOD:CALL1";
+                signature = Signatures.METHOD_CALL_1;
             } else {
                 if (argCount == 2) {
                     generateExpression(firstArgChild, node);
                     generateExpression(firstArgChild.getNext(), node);
-                    methodName = "call2";
-                    signature =
-                            "(Lorg/mozilla/javascript/Callable;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
-                                    + "Ljava/lang/Object;"
-                                    + "Ljava/lang/Object;"
-                                    + "Lorg/mozilla/javascript/Context;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
-                                    + ")Ljava/lang/Object;";
+                    operation = "METHOD:CALL2";
+                    signature = Signatures.METHOD_CALL_2;
                 } else {
                     generateCallArgArray(node, firstArgChild, false);
-                    methodName = "callN";
-                    signature =
-                            "(Lorg/mozilla/javascript/Callable;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
-                                    + "[Ljava/lang/Object;"
-                                    + "Lorg/mozilla/javascript/Context;"
-                                    + "Lorg/mozilla/javascript/Scriptable;"
-                                    + ")Ljava/lang/Object;";
+                    operation = "METHOD:CALL";
+                    signature = Signatures.METHOD_CALL;
                 }
             }
         }
 
         cfw.addALoad(contextLocal);
         cfw.addALoad(variableObjectLocal);
-        addOptRuntimeInvoke(methodName, signature);
+        addDynamicInvoke(operation, signature);
         if (afterLabel != null) {
             cfw.markLabel(afterLabel);
         }

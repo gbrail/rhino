@@ -91,7 +91,17 @@ interface Signatures {
                     + ")Ljava/lang/Object;";
 
     /**
-     * NAME:GET:{name}: Looks up a the named value from the scope. Falls back to ScriptRuntime.name.
+     * PROP:CALL0 and PROP:CALLOPT0: Call a named operation on an object with no arguments. Falls
+     * back to ScriptRuntime.callProp0 and callProp0Optional
+     */
+    String PROP_CALL_0 =
+            "(Ljava/lang/Object;"
+                    + "Lorg/mozilla/javascript/Context;"
+                    + "Lorg/mozilla/javascript/Scriptable;"
+                    + ")Ljava/lang/Object;";
+
+    /**
+     * NAME:GET:{name}: Looks up the named value from the scope. Falls back to ScriptRuntime.name.
      * Compared to that function, this version of the signature puts the "scope" first in the
      * argument list rather than second. This makes it easier for future linkers to work because
      * they can always assume that the "receiver" of an operation is the first argument.
@@ -151,6 +161,61 @@ interface Signatures {
             "(Lorg/mozilla/javascript/Scriptable;"
                     + "Ljava/lang/Object;"
                     + "Lorg/mozilla/javascript/Context;"
+                    + ")Ljava/lang/Object;";
+
+    /**
+     * NAME:CALL: Call a named operation on the current context. Falls back to
+     * ScriptRuntime.callName.
+     */
+    String NAME_CALL =
+            "(Lorg/mozilla/javascript/Scriptable;"
+                    + "[Ljava/lang/Object;"
+                    + "Lorg/mozilla/javascript/Context;"
+                    + ")Ljava/lang/Object;";
+
+    /**
+     * NAME:CALL0 and NAME:CALLOPT0: Call a named operation on the current context with no
+     * arguments. Falls back to ScriptRuntime.callName0 and callName0Optional.
+     */
+    String NAME_CALL_0 =
+            "(Lorg/mozilla/javascript/Scriptable;"
+                    + "Lorg/mozilla/javascript/Context;"
+                    + ")Ljava/lang/Object;";
+
+    /** METHOD:CALL: Call the specified method. */
+    String METHOD_CALL =
+            "(Lorg/mozilla/javascript/Callable;"
+                    + "Lorg/mozilla/javascript/Scriptable;"
+                    + "[Ljava/lang/Object;"
+                    + "Lorg/mozilla/javascript/Context;"
+                    + "Lorg/mozilla/javascript/Scriptable;"
+                    + ")Ljava/lang/Object;";
+
+    /** METHOD:CALL0 and METHOD:CALLOPT0: Call the specified method with no arguments. */
+    String METHOD_CALL_0 =
+            "(Lorg/mozilla/javascript/Callable;"
+                    + "Lorg/mozilla/javascript/Scriptable;"
+                    + "Lorg/mozilla/javascript/Context;"
+                    + "Lorg/mozilla/javascript/Scriptable;"
+                    + ")Ljava/lang/Object;";
+
+    /** METHOD:CALL1: Call the specified method with one argument. */
+    String METHOD_CALL_1 =
+            "(Lorg/mozilla/javascript/Callable;"
+                    + "Lorg/mozilla/javascript/Scriptable;"
+                    + "Ljava/lang/Object;"
+                    + "Lorg/mozilla/javascript/Context;"
+                    + "Lorg/mozilla/javascript/Scriptable;"
+                    + ")Ljava/lang/Object;";
+
+    /** METHOD:CALL2: Call the specified method with one argument. */
+    String METHOD_CALL_2 =
+            "(Lorg/mozilla/javascript/Callable;"
+                    + "Lorg/mozilla/javascript/Scriptable;"
+                    + "Ljava/lang/Object;"
+                    + "Ljava/lang/Object;"
+                    + "Lorg/mozilla/javascript/Context;"
+                    + "Lorg/mozilla/javascript/Scriptable;"
                     + ")Ljava/lang/Object;";
 
     /**

@@ -9,6 +9,11 @@ import jdk.dynalink.Operation;
 @SuppressWarnings("AndroidJdkLibsChecker")
 public enum RhinoOperation implements Operation {
     BIND,
+    CALL_0,
+    CALL_1,
+    CALL_2,
+    CALL_OPTIONAL,
+    CALL_0_OPTIONAL,
     GETNOWARN,
     GETWITHTHIS,
     GETWITHTHISOPTIONAL,

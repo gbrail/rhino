@@ -61,6 +61,8 @@ class DefaultLinker implements GuardingDynamicLinker {
             return getPropertyInvocation(lookup, mType, op);
         } else if (op.isNamespace(RhinoNamespace.NAME)) {
             return getNameInvocation(lookup, mType, op);
+        } else if (op.isNamespace(StandardNamespace.METHOD)) {
+            return getMethodInvocation(lookup, mType, op);
         } else if (op.isNamespace(RhinoNamespace.MATH)) {
             return getMathInvocation(lookup, mType, op);
         }
@@ -119,6 +121,12 @@ class DefaultLinker implements GuardingDynamicLinker {
             mh = lookup.findStatic(ScriptRuntime.class, "setObjectElem", mType);
         } else if (op.isOperation(RhinoOperation.SETINDEX)) {
             mh = lookup.findStatic(ScriptRuntime.class, "setObjectIndex", mType);
+        } else if (op.isOperation(RhinoOperation.CALL_0)) {
+            mh = bindStringParameter(lookup, mType, OptRuntime.class, "callProp0", 1, op.getName());
+        } else if (op.isOperation(RhinoOperation.CALL_0_OPTIONAL)) {
+            mh =
+                    bindStringParameter(
+                            lookup, mType, OptRuntime.class, "callProp0Optional", 1, op.getName());
         }
 
         if (mh != null) {
@@ -170,6 +178,35 @@ class DefaultLinker implements GuardingDynamicLinker {
             mh = bindStringParameter(lookup, mType, ScriptRuntime.class, "strictSetName", 4, name);
         } else if (op.isOperation(RhinoOperation.SETCONST)) {
             mh = bindStringParameter(lookup, mType, ScriptRuntime.class, "setConst", 3, name);
+        } else if (op.isOperation(StandardOperation.CALL)) {
+            mh = bindStringParameter(lookup, mType, DefaultLinker.class, "callName", 3, name);
+        } else if (op.isOperation(RhinoOperation.CALL_0)) {
+            mh = bindStringParameter(lookup, mType, DefaultLinker.class, "callName0", 2, name);
+        } else if (op.isOperation(RhinoOperation.CALL_0_OPTIONAL)) {
+            mh =
+                    bindStringParameter(
+                            lookup, mType, DefaultLinker.class, "callName0Optional", 2, name);
+        }
+
+        if (mh != null) {
+            return new GuardedInvocation(mh);
+        }
+        throw new UnsupportedOperationException(op.toString());
+    }
+
+    private GuardedInvocation getMethodInvocation(
+            MethodHandles.Lookup lookup, MethodType mType, ParsedOperation op)
+            throws NoSuchMethodException, IllegalAccessException {
+        MethodHandle mh = null;
+
+        if (op.isOperation(StandardOperation.CALL)) {
+            mh = lookup.findStatic(OptRuntime.class, "callN", mType);
+        } else if (op.isOperation(RhinoOperation.CALL_0)) {
+            mh = lookup.findStatic(OptRuntime.class, "call0", mType);
+        } else if (op.isOperation(RhinoOperation.CALL_1)) {
+            mh = lookup.findStatic(OptRuntime.class, "call1", mType);
+        } else if (op.isOperation(RhinoOperation.CALL_2)) {
+            mh = lookup.findStatic(OptRuntime.class, "call2", mType);
         }
 
         if (mh != null) {
@@ -227,6 +264,23 @@ class DefaultLinker implements GuardingDynamicLinker {
         MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "compare", tt);
         mh = MethodHandles.insertArguments(mh, 2, op);
         return mh;
+    }
+
+    // A few other operations we need because we're using slightly different signatures
+    // so that we can use the GuardingDynamicLinker later.
+    @SuppressWarnings("unused")
+    private static Object callName(Scriptable scope, Object[] args, Context cx, String name) {
+        return OptRuntime.callName(args, name, cx, scope);
+    }
+
+    @SuppressWarnings("unused")
+    private static Object callName0(Scriptable scope, Context cx, String name) {
+        return OptRuntime.callName0(name, cx, scope);
+    }
+
+    @SuppressWarnings("unused")
+    private static Object callName0Optional(Scriptable scope, Context cx, String name) {
+        return OptRuntime.callName0Optional(name, cx, scope);
     }
 
     /**
