@@ -51,7 +51,7 @@ public class IteratorLikeIterable implements Iterable<Object>, Closeable {
         if (!closed) {
             closed = true;
             if (returnFunc != null) {
-                returnFunc.call(cx, scope, iterator, ScriptRuntime.emptyArgs);
+                returnFunc.call0(cx, scope, iterator);
             }
         }
     }
@@ -70,7 +70,7 @@ public class IteratorLikeIterable implements Iterable<Object>, Closeable {
             if (isDone) {
                 return false;
             }
-            Object val = next.call(cx, scope, iterator, ScriptRuntime.emptyArgs);
+            Object val = next.call0(cx, scope, iterator);
             // This will throw if "val" is not an object.
             // "getObjectPropNoWarn" won't, so do this as follows.
             Object doneval =

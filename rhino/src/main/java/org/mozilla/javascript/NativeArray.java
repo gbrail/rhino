@@ -959,12 +959,7 @@ public class NativeArray extends IdScriptableObject implements List {
                 try (IteratorLikeIterable it = new IteratorLikeIterable(cx, scope, iterator)) {
                     for (Object temp : it) {
                         if (mapping) {
-                            temp =
-                                    mapFn.call(
-                                            cx,
-                                            scope,
-                                            thisArg,
-                                            new Object[] {temp, Long.valueOf(k)});
+                            temp = mapFn.call2(cx, scope, thisArg, temp, Long.valueOf(k));
                         }
                         ArrayLikeAbstractOperations.defineElem(cx, result, k, temp);
                         k++;
@@ -980,7 +975,7 @@ public class NativeArray extends IdScriptableObject implements List {
         for (long k = 0; k < length; k++) {
             Object temp = getElem(cx, items, k);
             if (mapping) {
-                temp = mapFn.call(cx, scope, thisArg, new Object[] {temp, Long.valueOf(k)});
+                temp = mapFn.call2(cx, scope, thisArg, temp, Long.valueOf(k));
             }
             ArrayLikeAbstractOperations.defineElem(cx, result, k, temp);
         }
@@ -1113,7 +1108,7 @@ public class NativeArray extends IdScriptableObject implements List {
         }
         if (obj instanceof XMLObject) {
             Callable lengthFunc = (Callable) obj.get("length", obj);
-            return ((Number) lengthFunc.call(cx, obj, obj, ScriptRuntime.emptyArgs)).longValue();
+            return ((Number) lengthFunc.call0(cx, obj, obj)).longValue();
         }
 
         Object len = ScriptableObject.getProperty(obj, "length");
@@ -1254,7 +1249,7 @@ public class NativeArray extends IdScriptableObject implements List {
                                     ScriptRuntime.getPropFunctionAndThis(
                                             elem, "toLocaleString", cx, scope);
                             funThis = ScriptRuntime.lastStoredScriptable(cx);
-                            elem = fun.call(cx, scope, funThis, ScriptRuntime.emptyArgs);
+                            elem = fun.call0(cx, scope, funThis);
                         }
                         result.append(ScriptRuntime.toString(elem));
                     }

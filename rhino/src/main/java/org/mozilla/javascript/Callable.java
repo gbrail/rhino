@@ -22,14 +22,17 @@ public interface Callable {
      */
     Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args);
 
+    /** A method optimized for calls with a no arguments. Defaults to calling "call". */
     default Object call0(Context cx, Scriptable scope, Scriptable thisObj) {
         return call(cx, scope, thisObj, ScriptRuntime.emptyArgs);
     }
 
+    /** A method optimized for calls with a single argument. Defaults to calling "call". */
     default Object call1(Context cx, Scriptable scope, Scriptable thisObj, Object arg) {
         return call(cx, scope, thisObj, new Object[] {arg});
     }
 
+    /** A method optimized for calls with a single argument. Defaults to calling "call". */
     default Object call2(
             Context cx, Scriptable scope, Scriptable thisObj, Object arg1, Object arg2) {
         return call(cx, scope, thisObj, new Object[] {arg1, arg2});

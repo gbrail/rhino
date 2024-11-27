@@ -4,8 +4,6 @@
 
 package org.mozilla.javascript.tests;
 
-import org.hamcrest.CoreMatchers;
-import org.junit.Assume;
 import org.junit.Test;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextFactory;
@@ -75,27 +73,22 @@ public class GeneratedMethodNameTest {
     public class JavaNameGetter {
         public String readCurrentFunctionJavaName() {
             final Throwable t = new RuntimeException();
-            // remove prefix and suffix of method name
-            return t.getStackTrace()[8].getMethodName().replaceFirst("_[^_]*_(.*)_[^_]*", "$1");
+            // Find the first element that is from generated code
+            for (StackTraceElement ste : t.getStackTrace()) {
+                if (ste.getClassName().startsWith("org.mozilla.javascript.gen")) {
+                    return ste.getMethodName().replaceFirst("_[^_]*_(.*)_[^_]*", "$1");
+                }
+            }
+            return "no generated code found";
         }
     }
 
     public void doTest(final String scriptCode) throws Exception {
-        // Stack traces seem to be showing up differently in Java 21. Since
-        // this is not something that we can control, we're going to ignore
-        // these tests in that case.
-        Assume.assumeThat("Skipping test for Java 21", isJava21(), CoreMatchers.is(false));
         try (Context cx = ContextFactory.getGlobal().enterContext()) {
             Scriptable topScope = cx.initStandardObjects();
             topScope.put("javaNameGetter", topScope, new JavaNameGetter());
             Script script = cx.compileString(scriptCode, "myScript", 1, null);
             script.exec(cx, topScope);
         }
-    }
-
-    private static boolean isJava21() {
-        String[] v = System.getProperty("java.version").split("\\.");
-        int version = Integer.parseInt(v[0]);
-        return version >= 21;
     }
 }

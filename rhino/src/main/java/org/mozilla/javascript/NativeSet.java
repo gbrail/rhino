@@ -168,7 +168,7 @@ public class NativeSet extends IdScriptableObject {
         try (IteratorLikeIterable it = new IteratorLikeIterable(cx, scope, ito)) {
             for (Object val : it) {
                 final Object finalVal = val == Scriptable.NOT_FOUND ? Undefined.instance : val;
-                add.call(cx, scope, set, new Object[] {finalVal});
+                add.call1(cx, scope, set, finalVal);
             }
         }
     }

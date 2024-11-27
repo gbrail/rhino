@@ -1130,7 +1130,7 @@ public class ScriptRuntime {
                 Object v = ScriptableObject.getProperty(obj, "toSource");
                 if (v instanceof Function) {
                     Function f = (Function) v;
-                    return toString(f.call(cx, scope, obj, emptyArgs));
+                    return toString(f.call0(cx, scope, obj));
                 }
             }
             return toString(value);
@@ -2294,8 +2294,7 @@ public class ScriptRuntime {
                 throw typeErrorById("msg.invalid.iterator");
             }
             Callable f = (Callable) v;
-            Object[] args = new Object[] {keyOnly ? Boolean.TRUE : Boolean.FALSE};
-            v = f.call(cx, scope, obj, args);
+            v = f.call1(cx, scope, obj, keyOnly ? Boolean.TRUE : Boolean.FALSE);
             if (!(v instanceof Scriptable)) {
                 throw typeErrorById("msg.iterator.primitive");
             }
@@ -2377,8 +2376,7 @@ public class ScriptRuntime {
         }
         Callable f = (Callable) iterator;
         Scriptable scope = x.obj.getParentScope();
-        Object[] args = new Object[] {};
-        Object v = f.call(cx, scope, x.obj, args);
+        Object v = f.call0(cx, scope, x.obj);
         if (!(v instanceof Scriptable)) {
             throw typeErrorById("msg.not.iterable", toString(x.obj));
         }
@@ -2408,7 +2406,7 @@ public class ScriptRuntime {
             if (!(v instanceof Callable)) return Boolean.FALSE;
             Callable f = (Callable) v;
             try {
-                x.currentId = f.call(cx, x.iterator.getParentScope(), x.iterator, emptyArgs);
+                x.currentId = f.call0(cx, x.iterator.getParentScope(), x.iterator);
                 return Boolean.TRUE;
             } catch (JavaScriptException e) {
                 if (e.getValue() instanceof NativeIterator.StopIteration) {
@@ -2452,7 +2450,7 @@ public class ScriptRuntime {
         }
         Callable f = (Callable) v;
         Scriptable scope = enumObj.iterator.getParentScope();
-        Object r = f.call(cx, scope, enumObj.iterator, emptyArgs);
+        Object r = f.call0(cx, scope, enumObj.iterator);
         Scriptable iteratorResult = toObject(cx, scope, r);
         Object done = ScriptableObject.getProperty(iteratorResult, ES6Iterator.DONE_PROPERTY);
         if (done != Scriptable.NOT_FOUND && toBoolean(done)) {
@@ -2816,7 +2814,7 @@ public class ScriptRuntime {
         final Callable getIterator =
                 ScriptRuntime.getElemFunctionAndThis(obj, SymbolKey.ITERATOR, cx, scope);
         final Scriptable iterable = ScriptRuntime.lastStoredScriptable(cx);
-        return getIterator.call(cx, scope, iterable, ScriptRuntime.emptyArgs);
+        return getIterator.call0(cx, scope, iterable);
     }
 
     /**
@@ -3048,7 +3046,7 @@ public class ScriptRuntime {
                 thisArg == Undefined.instance
                         ? Undefined.SCRIPTABLE_UNDEFINED
                         : (Scriptable) thisArg;
-        return c.call(cx, scope, thisObject, ScriptRuntime.emptyArgs);
+        return c.call0(cx, scope, thisObject);
     }
 
     /** The typeof operator */
@@ -3665,7 +3663,7 @@ public class ScriptRuntime {
             } else {
                 hint = "number";
             }
-            final Object result = func.call(cx, scope, s, new Object[] {hint});
+            final Object result = func.call1(cx, scope, s, hint);
             if (isObject(result)) {
                 throw typeErrorById("msg.cant.convert.to.primitive");
             }

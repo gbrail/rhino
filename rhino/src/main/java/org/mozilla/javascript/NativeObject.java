@@ -179,7 +179,7 @@ public class NativeObject extends IdScriptableObject implements Map {
                         throw ScriptRuntime.notFunctionError(toString);
                     }
                     Callable fun = (Callable) toString;
-                    return fun.call(cx, scope, thisObj, ScriptRuntime.emptyArgs);
+                    return fun.call0(cx, scope, thisObj);
                 }
 
             case Id_toString:

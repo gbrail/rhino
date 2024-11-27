@@ -692,7 +692,7 @@ public abstract class NativeTypedArrayView<T> extends NativeArrayBufferView
         if (useLocale) {
             Callable fun = ScriptRuntime.getPropFunctionAndThis(elem, "toLocaleString", cx, scope);
             Scriptable funThis = ScriptRuntime.lastStoredScriptable(cx);
-            return fun.call(cx, scope, funThis, ScriptRuntime.emptyArgs);
+            return fun.call0(cx, scope, funThis);
         } else {
             return elem;
         }

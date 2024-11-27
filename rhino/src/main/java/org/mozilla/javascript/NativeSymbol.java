@@ -36,18 +36,17 @@ public class NativeSymbol extends ScriptableObject implements Symbol {
 
         ctor.setPrototypePropertyAttributes(DONTENUM | READONLY | PERMANENT);
 
-        ctor.defineConstructorMethod(
+        ctor.defineConstructorMethod1(
                 scope,
                 "for",
-                1,
-                (lcx, lscope, thisObj, args) -> NativeSymbol.js_for(lcx, lscope, args, ctor),
+                (lcx, lscope, thisObj, arg) -> NativeSymbol.js_for(lcx, lscope, arg, ctor),
                 DONTENUM,
                 DONTENUM | READONLY);
-        ctor.defineConstructorMethod(
-                scope, "keyFor", 1, NativeSymbol::js_keyFor, DONTENUM, DONTENUM | READONLY);
+        ctor.defineConstructorMethod1(
+                scope, "keyFor", NativeSymbol::js_keyFor, DONTENUM, DONTENUM | READONLY);
 
-        ctor.definePrototypeMethod(
-                scope, "toString", 0, NativeSymbol::js_toString, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod0(
+                scope, "toString", NativeSymbol::js_toString, DONTENUM, DONTENUM | READONLY);
         ctor.definePrototypeMethod(
                 scope, "valueOf", 0, NativeSymbol::js_valueOf, DONTENUM, DONTENUM | READONLY);
         ctor.definePrototypeMethod(
@@ -104,12 +103,12 @@ public class NativeSymbol extends ScriptableObject implements Symbol {
      */
     private static NativeSymbol constructSymbol(
             Context cx, Scriptable scope, LambdaConstructor ctor, SymbolKey key) {
-        return (NativeSymbol) ctor.call(cx, scope, null, new Object[] {Undefined.instance, key});
+        return (NativeSymbol) ctor.call2(cx, scope, null, Undefined.instance, key);
     }
 
     private static NativeSymbol constructSymbol(
             Context cx, Scriptable scope, LambdaConstructor ctor, String name) {
-        return (NativeSymbol) ctor.call(cx, scope, null, new Object[] {name});
+        return (NativeSymbol) ctor.call1(cx, scope, null, name);
     }
 
     private static void createStandardSymbol(
@@ -135,8 +134,7 @@ public class NativeSymbol extends ScriptableObject implements Symbol {
         return new NativeSymbol(new SymbolKey(desc));
     }
 
-    private static String js_toString(
-            Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+    private static String js_toString(Context cx, Scriptable scope, Scriptable thisObj) {
         return getSelf(thisObj).toString();
     }
 
@@ -150,20 +148,14 @@ public class NativeSymbol extends ScriptableObject implements Symbol {
     }
 
     private static Object js_for(
-            Context cx, Scriptable scope, Object[] args, LambdaConstructor constructor) {
-        String name =
-                (args.length > 0
-                        ? ScriptRuntime.toString(args[0])
-                        : ScriptRuntime.toString(Undefined.instance));
-
+            Context cx, Scriptable scope, Object arg, LambdaConstructor constructor) {
+        String name = ScriptRuntime.toString(arg);
         Map<String, NativeSymbol> table = getGlobalMap(scope);
         return table.computeIfAbsent(name, (k) -> constructSymbol(cx, scope, constructor, name));
     }
 
     @SuppressWarnings("ReferenceEquality")
-    private static Object js_keyFor(
-            Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-        Object s = (args.length > 0 ? args[0] : Undefined.instance);
+    private static Object js_keyFor(Context cx, Scriptable scope, Scriptable thisObj, Object s) {
         if (!(s instanceof NativeSymbol)) {
             throw ScriptRuntime.throwCustomError(cx, scope, "TypeError", "Not a Symbol");
         }

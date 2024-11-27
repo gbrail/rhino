@@ -319,7 +319,7 @@ final class NativeDate extends IdScriptableObject {
                                 ScriptRuntime.toString(o),
                                 ScriptRuntime.toString(toISO));
                     }
-                    Object result = ((Callable) toISO).call(cx, scope, o, ScriptRuntime.emptyArgs);
+                    Object result = ((Callable) toISO).call0(cx, scope, o);
                     if (!ScriptRuntime.isPrimitive(result)) {
                         throw ScriptRuntime.typeErrorById(
                                 "msg.toisostring.must.return.primitive",

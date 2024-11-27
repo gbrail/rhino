@@ -284,7 +284,7 @@ final class NativeError extends IdScriptableObject {
         }
 
         Scriptable eltArray = cx.newArray(this, elts);
-        return prepare.call(cx, prepare, this, new Object[] {this, eltArray});
+        return prepare.call2(cx, prepare, this, this, eltArray);
     }
 
     private static Object js_toString(Scriptable thisObj) {

@@ -795,7 +795,7 @@ public abstract class ScriptableObject
             if (cx == null) {
                 cx = Context.getContext();
             }
-            v = fun.call(cx, fun.getParentScope(), object, ScriptRuntime.emptyArgs);
+            v = fun.call0(cx, fun.getParentScope(), object);
             if (v != null) {
                 if (!(v instanceof Scriptable)) {
                     return v;

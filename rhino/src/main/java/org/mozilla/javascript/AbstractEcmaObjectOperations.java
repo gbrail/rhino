@@ -279,9 +279,9 @@ public class AbstractEcmaObjectOperations {
                     throw ScriptRuntime.typeError("Too many values to iterate");
                 }
 
-                Object[] args = {o, i};
                 Object key =
-                        ((Callable) callback).call(cx, scope, Undefined.SCRIPTABLE_UNDEFINED, args);
+                        ((Callable) callback)
+                                .call2(cx, scope, Undefined.SCRIPTABLE_UNDEFINED, o, i);
                 if (keyCoercion == KEY_COERCION.PROPERTY) {
                     if (!ScriptRuntime.isSymbol(key)) {
                         key = ScriptRuntime.toString(key);

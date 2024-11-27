@@ -161,6 +161,38 @@ public class LambdaConstructor extends LambdaFunction {
      * Define a function property on the prototype of the constructor using a LambdaFunction under
      * the covers.
      */
+    public void definePrototypeMethod0(
+            Scriptable scope,
+            String name,
+            Callable0 target,
+            int attributes,
+            int propertyAttributes) {
+        LambdaFunction f = new LambdaFunction0(scope, name, target);
+        f.setStandardPropertyAttributes(propertyAttributes);
+        ScriptableObject proto = getPrototypeScriptable();
+        proto.defineProperty(name, f, attributes);
+    }
+
+    /**
+     * Define a function property on the prototype of the constructor using a LambdaFunction under
+     * the covers.
+     */
+    public void definePrototypeMethod1(
+            Scriptable scope,
+            String name,
+            Callable1 target,
+            int attributes,
+            int propertyAttributes) {
+        LambdaFunction f = new LambdaFunction1(scope, name, target);
+        f.setStandardPropertyAttributes(propertyAttributes);
+        ScriptableObject proto = getPrototypeScriptable();
+        proto.defineProperty(name, f, attributes);
+    }
+
+    /**
+     * Define a function property on the prototype of the constructor using a LambdaFunction under
+     * the covers.
+     */
     public void definePrototypeMethod(
             Scriptable scope,
             SymbolKey name,
@@ -261,6 +293,22 @@ public class LambdaConstructor extends LambdaFunction {
             int attributes,
             int propertyAttributes) {
         LambdaFunction f = new LambdaFunction(scope, name, length, target);
+        f.setStandardPropertyAttributes(propertyAttributes);
+        defineProperty(name, f, attributes);
+    }
+
+    /**
+     * Define a function property directly on the constructor that is implemented under the covers
+     * by a LambdaFunction, and override the properties of its "name", "length", and "arity"
+     * properties.
+     */
+    public void defineConstructorMethod1(
+            Scriptable scope,
+            String name,
+            Callable1 target,
+            int attributes,
+            int propertyAttributes) {
+        LambdaFunction f = new LambdaFunction1(scope, name, target);
         f.setStandardPropertyAttributes(propertyAttributes);
         defineProperty(name, f, attributes);
     }

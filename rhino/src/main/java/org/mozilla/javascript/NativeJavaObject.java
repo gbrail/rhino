@@ -231,12 +231,7 @@ public class NativeJavaObject implements Scriptable, SymbolScriptable, Wrapper, 
             Object converterObject = get(converterName, this);
             if (converterObject instanceof Function) {
                 Function f = (Function) converterObject;
-                value =
-                        f.call(
-                                Context.getContext(),
-                                f.getParentScope(),
-                                this,
-                                ScriptRuntime.emptyArgs);
+                value = f.call0(Context.getContext(), f.getParentScope(), this);
             } else {
                 if (hint == ScriptRuntime.NumberClass && javaObject instanceof Boolean) {
                     boolean b = ((Boolean) javaObject).booleanValue();

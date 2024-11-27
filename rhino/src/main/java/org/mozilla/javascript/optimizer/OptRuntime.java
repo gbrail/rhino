@@ -26,7 +26,7 @@ public final class OptRuntime extends ScriptRuntime {
 
     /** Implement ....() call shrinking optimizer code. */
     public static Object call0(Callable fun, Scriptable thisObj, Context cx, Scriptable scope) {
-        return fun.call(cx, scope, thisObj, ScriptRuntime.emptyArgs);
+        return fun.call0(cx, scope, thisObj);
     }
 
     public static Object call0Optional(
@@ -40,7 +40,7 @@ public final class OptRuntime extends ScriptRuntime {
     /** Implement ....(arg) call shrinking optimizer code. */
     public static Object call1(
             Callable fun, Scriptable thisObj, Object arg0, Context cx, Scriptable scope) {
-        return fun.call(cx, scope, thisObj, new Object[] {arg0});
+        return fun.call1(cx, scope, thisObj, arg0);
     }
 
     /** Implement ....(arg0, arg1) call shrinking optimizer code. */
@@ -51,7 +51,7 @@ public final class OptRuntime extends ScriptRuntime {
             Object arg1,
             Context cx,
             Scriptable scope) {
-        return fun.call(cx, scope, thisObj, new Object[] {arg0, arg1});
+        return fun.call2(cx, scope, thisObj, arg0, arg1);
     }
 
     /** Implement ....(arg0, arg1, ...) call shrinking optimizer code. */
@@ -71,7 +71,7 @@ public final class OptRuntime extends ScriptRuntime {
     public static Object callName0(Scriptable scope, Context cx, String name) {
         Callable f = getNameFunctionAndThis(name, cx, scope);
         Scriptable thisObj = lastStoredScriptable(cx);
-        return f.call(cx, scope, thisObj, ScriptRuntime.emptyArgs);
+        return f.call0(cx, scope, thisObj);
     }
 
     public static Object callName0Optional(Scriptable scope, Context cx, String name) {
@@ -80,14 +80,14 @@ public final class OptRuntime extends ScriptRuntime {
             return Undefined.instance;
         }
         Scriptable thisObj = lastStoredScriptable(cx);
-        return f.call(cx, scope, thisObj, ScriptRuntime.emptyArgs);
+        return f.call0(cx, scope, thisObj);
     }
 
     /** Implement x.property() call shrinking optimizer code. */
     public static Object callProp0(Object value, String property, Context cx, Scriptable scope) {
         Callable f = getPropFunctionAndThis(value, property, cx, scope);
         Scriptable thisObj = lastStoredScriptable(cx);
-        return f.call(cx, scope, thisObj, ScriptRuntime.emptyArgs);
+        return f.call0(cx, scope, thisObj);
     }
 
     public static Object callProp0Optional(
@@ -97,7 +97,7 @@ public final class OptRuntime extends ScriptRuntime {
             return Undefined.instance;
         }
         Scriptable thisObj = lastStoredScriptable(cx);
-        return f.call(cx, scope, thisObj, ScriptRuntime.emptyArgs);
+        return f.call0(cx, scope, thisObj);
     }
 
     public static Object add(Object val1, double val2, Context cx) {
