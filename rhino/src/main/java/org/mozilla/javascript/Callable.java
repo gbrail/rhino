@@ -20,5 +20,18 @@ public interface Callable {
      * @param args the array of arguments
      * @return the result of the call
      */
-    public Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args);
+    Object call(Context cx, Scriptable scope, Scriptable thisObj, Object[] args);
+
+    default Object call0(Context cx, Scriptable scope, Scriptable thisObj) {
+        return call(cx, scope, thisObj, ScriptRuntime.emptyArgs);
+    }
+
+    default Object call1(Context cx, Scriptable scope, Scriptable thisObj, Object arg) {
+        return call(cx, scope, thisObj, new Object[] {arg});
+    }
+
+    default Object call2(
+            Context cx, Scriptable scope, Scriptable thisObj, Object arg1, Object arg2) {
+        return call(cx, scope, thisObj, new Object[] {arg1, arg2});
+    }
 }

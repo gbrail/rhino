@@ -61,20 +61,20 @@ public final class OptRuntime extends ScriptRuntime {
     }
 
     /** Implement name(args) call shrinking optimizer code. */
-    public static Object callName(Object[] args, String name, Context cx, Scriptable scope) {
+    public static Object callName(Scriptable scope, Object[] args, Context cx, String name) {
         Callable f = getNameFunctionAndThis(name, cx, scope);
         Scriptable thisObj = lastStoredScriptable(cx);
         return f.call(cx, scope, thisObj, args);
     }
 
     /** Implement name() call shrinking optimizer code. */
-    public static Object callName0(String name, Context cx, Scriptable scope) {
+    public static Object callName0(Scriptable scope, Context cx, String name) {
         Callable f = getNameFunctionAndThis(name, cx, scope);
         Scriptable thisObj = lastStoredScriptable(cx);
         return f.call(cx, scope, thisObj, ScriptRuntime.emptyArgs);
     }
 
-    public static Object callName0Optional(String name, Context cx, Scriptable scope) {
+    public static Object callName0Optional(Scriptable scope, Context cx, String name) {
         Callable f = getNameFunctionAndThisOptional(name, cx, scope);
         if (f == null) {
             return Undefined.instance;

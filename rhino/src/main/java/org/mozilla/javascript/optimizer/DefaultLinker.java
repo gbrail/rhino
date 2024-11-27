@@ -179,13 +179,11 @@ class DefaultLinker implements GuardingDynamicLinker {
         } else if (op.isOperation(RhinoOperation.SETCONST)) {
             mh = bindStringParameter(lookup, mType, ScriptRuntime.class, "setConst", 3, name);
         } else if (op.isOperation(StandardOperation.CALL)) {
-            mh = bindStringParameter(lookup, mType, DefaultLinker.class, "callName", 3, name);
+            mh = bindStringParameter(lookup, mType, OptRuntime.class, "callName", 3, name);
         } else if (op.isOperation(RhinoOperation.CALL_0)) {
-            mh = bindStringParameter(lookup, mType, DefaultLinker.class, "callName0", 2, name);
+            mh = bindStringParameter(lookup, mType, OptRuntime.class, "callName0", 2, name);
         } else if (op.isOperation(RhinoOperation.CALL_0_OPTIONAL)) {
-            mh =
-                    bindStringParameter(
-                            lookup, mType, DefaultLinker.class, "callName0Optional", 2, name);
+            mh = bindStringParameter(lookup, mType, OptRuntime.class, "callName0Optional", 2, name);
         }
 
         if (mh != null) {
@@ -200,13 +198,53 @@ class DefaultLinker implements GuardingDynamicLinker {
         MethodHandle mh = null;
 
         if (op.isOperation(StandardOperation.CALL)) {
-            mh = lookup.findStatic(OptRuntime.class, "callN", mType);
+            mh =
+                    lookup.findVirtual(
+                            Callable.class,
+                            "call",
+                            MethodType.methodType(
+                                    Object.class,
+                                    Context.class,
+                                    Scriptable.class,
+                                    Scriptable.class,
+                                    Object[].class));
+            mh = MethodHandles.permuteArguments(mh, mType, 0, 3, 4, 1, 2);
         } else if (op.isOperation(RhinoOperation.CALL_0)) {
-            mh = lookup.findStatic(OptRuntime.class, "call0", mType);
+            mh =
+                    lookup.findVirtual(
+                            Callable.class,
+                            "call0",
+                            MethodType.methodType(
+                                    Object.class,
+                                    Context.class,
+                                    Scriptable.class,
+                                    Scriptable.class));
+            mh = MethodHandles.permuteArguments(mh, mType, 0, 2, 3, 1);
         } else if (op.isOperation(RhinoOperation.CALL_1)) {
-            mh = lookup.findStatic(OptRuntime.class, "call1", mType);
+            mh =
+                    lookup.findVirtual(
+                            Callable.class,
+                            "call1",
+                            MethodType.methodType(
+                                    Object.class,
+                                    Context.class,
+                                    Scriptable.class,
+                                    Scriptable.class,
+                                    Object.class));
+            mh = MethodHandles.permuteArguments(mh, mType, 0, 3, 4, 1, 2);
         } else if (op.isOperation(RhinoOperation.CALL_2)) {
-            mh = lookup.findStatic(OptRuntime.class, "call2", mType);
+            mh =
+                    lookup.findVirtual(
+                            Callable.class,
+                            "call2",
+                            MethodType.methodType(
+                                    Object.class,
+                                    Context.class,
+                                    Scriptable.class,
+                                    Scriptable.class,
+                                    Object.class,
+                                    Object.class));
+            mh = MethodHandles.permuteArguments(mh, mType, 0, 4, 5, 1, 2, 3);
         }
 
         if (mh != null) {
@@ -264,23 +302,6 @@ class DefaultLinker implements GuardingDynamicLinker {
         MethodHandle mh = lookup.findStatic(ScriptRuntime.class, "compare", tt);
         mh = MethodHandles.insertArguments(mh, 2, op);
         return mh;
-    }
-
-    // A few other operations we need because we're using slightly different signatures
-    // so that we can use the GuardingDynamicLinker later.
-    @SuppressWarnings("unused")
-    private static Object callName(Scriptable scope, Object[] args, Context cx, String name) {
-        return OptRuntime.callName(args, name, cx, scope);
-    }
-
-    @SuppressWarnings("unused")
-    private static Object callName0(Scriptable scope, Context cx, String name) {
-        return OptRuntime.callName0(name, cx, scope);
-    }
-
-    @SuppressWarnings("unused")
-    private static Object callName0Optional(Scriptable scope, Context cx, String name) {
-        return OptRuntime.callName0Optional(name, cx, scope);
     }
 
     /**
