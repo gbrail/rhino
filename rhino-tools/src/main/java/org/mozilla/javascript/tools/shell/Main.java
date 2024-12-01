@@ -551,7 +551,10 @@ public class Main {
         Object source = readFileOrUrl(path, !isClass);
 
         byte[] digest = getDigest(source);
-        String key = path + "_" + cx.getOptimizationLevel();
+        String key = path;
+        if (!cx.isInterpretedMode()) {
+            key = path + "_compiled";
+        }
         ScriptReference ref = scriptCache.get(key, digest);
         Script script = ref != null ? ref.get() : null;
 

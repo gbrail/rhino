@@ -151,11 +151,6 @@ public abstract class ScriptTestsBase {
     }
 
     @Test
-    public void rhinoTestOpt0() {
-        assertEquals("success", executeRhinoScript(0));
-    }
-
-    @Test
     public void rhinoTestOpt9() {
         assertEquals("success", executeRhinoScript(9));
     }

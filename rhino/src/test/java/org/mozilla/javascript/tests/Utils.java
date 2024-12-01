@@ -22,7 +22,7 @@ import org.mozilla.javascript.ScriptableObject;
  */
 public class Utils {
     /** The default set of levels to run tests at. */
-    public static final int[] DEFAULT_OPT_LEVELS = new int[] {-1, 0, 9};
+    public static final int[] DEFAULT_OPT_LEVELS = new int[] {-1, 9};
 
     /** Runs the action successively with all available optimization levels */
     public static void runWithAllOptimizationLevels(final ContextAction<?> action) {
