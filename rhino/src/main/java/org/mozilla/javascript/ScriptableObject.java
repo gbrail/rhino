@@ -1684,7 +1684,7 @@ public abstract class ScriptableObject
                         }
 
                         if (value != NOT_FOUND) {
-                            slot.value = value;
+                            slot.setValue(value, this, this, false);
                         } else if (existing == null) {
                             // Ensure we don't get a zombie value if we have switched a lot
                             slot.value = Undefined.instance;

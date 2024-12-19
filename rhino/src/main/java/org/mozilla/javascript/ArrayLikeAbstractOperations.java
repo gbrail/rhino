@@ -36,7 +36,7 @@ public class ArrayLikeAbstractOperations {
             Scriptable scope,
             Scriptable thisObj,
             Object[] args) {
-        return iterativeMethod(cx, null, operation, scope, thisObj, args, true);
+        return iterativeMethod(cx, "", "", operation, scope, thisObj, args, true);
     }
 
     /**
@@ -45,17 +45,19 @@ public class ArrayLikeAbstractOperations {
      */
     public static Object iterativeMethod(
             Context cx,
-            IdFunctionObject fun,
+            String className,
+            String functionName,
             IterativeOperation operation,
             Scriptable scope,
             Scriptable thisObj,
             Object[] args) {
-        return iterativeMethod(cx, fun, operation, scope, thisObj, args, false);
+        return iterativeMethod(cx, className, functionName, operation, scope, thisObj, args, false);
     }
 
     private static Object iterativeMethod(
             Context cx,
-            IdFunctionObject fun,
+            String className,
+            String functionName,
             IterativeOperation operation,
             Scriptable scope,
             Scriptable thisObj,
@@ -68,7 +70,7 @@ public class ArrayLikeAbstractOperations {
                     || IterativeOperation.FIND_INDEX == operation
                     || IterativeOperation.FIND_LAST == operation
                     || IterativeOperation.FIND_LAST_INDEX == operation) {
-                requireObjectCoercible(cx, o, fun);
+                requireObjectCoercible(cx, o, className, functionName);
             }
         }
 

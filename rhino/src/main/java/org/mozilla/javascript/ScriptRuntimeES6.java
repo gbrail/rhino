@@ -19,9 +19,18 @@ public class ScriptRuntimeES6 {
         return val;
     }
 
+    public static Object requireObjectCoercible(
+            Context cx, Object val, String className, String functionName) {
+        if (val == null || Undefined.isUndefined(val)) {
+            throw ScriptRuntime.typeErrorById(
+                    "msg.called.null.or.undefined", className, functionName);
+        }
+        return val;
+    }
+
     /** Registers the symbol <code>[Symbol.species]</code> on the given constructor function. */
     public static void addSymbolSpecies(
-            Context cx, Scriptable scope, IdScriptableObject constructor) {
+            Context cx, Scriptable scope, ScriptableObject constructor) {
         ScriptableObject speciesDescriptor = (ScriptableObject) cx.newObject(scope);
         ScriptableObject.putProperty(speciesDescriptor, "enumerable", false);
         ScriptableObject.putProperty(speciesDescriptor, "configurable", true);
@@ -39,7 +48,7 @@ public class ScriptRuntimeES6 {
 
     /** Registers the symbol <code>[Symbol.unscopables]</code> on the given constructor function. */
     public static void addSymbolUnscopables(
-            Context cx, Scriptable scope, IdScriptableObject constructor) {
+            Context cx, Scriptable scope, ScriptableObject constructor) {
         ScriptableObject unScopablesDescriptor = (ScriptableObject) cx.newObject(scope);
         ScriptableObject.putProperty(unScopablesDescriptor, "enumerable", false);
         ScriptableObject.putProperty(unScopablesDescriptor, "configurable", false);

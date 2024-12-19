@@ -29,7 +29,7 @@ import org.mozilla.javascript.xml.XMLObject;
  * @author Norris Boyd
  * @author Mike McCabe
  */
-public class NativeArray extends IdScriptableObject implements List {
+public class NativeArray extends ScriptableObject implements List {
     private static final long serialVersionUID = 7331366857676127338L;
 
     /*
@@ -44,7 +44,7 @@ public class NativeArray extends IdScriptableObject implements List {
      * always gets at least an object back, even when Array == null.
      */
 
-    private static final Object ARRAY_TAG = "Array";
+    private static final String CLASS_NAME = "Array";
     private static final Long NEGATIVE_ONE = Long.valueOf(-1);
     private static final String[] UNSCOPABLES = {
         "at",
@@ -66,10 +66,496 @@ public class NativeArray extends IdScriptableObject implements List {
     };
 
     static void init(Context cx, Scriptable scope, boolean sealed) {
-        NativeArray obj = new NativeArray(0);
-        IdFunctionObject constructor = obj.exportAsJSClass(MAX_PROTOTYPE_ID, scope, sealed);
-        ScriptRuntimeES6.addSymbolSpecies(cx, scope, constructor);
-        ScriptRuntimeES6.addSymbolUnscopables(cx, scope, constructor);
+        LambdaConstructor ctor =
+                new LambdaConstructor(scope, CLASS_NAME, 1, NativeArray::jsConstructor);
+        ctor.setPrototypePropertyAttributes(DONTENUM | READONLY | PERMANENT);
+
+        // According to the spec, the prototype of an Array object is an Array
+        NativeArray proto = new NativeArray(0);
+        ScriptRuntime.setBuiltinProtoAndParent(proto, scope, TopLevel.Builtins.Object);
+        ctor.setPrototypeProperty(proto);
+        ScriptableObject.defineProperty(proto, "constructor", ctor, DONTENUM);
+
+        // Properties of the Array constructor
+        ctor.defineConstructorMethod(
+                scope, "from", 1, NativeArray::js_from, DONTENUM, DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope,
+                "isArray",
+                1,
+                (lcx, lscope, thisObj, args) -> {
+                    Object arg = args.length > 0 ? args[0] : Undefined.instance;
+                    return js_isArray(arg);
+                },
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope, "of", 0, NativeArray::js_of, DONTENUM, DONTENUM | READONLY);
+
+        // These are NOT properties of the Array constructor, but historically Rhino
+        // has had them on the constructor too.
+        ctor.defineConstructorMethod(
+                scope, "join", 1, NativeArray::js_join, DONTENUM, DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope, "reverse", 0, NativeArray::js_reverse, DONTENUM, DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope, "sort", 1, NativeArray::js_sort, DONTENUM, DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope, "push", 1, NativeArray::js_push, DONTENUM, DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope, "pop", 0, NativeArray::js_pop, DONTENUM, DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope, "shift", 0, NativeArray::js_shift, DONTENUM, DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope, "unshift", 1, NativeArray::js_unshift, DONTENUM, DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope, "splice", 2, NativeArray::js_splice, DONTENUM, DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope, "concat", 1, NativeArray::js_concat, DONTENUM, DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope, "slice", 2, NativeArray::js_slice, DONTENUM, DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope, "indexOf", 1, NativeArray::js_indexOf, DONTENUM, DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope,
+                "lastIndexOf",
+                1,
+                NativeArray::js_lastIndexOf,
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope,
+                "every",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "every",
+                                IterativeOperation.EVERY,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope,
+                "filter",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "filter",
+                                IterativeOperation.FILTER,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope,
+                "forEach",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "forEach",
+                                IterativeOperation.FOR_EACH,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope,
+                "map",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "map",
+                                IterativeOperation.MAP,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope,
+                "some",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "some",
+                                IterativeOperation.SOME,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope,
+                "find",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "find",
+                                IterativeOperation.FIND,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope,
+                "findIndex",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "findIndex",
+                                IterativeOperation.FIND_INDEX,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope,
+                "findLast",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "findLast",
+                                IterativeOperation.FIND_LAST,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope,
+                "findLastIndex",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "findLastIndex",
+                                IterativeOperation.FIND_LAST_INDEX,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope,
+                "reduce",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.reduceMethod(
+                                lcx, ReduceOperation.REDUCE, lscope, thisObj, args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.defineConstructorMethod(
+                scope,
+                "reduceRight",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.reduceMethod(
+                                lcx, ReduceOperation.REDUCE_RIGHT, lscope, thisObj, args),
+                DONTENUM,
+                DONTENUM | READONLY);
+
+        ctor.definePrototypeMethod(
+                scope,
+                "toString",
+                0,
+                (lcx, lscope, thisObj, args) ->
+                        toStringHelper(
+                                lcx,
+                                lscope,
+                                thisObj,
+                                lcx.hasFeature(Context.FEATURE_TO_STRING_AS_SOURCE),
+                                false),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "toLocaleString",
+                0,
+                (lcx, lscope, thisObj, args) -> toStringHelper(lcx, lscope, thisObj, false, true),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "toSource",
+                0,
+                (lcx, lscope, thisObj, args) -> toStringHelper(lcx, lscope, thisObj, true, false),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "join", 1, NativeArray::js_join, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "reverse", 0, NativeArray::js_reverse, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "sort", 1, NativeArray::js_sort, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "push", 1, NativeArray::js_push, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "pop", 0, NativeArray::js_pop, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "shift", 0, NativeArray::js_shift, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "unshift", 1, NativeArray::js_unshift, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "splice", 2, NativeArray::js_splice, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "concat", 1, NativeArray::js_concat, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "slice", 2, NativeArray::js_slice, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "indexOf", 1, NativeArray::js_indexOf, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "lastIndexOf",
+                1,
+                NativeArray::js_lastIndexOf,
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "every",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "every",
+                                IterativeOperation.EVERY,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "filter",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "filter",
+                                IterativeOperation.FILTER,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "forEach",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "forEach",
+                                IterativeOperation.FOR_EACH,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "map",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "map",
+                                IterativeOperation.MAP,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "some",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "some",
+                                IterativeOperation.SOME,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "find",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "find",
+                                IterativeOperation.FIND,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "findIndex",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "findIndex",
+                                IterativeOperation.FIND_INDEX,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "findLast",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "findLast",
+                                IterativeOperation.FIND_LAST,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "findLastIndex",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.iterativeMethod(
+                                lcx,
+                                CLASS_NAME,
+                                "findLastIndex",
+                                IterativeOperation.FIND_LAST_INDEX,
+                                lscope,
+                                thisObj,
+                                args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "reduce",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.reduceMethod(
+                                lcx, ReduceOperation.REDUCE, lscope, thisObj, args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "reduceRight",
+                1,
+                (lcx, lscope, thisObj, args) ->
+                        ArrayLikeAbstractOperations.reduceMethod(
+                                lcx, ReduceOperation.REDUCE_RIGHT, lscope, thisObj, args),
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "fill", 1, NativeArray::js_fill, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "keys",
+                0,
+                (lcx, lscope, thisObj, args) -> {
+                    thisObj = ScriptRuntime.toObject(lcx, lscope, thisObj);
+                    return new NativeArrayIterator(
+                            lscope, thisObj, NativeArrayIterator.ARRAY_ITERATOR_TYPE.KEYS);
+                },
+                DONTENUM,
+                DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope,
+                "entries",
+                0,
+                (lcx, lscope, thisObj, args) -> {
+                    thisObj = ScriptRuntime.toObject(lcx, lscope, thisObj);
+                    return new NativeArrayIterator(
+                            lscope, thisObj, NativeArrayIterator.ARRAY_ITERATOR_TYPE.ENTRIES);
+                },
+                DONTENUM,
+                DONTENUM | READONLY);
+        LambdaFunction valuesFunc =
+                new LambdaFunction(
+                        scope,
+                        "values",
+                        0,
+                        (lcx, lscope, thisObj, args) -> {
+                            thisObj = ScriptRuntime.toObject(lcx, lscope, thisObj);
+                            return new NativeArrayIterator(
+                                    lscope,
+                                    thisObj,
+                                    NativeArrayIterator.ARRAY_ITERATOR_TYPE.VALUES);
+                        });
+        ctor.definePrototypeProperty("values", valuesFunc, DONTENUM);
+        ctor.definePrototypeProperty(SymbolKey.ITERATOR, valuesFunc, DONTENUM);
+
+        ctor.definePrototypeMethod(
+                scope, "includes", 1, NativeArray::js_includes, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "copyWithin", 2, NativeArray::js_copyWithin, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "at", 1, NativeArray::js_at, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "flat", 0, NativeArray::js_flat, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "flatMap", 1, NativeArray::js_flatMap, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "toReversed", 0, NativeArray::js_toReversed, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "toSorted", 1, NativeArray::js_toSorted, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "toSpliced", 2, NativeArray::js_toSpliced, DONTENUM, DONTENUM | READONLY);
+        ctor.definePrototypeMethod(
+                scope, "with", 2, NativeArray::js_with, DONTENUM, DONTENUM | READONLY);
+
+        ctor.definePrototypeProperty(
+                SymbolKey.UNSCOPABLES, makeUnscopables(cx, scope), DONTENUM | READONLY);
+
+        ScriptableObject.defineProperty(scope, CLASS_NAME, ctor, DONTENUM);
+
+        if (sealed) {
+            // Can't seal until we have created all the stuff above!
+            ctor.sealObject();
+        }
+
+        ScriptRuntimeES6.addSymbolSpecies(cx, scope, ctor);
+        ScriptRuntimeES6.addSymbolUnscopables(cx, scope, ctor);
     }
 
     static int getMaximumInitialCapacity() {
@@ -89,478 +575,27 @@ public class NativeArray extends IdScriptableObject implements List {
             Arrays.fill(dense, Scriptable.NOT_FOUND);
         }
         length = lengthArg;
+        addLengthProperty();
     }
 
     public NativeArray(Object[] array) {
         denseOnly = true;
         dense = array;
         length = array.length;
+        addLengthProperty();
+    }
+
+    private void addLengthProperty() {
+        defineProperty("length", this::getLength, this::setLength, DONTENUM | PERMANENT);
     }
 
     @Override
     public String getClassName() {
-        return "Array";
+        return CLASS_NAME;
     }
 
-    private static final int Id_length = 1, MAX_INSTANCE_ID = 1;
-
-    @Override
-    protected int getMaxInstanceId() {
-        return MAX_INSTANCE_ID;
-    }
-
-    @Override
-    protected void setInstanceIdAttributes(int id, int attr) {
-        if (id == Id_length) {
-            lengthAttr = attr;
-        }
-    }
-
-    @Override
-    protected int findInstanceIdInfo(String s) {
-        if (s.equals("length")) {
-            return instanceIdInfo(lengthAttr, Id_length);
-        }
-        return super.findInstanceIdInfo(s);
-    }
-
-    @Override
-    protected String getInstanceIdName(int id) {
-        if (id == Id_length) {
-            return "length";
-        }
-        return super.getInstanceIdName(id);
-    }
-
-    @Override
-    protected Object getInstanceIdValue(int id) {
-        if (id == Id_length) {
-            return ScriptRuntime.wrapNumber((double) length);
-        }
-        return super.getInstanceIdValue(id);
-    }
-
-    @Override
-    protected void setInstanceIdValue(int id, Object value) {
-        if (id == Id_length) {
-            setLength(value);
-            return;
-        }
-        super.setInstanceIdValue(id, value);
-    }
-
-    @Override
-    protected void fillConstructorProperties(IdFunctionObject ctor) {
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_join, "join", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_reverse, "reverse", 0);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_sort, "sort", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_push, "push", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_pop, "pop", 0);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_shift, "shift", 0);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_unshift, "unshift", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_splice, "splice", 2);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_concat, "concat", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_slice, "slice", 2);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_indexOf, "indexOf", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_lastIndexOf, "lastIndexOf", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_every, "every", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_filter, "filter", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_forEach, "forEach", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_map, "map", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_some, "some", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_find, "find", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_findIndex, "findIndex", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_findLast, "findLast", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_findLastIndex, "findLastIndex", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_reduce, "reduce", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_reduceRight, "reduceRight", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_isArray, "isArray", 1);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_of, "of", 0);
-        addIdFunctionProperty(ctor, ARRAY_TAG, ConstructorId_from, "from", 1);
-        super.fillConstructorProperties(ctor);
-    }
-
-    @Override
-    protected void initPrototypeId(int id) {
-        if (id == SymbolId_unscopables) {
-            initPrototypeValue(id, SymbolKey.UNSCOPABLES, makeUnscopables(), DONTENUM | READONLY);
-            return;
-        }
-
-        String s, fnName = null;
-        int arity;
-        switch (id) {
-            case Id_constructor:
-                arity = 1;
-                s = "constructor";
-                break;
-            case Id_toString:
-                arity = 0;
-                s = "toString";
-                break;
-            case Id_toLocaleString:
-                arity = 0;
-                s = "toLocaleString";
-                break;
-            case Id_toSource:
-                arity = 0;
-                s = "toSource";
-                break;
-            case Id_join:
-                arity = 1;
-                s = "join";
-                break;
-            case Id_reverse:
-                arity = 0;
-                s = "reverse";
-                break;
-            case Id_sort:
-                arity = 1;
-                s = "sort";
-                break;
-            case Id_push:
-                arity = 1;
-                s = "push";
-                break;
-            case Id_pop:
-                arity = 0;
-                s = "pop";
-                break;
-            case Id_shift:
-                arity = 0;
-                s = "shift";
-                break;
-            case Id_unshift:
-                arity = 1;
-                s = "unshift";
-                break;
-            case Id_splice:
-                arity = 2;
-                s = "splice";
-                break;
-            case Id_concat:
-                arity = 1;
-                s = "concat";
-                break;
-            case Id_slice:
-                arity = 2;
-                s = "slice";
-                break;
-            case Id_indexOf:
-                arity = 1;
-                s = "indexOf";
-                break;
-            case Id_lastIndexOf:
-                arity = 1;
-                s = "lastIndexOf";
-                break;
-            case Id_every:
-                arity = 1;
-                s = "every";
-                break;
-            case Id_filter:
-                arity = 1;
-                s = "filter";
-                break;
-            case Id_forEach:
-                arity = 1;
-                s = "forEach";
-                break;
-            case Id_map:
-                arity = 1;
-                s = "map";
-                break;
-            case Id_some:
-                arity = 1;
-                s = "some";
-                break;
-            case Id_find:
-                arity = 1;
-                s = "find";
-                break;
-            case Id_findIndex:
-                arity = 1;
-                s = "findIndex";
-                break;
-            case Id_findLast:
-                arity = 1;
-                s = "findLast";
-                break;
-            case Id_findLastIndex:
-                arity = 1;
-                s = "findLastIndex";
-                break;
-            case Id_reduce:
-                arity = 1;
-                s = "reduce";
-                break;
-            case Id_reduceRight:
-                arity = 1;
-                s = "reduceRight";
-                break;
-            case Id_fill:
-                arity = 1;
-                s = "fill";
-                break;
-            case Id_keys:
-                arity = 0;
-                s = "keys";
-                break;
-            case Id_values:
-                arity = 0;
-                s = "values";
-                break;
-            case Id_entries:
-                arity = 0;
-                s = "entries";
-                break;
-            case Id_includes:
-                arity = 1;
-                s = "includes";
-                break;
-            case Id_copyWithin:
-                arity = 2;
-                s = "copyWithin";
-                break;
-            case Id_at:
-                arity = 1;
-                s = "at";
-                break;
-            case Id_flat:
-                arity = 0;
-                s = "flat";
-                break;
-            case Id_flatMap:
-                arity = 1;
-                s = "flatMap";
-                break;
-            case Id_toReversed:
-                arity = 0;
-                s = "toReversed";
-                break;
-            case Id_toSorted:
-                arity = 1;
-                s = "toSorted";
-                break;
-            case Id_toSpliced:
-                arity = 2;
-                s = "toSpliced";
-                break;
-            case Id_with:
-                arity = 2;
-                s = "with";
-                break;
-            default:
-                throw new IllegalArgumentException(String.valueOf(id));
-        }
-
-        initPrototypeMethod(ARRAY_TAG, id, s, fnName, arity);
-    }
-
-    @Override
-    public Object execIdCall(
-            IdFunctionObject f, Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-        if (!f.hasTag(ARRAY_TAG)) {
-            return super.execIdCall(f, cx, scope, thisObj, args);
-        }
-        int id = f.methodId();
-        again:
-        for (; ; ) {
-            switch (id) {
-                case ConstructorId_join:
-                case ConstructorId_reverse:
-                case ConstructorId_sort:
-                case ConstructorId_push:
-                case ConstructorId_pop:
-                case ConstructorId_shift:
-                case ConstructorId_unshift:
-                case ConstructorId_splice:
-                case ConstructorId_concat:
-                case ConstructorId_slice:
-                case ConstructorId_indexOf:
-                case ConstructorId_lastIndexOf:
-                case ConstructorId_every:
-                case ConstructorId_filter:
-                case ConstructorId_forEach:
-                case ConstructorId_map:
-                case ConstructorId_some:
-                case ConstructorId_find:
-                case ConstructorId_findIndex:
-                case ConstructorId_findLast:
-                case ConstructorId_findLastIndex:
-                case ConstructorId_reduce:
-                case ConstructorId_reduceRight:
-                    {
-                        // this is a small trick; we will handle all the ConstructorId_xxx calls
-                        // the same way the object calls are processed
-                        // so we adjust the args, inverting the id and
-                        // restarting the method selection
-                        // Attention: the implementations have to be aware of this
-                        if (args.length > 0) {
-                            thisObj = ScriptRuntime.toObject(cx, scope, args[0]);
-                            Object[] newArgs = new Object[args.length - 1];
-                            System.arraycopy(args, 1, newArgs, 0, newArgs.length);
-                            args = newArgs;
-                        }
-                        id = -id;
-                        continue again;
-                    }
-
-                case ConstructorId_isArray:
-                    return Boolean.valueOf(args.length > 0 && js_isArray(args[0]));
-
-                case ConstructorId_of:
-                    {
-                        return js_of(cx, scope, thisObj, args);
-                    }
-
-                case ConstructorId_from:
-                    {
-                        return js_from(cx, scope, thisObj, args);
-                    }
-
-                case Id_constructor:
-                    {
-                        boolean inNewExpr = (thisObj == null);
-                        if (!inNewExpr) {
-                            // IdFunctionObject.construct will set up parent, proto
-                            return f.construct(cx, scope, args);
-                        }
-                        return jsConstructor(cx, scope, args);
-                    }
-
-                case Id_toString:
-                    return toStringHelper(
-                            cx,
-                            scope,
-                            thisObj,
-                            cx.hasFeature(Context.FEATURE_TO_STRING_AS_SOURCE),
-                            false);
-
-                case Id_toLocaleString:
-                    return toStringHelper(cx, scope, thisObj, false, true);
-
-                case Id_toSource:
-                    return toStringHelper(cx, scope, thisObj, true, false);
-
-                case Id_join:
-                    return js_join(cx, scope, thisObj, args);
-
-                case Id_reverse:
-                    return js_reverse(cx, scope, thisObj, args);
-
-                case Id_sort:
-                    return js_sort(cx, scope, thisObj, args);
-
-                case Id_push:
-                    return js_push(cx, scope, thisObj, args);
-
-                case Id_pop:
-                    return js_pop(cx, scope, thisObj, args);
-
-                case Id_shift:
-                    return js_shift(cx, scope, thisObj, args);
-
-                case Id_unshift:
-                    return js_unshift(cx, scope, thisObj, args);
-
-                case Id_splice:
-                    return js_splice(cx, scope, thisObj, args);
-
-                case Id_concat:
-                    return js_concat(cx, scope, thisObj, args);
-
-                case Id_slice:
-                    return js_slice(cx, scope, thisObj, args);
-
-                case Id_indexOf:
-                    return js_indexOf(cx, scope, thisObj, args);
-
-                case Id_lastIndexOf:
-                    return js_lastIndexOf(cx, scope, thisObj, args);
-
-                case Id_includes:
-                    return js_includes(cx, scope, thisObj, args);
-
-                case Id_fill:
-                    return js_fill(cx, scope, thisObj, args);
-
-                case Id_copyWithin:
-                    return js_copyWithin(cx, scope, thisObj, args);
-
-                case Id_at:
-                    return js_at(cx, scope, thisObj, args);
-
-                case Id_flat:
-                    return js_flat(cx, scope, thisObj, args);
-
-                case Id_flatMap:
-                    return js_flatMap(cx, scope, thisObj, args);
-
-                case Id_every:
-                    return ArrayLikeAbstractOperations.iterativeMethod(
-                            cx, f, IterativeOperation.EVERY, scope, thisObj, args);
-
-                case Id_filter:
-                    return ArrayLikeAbstractOperations.iterativeMethod(
-                            cx, f, IterativeOperation.FILTER, scope, thisObj, args);
-                case Id_forEach:
-                    return ArrayLikeAbstractOperations.iterativeMethod(
-                            cx, f, IterativeOperation.FOR_EACH, scope, thisObj, args);
-                case Id_map:
-                    return ArrayLikeAbstractOperations.iterativeMethod(
-                            cx, f, IterativeOperation.MAP, scope, thisObj, args);
-
-                case Id_some:
-                    return ArrayLikeAbstractOperations.iterativeMethod(
-                            cx, f, IterativeOperation.SOME, scope, thisObj, args);
-                case Id_find:
-                    return ArrayLikeAbstractOperations.iterativeMethod(
-                            cx, f, IterativeOperation.FIND, scope, thisObj, args);
-                case Id_findIndex:
-                    return ArrayLikeAbstractOperations.iterativeMethod(
-                            cx, f, IterativeOperation.FIND_INDEX, scope, thisObj, args);
-                case Id_findLast:
-                    return ArrayLikeAbstractOperations.iterativeMethod(
-                            cx, f, IterativeOperation.FIND_LAST, scope, thisObj, args);
-                case Id_findLastIndex:
-                    return ArrayLikeAbstractOperations.iterativeMethod(
-                            cx, f, IterativeOperation.FIND_LAST_INDEX, scope, thisObj, args);
-
-                case Id_reduce:
-                    return ArrayLikeAbstractOperations.reduceMethod(
-                            cx, ReduceOperation.REDUCE, scope, thisObj, args);
-                case Id_reduceRight:
-                    return ArrayLikeAbstractOperations.reduceMethod(
-                            cx, ReduceOperation.REDUCE_RIGHT, scope, thisObj, args);
-
-                case Id_keys:
-                    thisObj = ScriptRuntime.toObject(cx, scope, thisObj);
-                    return new NativeArrayIterator(
-                            scope, thisObj, NativeArrayIterator.ARRAY_ITERATOR_TYPE.KEYS);
-
-                case Id_entries:
-                    thisObj = ScriptRuntime.toObject(cx, scope, thisObj);
-                    return new NativeArrayIterator(
-                            scope, thisObj, NativeArrayIterator.ARRAY_ITERATOR_TYPE.ENTRIES);
-
-                case Id_values:
-                    thisObj = ScriptRuntime.toObject(cx, scope, thisObj);
-                    return new NativeArrayIterator(
-                            scope, thisObj, NativeArrayIterator.ARRAY_ITERATOR_TYPE.VALUES);
-
-                case Id_toReversed:
-                    return js_toReversed(cx, scope, thisObj, args);
-                case Id_toSorted:
-                    return js_toSorted(cx, scope, thisObj, args);
-                case Id_toSpliced:
-                    return js_toSpliced(cx, scope, thisObj, args);
-                case Id_with:
-                    return js_with(cx, scope, thisObj, args);
-            }
-            throw new IllegalArgumentException(
-                    "Array.prototype has no method: " + f.getFunctionName());
-        }
+    private static NativeArray getSelf(Scriptable thisObj) {
+        return LambdaConstructor.convertThisObject(thisObj, NativeArray.class);
     }
 
     @Override
@@ -571,17 +606,8 @@ public class NativeArray extends IdScriptableObject implements List {
         }
     }
 
-    private Object makeUnscopables() {
-        Context cx = Context.getCurrentContext();
-        NativeObject obj;
-
-        if (cx != null) {
-            Scriptable scope = this.getParentScope();
-            obj = (NativeObject) cx.newObject(scope);
-        } else {
-            obj = new NativeObject();
-        }
-
+    private static Object makeUnscopables(Context cx, Scriptable scope) {
+        ScriptableObject obj = (ScriptableObject) cx.newObject(scope);
         ScriptableObject desc = ScriptableObject.buildDataDescriptor(obj, true, EMPTY);
         for (var k : UNSCOPABLES) {
             obj.defineOwnProperty(cx, k, desc);
@@ -602,42 +628,6 @@ public class NativeArray extends IdScriptableObject implements List {
         if (!denseOnly && isGetterOrSetter(null, index, false)) return super.has(index, start);
         if (dense != null && 0 <= index && index < dense.length) return dense[index] != NOT_FOUND;
         return super.has(index, start);
-    }
-
-    @Override
-    public boolean has(Symbol key, Scriptable start) {
-        if (SymbolKey.ITERATOR.equals(key)) {
-            return super.has("values", start);
-        }
-
-        return super.has(key, start);
-    }
-
-    @Override
-    public Object get(Symbol key, Scriptable start) {
-        if (SymbolKey.ITERATOR.equals(key)) {
-            return super.get("values", start);
-        }
-
-        return super.get(key, start);
-    }
-
-    @Override
-    public void put(Symbol key, Scriptable start, Object value) {
-        if (SymbolKey.ITERATOR.equals(key)) {
-            super.put("values", start, value);
-        }
-
-        super.put(key, start, value);
-    }
-
-    @Override
-    public void delete(Symbol key) {
-        if (SymbolKey.ITERATOR.equals(key)) {
-            super.delete("values");
-        }
-
-        super.delete(key);
     }
 
     private static long toArrayIndex(Object id) {
@@ -875,13 +865,14 @@ public class NativeArray extends IdScriptableObject implements List {
 
         if ("length".equals(id)) {
             lengthAttr =
-                    getAttributes("length"); // Update cached attributes value for length property
+                    super.getAttributes(
+                            "length"); // Update cached attributes value for length property
         }
         return true;
     }
 
     /** See ECMA 15.4.1,2 */
-    private static Object jsConstructor(Context cx, Scriptable scope, Object[] args) {
+    private static Scriptable jsConstructor(Context cx, Scriptable scope, Object[] args) {
         if (args.length == 0) return new NativeArray(0);
 
         // Only use 1 arg as first element for version 1.2; for
@@ -2337,6 +2328,26 @@ public class NativeArray extends IdScriptableObject implements List {
         return result;
     }
 
+    // We need a local copy of the attributes for "length" for fast access,
+    // so intercept the parent here.
+
+    @Override
+    public int getAttributes(String name) {
+        if ("length".equals(name)) {
+            return lengthAttr;
+        }
+        return super.getAttributes(name);
+    }
+
+    @Override
+    public void setAttributes(String name, int attr) {
+        if ("length".equals(name)) {
+            lengthAttr = attr;
+        } else {
+            super.setAttributes(name, attr);
+        }
+    }
+
     // methods to implement java.util.List
 
     @Override
@@ -2600,219 +2611,6 @@ public class NativeArray extends IdScriptableObject implements List {
             throw new ConcurrentModificationException();
         }
     }
-
-    @Override
-    protected int findPrototypeId(Symbol k) {
-        if (SymbolKey.ITERATOR.equals(k)) {
-            // "Symbol.iterator" property of the prototype has the "same value"
-            // as the "values" property. We implement this by returning the
-            // ID of "values" when the iterator symbol is accessed.
-            return Id_values;
-        } else if (SymbolKey.UNSCOPABLES.equals(k)) {
-            return SymbolId_unscopables;
-        }
-        return 0;
-    }
-
-    @Override
-    protected int findPrototypeId(String s) {
-        int id;
-        switch (s) {
-            case "constructor":
-                id = Id_constructor;
-                break;
-            case "toString":
-                id = Id_toString;
-                break;
-            case "toLocaleString":
-                id = Id_toLocaleString;
-                break;
-            case "toSource":
-                id = Id_toSource;
-                break;
-            case "join":
-                id = Id_join;
-                break;
-            case "reverse":
-                id = Id_reverse;
-                break;
-            case "sort":
-                id = Id_sort;
-                break;
-            case "push":
-                id = Id_push;
-                break;
-            case "pop":
-                id = Id_pop;
-                break;
-            case "shift":
-                id = Id_shift;
-                break;
-            case "unshift":
-                id = Id_unshift;
-                break;
-            case "splice":
-                id = Id_splice;
-                break;
-            case "concat":
-                id = Id_concat;
-                break;
-            case "slice":
-                id = Id_slice;
-                break;
-            case "indexOf":
-                id = Id_indexOf;
-                break;
-            case "lastIndexOf":
-                id = Id_lastIndexOf;
-                break;
-            case "every":
-                id = Id_every;
-                break;
-            case "filter":
-                id = Id_filter;
-                break;
-            case "forEach":
-                id = Id_forEach;
-                break;
-            case "map":
-                id = Id_map;
-                break;
-            case "some":
-                id = Id_some;
-                break;
-            case "find":
-                id = Id_find;
-                break;
-            case "findIndex":
-                id = Id_findIndex;
-                break;
-            case "findLast":
-                id = Id_findLast;
-                break;
-            case "findLastIndex":
-                id = Id_findLastIndex;
-                break;
-            case "reduce":
-                id = Id_reduce;
-                break;
-            case "reduceRight":
-                id = Id_reduceRight;
-                break;
-            case "fill":
-                id = Id_fill;
-                break;
-            case "keys":
-                id = Id_keys;
-                break;
-            case "values":
-                id = Id_values;
-                break;
-            case "entries":
-                id = Id_entries;
-                break;
-            case "includes":
-                id = Id_includes;
-                break;
-            case "copyWithin":
-                id = Id_copyWithin;
-                break;
-            case "at":
-                id = Id_at;
-                break;
-            case "flat":
-                id = Id_flat;
-                break;
-            case "flatMap":
-                id = Id_flatMap;
-                break;
-            case "toReversed":
-                id = Id_toReversed;
-                break;
-            case "toSorted":
-                id = Id_toSorted;
-                break;
-            case "toSpliced":
-                id = Id_toSpliced;
-                break;
-            case "with":
-                id = Id_with;
-                break;
-            default:
-                id = 0;
-                break;
-        }
-        return id;
-    }
-
-    private static final int Id_constructor = 1,
-            Id_toString = 2,
-            Id_toLocaleString = 3,
-            Id_toSource = 4,
-            Id_join = 5,
-            Id_reverse = 6,
-            Id_sort = 7,
-            Id_push = 8,
-            Id_pop = 9,
-            Id_shift = 10,
-            Id_unshift = 11,
-            Id_splice = 12,
-            Id_concat = 13,
-            Id_slice = 14,
-            Id_indexOf = 15,
-            Id_lastIndexOf = 16,
-            Id_every = 17,
-            Id_filter = 18,
-            Id_forEach = 19,
-            Id_map = 20,
-            Id_some = 21,
-            Id_find = 22,
-            Id_findIndex = 23,
-            Id_findLast = 24,
-            Id_findLastIndex = 25,
-            Id_reduce = 26,
-            Id_reduceRight = 27,
-            Id_fill = 28,
-            Id_keys = 29,
-            Id_values = 30,
-            Id_entries = 31,
-            Id_includes = 32,
-            Id_copyWithin = 33,
-            Id_at = 34,
-            Id_flat = 35,
-            Id_flatMap = 36,
-            Id_toReversed = 37,
-            Id_toSorted = 38,
-            Id_toSpliced = 39,
-            Id_with = 40,
-            SymbolId_unscopables = 41,
-            MAX_PROTOTYPE_ID = SymbolId_unscopables;
-    private static final int ConstructorId_join = -Id_join,
-            ConstructorId_reverse = -Id_reverse,
-            ConstructorId_sort = -Id_sort,
-            ConstructorId_push = -Id_push,
-            ConstructorId_pop = -Id_pop,
-            ConstructorId_shift = -Id_shift,
-            ConstructorId_unshift = -Id_unshift,
-            ConstructorId_splice = -Id_splice,
-            ConstructorId_concat = -Id_concat,
-            ConstructorId_slice = -Id_slice,
-            ConstructorId_indexOf = -Id_indexOf,
-            ConstructorId_lastIndexOf = -Id_lastIndexOf,
-            ConstructorId_every = -Id_every,
-            ConstructorId_filter = -Id_filter,
-            ConstructorId_forEach = -Id_forEach,
-            ConstructorId_map = -Id_map,
-            ConstructorId_some = -Id_some,
-            ConstructorId_find = -Id_find,
-            ConstructorId_findIndex = -Id_findIndex,
-            ConstructorId_findLast = -Id_findLast,
-            ConstructorId_findLastIndex = -Id_findLastIndex,
-            ConstructorId_reduce = -Id_reduce,
-            ConstructorId_reduceRight = -Id_reduceRight,
-            ConstructorId_isArray = -28,
-            ConstructorId_of = -29,
-            ConstructorId_from = -30;
 
     /** Internal representation of the JavaScript array's length property. */
     private long length;

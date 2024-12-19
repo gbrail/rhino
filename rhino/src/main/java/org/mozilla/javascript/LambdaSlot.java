@@ -38,7 +38,7 @@ public class LambdaSlot extends Slot {
 
     @Override
     boolean isValueSlot() {
-        return false;
+        return true;
     }
 
     @Override
