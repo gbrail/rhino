@@ -15,9 +15,9 @@ public final class NativeContinuation extends IdScriptableObject implements Func
 
     private Object implementation;
 
-    public static void init(Context cx, Scriptable scope, boolean sealed) {
+    public static Object init(Context cx, Scriptable scope, boolean sealed) {
         NativeContinuation obj = new NativeContinuation();
-        obj.exportAsJSClass(MAX_PROTOTYPE_ID, scope, sealed);
+        return obj.initializeJSClass(MAX_PROTOTYPE_ID, scope, sealed);
     }
 
     public Object getImplementation() {

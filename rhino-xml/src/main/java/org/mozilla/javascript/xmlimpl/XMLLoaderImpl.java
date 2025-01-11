@@ -13,28 +13,28 @@ public class XMLLoaderImpl implements XMLLoader {
                 "XML",
                 0,
                 (Context lcx, Scriptable lscope, boolean lsealed) ->
-                        loadXML(lcx, lscope, "XML", sealed),
+                        loadXML(lcx, lscope, "XML", lsealed),
                 ScriptableObject.DONTENUM,
                 sealed);
         scope.addLazilyInitializedValue(
                 "XMLList",
                 0,
                 (Context lcx, Scriptable lscope, boolean lsealed) ->
-                        loadXML(lcx, lscope, "XMLList", sealed),
+                        loadXML(lcx, lscope, "XMLList", lsealed),
                 ScriptableObject.DONTENUM,
                 sealed);
         scope.addLazilyInitializedValue(
                 "Namespace",
                 0,
                 (Context lcx, Scriptable lscope, boolean lsealed) ->
-                        loadXML(lcx, lscope, "Namespace", sealed),
+                        loadXML(lcx, lscope, "Namespace", lsealed),
                 ScriptableObject.DONTENUM,
                 sealed);
         scope.addLazilyInitializedValue(
                 "QName",
                 0,
                 (Context lcx, Scriptable lscope, boolean lsealed) ->
-                        loadXML(lcx, lscope, "QName", sealed),
+                        loadXML(lcx, lscope, "QName", lsealed),
                 ScriptableObject.DONTENUM,
                 sealed);
     }

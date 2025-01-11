@@ -709,7 +709,7 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
         throw f.unknown();
     }
 
-    public final IdFunctionObject exportAsJSClass(
+    public IdFunctionObject initializeJSClass(
             int maxPrototypeId, Scriptable scope, boolean sealed) {
         // Set scope and prototype unless this is top level scope itself
         if (scope != this && scope != null) {
@@ -726,6 +726,12 @@ public abstract class IdScriptableObject extends ScriptableObject implements IdF
         if (sealed) {
             ctor.sealObject();
         }
+        return ctor;
+    }
+
+    public final IdFunctionObject exportAsJSClass(
+            int maxPrototypeId, Scriptable scope, boolean sealed) {
+        IdFunctionObject ctor = initializeJSClass(maxPrototypeId, scope, sealed);
         ctor.exportAsScopeProperty();
         return ctor;
     }

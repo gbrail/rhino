@@ -22,6 +22,17 @@ import java.util.ServiceLoader;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.mozilla.javascript.ast.FunctionNode;
+import org.mozilla.javascript.typedarrays.NativeArrayBuffer;
+import org.mozilla.javascript.typedarrays.NativeDataView;
+import org.mozilla.javascript.typedarrays.NativeFloat32Array;
+import org.mozilla.javascript.typedarrays.NativeFloat64Array;
+import org.mozilla.javascript.typedarrays.NativeInt16Array;
+import org.mozilla.javascript.typedarrays.NativeInt32Array;
+import org.mozilla.javascript.typedarrays.NativeInt8Array;
+import org.mozilla.javascript.typedarrays.NativeUint16Array;
+import org.mozilla.javascript.typedarrays.NativeUint32Array;
+import org.mozilla.javascript.typedarrays.NativeUint8Array;
+import org.mozilla.javascript.typedarrays.NativeUint8ClampedArray;
 import org.mozilla.javascript.v8dtoa.DoubleConversion;
 import org.mozilla.javascript.v8dtoa.FastDtoa;
 import org.mozilla.javascript.xml.XMLLib;
@@ -198,8 +209,8 @@ public class ScriptRuntime {
         NativeJavaMap.init(scope, sealed);
 
         // define lazy-loaded properties using their class name
-        new LazilyLoadedCtor(
-                scope, "Continuation", "org.mozilla.javascript.NativeContinuation", sealed, true);
+        scope.addLazilyInitializedValue(
+                "Continuation", 0, NativeContinuation::init, ScriptableObject.DONTENUM, sealed);
 
         if (cx.hasFeature(Context.FEATURE_E4X)) {
             ServiceLoader<XMLLoader> l = ServiceLoader.load(XMLLoader.class);
@@ -212,72 +223,32 @@ public class ScriptRuntime {
         if (((cx.getLanguageVersion() >= Context.VERSION_1_8)
                         && cx.hasFeature(Context.FEATURE_V8_EXTENSIONS))
                 || (cx.getLanguageVersion() >= Context.VERSION_ES6)) {
-            new LazilyLoadedCtor(
-                    scope,
-                    "ArrayBuffer",
-                    "org.mozilla.javascript.typedarrays.NativeArrayBuffer",
-                    sealed,
-                    true);
-            new LazilyLoadedCtor(
-                    scope,
-                    "Int8Array",
-                    "org.mozilla.javascript.typedarrays.NativeInt8Array",
-                    sealed,
-                    true);
-            new LazilyLoadedCtor(
-                    scope,
-                    "Uint8Array",
-                    "org.mozilla.javascript.typedarrays.NativeUint8Array",
-                    sealed,
-                    true);
-            new LazilyLoadedCtor(
-                    scope,
+            scope.addLazilyInitializedValue(
+                    "ArrayBuffer", 0, NativeArrayBuffer::init, ScriptableObject.DONTENUM, sealed);
+            scope.addLazilyInitializedValue(
+                    "Int8Array", 0, NativeInt8Array::init, ScriptableObject.DONTENUM, sealed);
+            scope.addLazilyInitializedValue(
+                    "Uint8Array", 0, NativeUint8Array::init, ScriptableObject.DONTENUM, sealed);
+            scope.addLazilyInitializedValue(
                     "Uint8ClampedArray",
-                    "org.mozilla.javascript.typedarrays.NativeUint8ClampedArray",
-                    sealed,
-                    true);
-            new LazilyLoadedCtor(
-                    scope,
-                    "Int16Array",
-                    "org.mozilla.javascript.typedarrays.NativeInt16Array",
-                    sealed,
-                    true);
-            new LazilyLoadedCtor(
-                    scope,
-                    "Uint16Array",
-                    "org.mozilla.javascript.typedarrays.NativeUint16Array",
-                    sealed,
-                    true);
-            new LazilyLoadedCtor(
-                    scope,
-                    "Int32Array",
-                    "org.mozilla.javascript.typedarrays.NativeInt32Array",
-                    sealed,
-                    true);
-            new LazilyLoadedCtor(
-                    scope,
-                    "Uint32Array",
-                    "org.mozilla.javascript.typedarrays.NativeUint32Array",
-                    sealed,
-                    true);
-            new LazilyLoadedCtor(
-                    scope,
-                    "Float32Array",
-                    "org.mozilla.javascript.typedarrays.NativeFloat32Array",
-                    sealed,
-                    true);
-            new LazilyLoadedCtor(
-                    scope,
-                    "Float64Array",
-                    "org.mozilla.javascript.typedarrays.NativeFloat64Array",
-                    sealed,
-                    true);
-            new LazilyLoadedCtor(
-                    scope,
-                    "DataView",
-                    "org.mozilla.javascript.typedarrays.NativeDataView",
-                    sealed,
-                    true);
+                    0,
+                    NativeUint8ClampedArray::init,
+                    ScriptableObject.DONTENUM,
+                    sealed);
+            scope.addLazilyInitializedValue(
+                    "Int16Array", 0, NativeInt16Array::init, ScriptableObject.DONTENUM, sealed);
+            scope.addLazilyInitializedValue(
+                    "Uint16Array", 0, NativeUint16Array::init, ScriptableObject.DONTENUM, sealed);
+            scope.addLazilyInitializedValue(
+                    "Int32Array", 0, NativeInt32Array::init, ScriptableObject.DONTENUM, sealed);
+            scope.addLazilyInitializedValue(
+                    "Uint32Array", 0, NativeUint32Array::init, ScriptableObject.DONTENUM, sealed);
+            scope.addLazilyInitializedValue(
+                    "Float32Array", 0, NativeFloat32Array::init, ScriptableObject.DONTENUM, sealed);
+            scope.addLazilyInitializedValue(
+                    "Float64Array", 0, NativeFloat64Array::init, ScriptableObject.DONTENUM, sealed);
+            scope.addLazilyInitializedValue(
+                    "DataView", 0, NativeDataView::init, ScriptableObject.DONTENUM, sealed);
         }
 
         if (cx.getLanguageVersion() >= Context.VERSION_ES6) {
@@ -313,6 +284,8 @@ public class ScriptRuntime {
             Context cx, ScriptableObject scope, boolean sealed) {
         ScriptableObject s = initSafeStandardObjects(cx, scope, sealed);
 
+        // There is some complex initialization logic here, so it's simpler
+        // to stick with the "old" lazy constructor implementation.
         new LazilyLoadedCtor(
                 s, "Packages", "org.mozilla.javascript.NativeJavaTopPackage", sealed, true);
         new LazilyLoadedCtor(
