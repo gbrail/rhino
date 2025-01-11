@@ -1,8 +1,8 @@
 package org.mozilla.javascript;
 
 /**
- * This is a specialization of Slot to store values that are retrieved via calls to script
- * functions. It's used to load built-in objects more efficiently.
+ * This is an older lazy loading mechanism used with reflection-based constructors that's around for
+ * backward compatibility.
  */
 public class LazyLoadSlot extends Slot {
     LazyLoadSlot(Object name, int index) {

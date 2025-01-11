@@ -695,6 +695,21 @@ public abstract class ScriptableObject
         lslot.value = init;
     }
 
+    public interface LazyLoadable {
+        Object load(Context cx, Scriptable scope, boolean sealed);
+    }
+
+    public void addLazilyInitializedValue(
+            String name, int index, LazyLoadable init, int attributes, boolean sealed) {
+        if (name != null && index != 0) throw new IllegalArgumentException(name);
+        checkNotSealed(name, index);
+        LambdaLazyLoadSlot lslot =
+                slotMap.compute(name, index, ScriptableObject::ensureLambdaLazySlot);
+        lslot.setAttributes(attributes);
+        final Scriptable scope = this;
+        lslot.setLoader((Context cx) -> init.load(cx, scope, sealed));
+    }
+
     /**
      * Attach the specified object to this object, and delegate all indexed property lookups to it.
      * In other words, if the object has 3 elements, then an attempt to look up or modify "[0]",
@@ -2870,6 +2885,16 @@ public abstract class ScriptableObject
             return (AccessorSlot) existing;
         } else {
             return new AccessorSlot(existing);
+        }
+    }
+
+    private static LambdaLazyLoadSlot ensureLambdaLazySlot(Object name, int index, Slot existing) {
+        if (existing == null) {
+            return new LambdaLazyLoadSlot(name, index);
+        } else if (existing instanceof LambdaLazyLoadSlot) {
+            return (LambdaLazyLoadSlot) existing;
+        } else {
+            return new LambdaLazyLoadSlot(existing);
         }
     }
 
