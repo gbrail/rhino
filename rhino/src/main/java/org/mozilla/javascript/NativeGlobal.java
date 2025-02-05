@@ -20,65 +20,73 @@ import org.mozilla.javascript.xml.XMLLib;
  *
  * @author Mike Shaver
  */
-public class NativeGlobal implements Serializable, IdFunctionCall {
-    static final long serialVersionUID = 6080442165748707530L;
-
+public class NativeGlobal {
     public static void init(Context cx, Scriptable scope, boolean sealed) {
-        NativeGlobal obj = new NativeGlobal();
+        ScriptableObject.defineProperty(
+                scope,
+                "decodeURI",
+                new LambdaFunction(scope, "decodeURI", 1, NativeGlobal::js_decodeURI, false),
+                DONTENUM);
+        ScriptableObject.defineProperty(
+                scope,
+                "decodeURIComponent",
+                new LambdaFunction(
+                        scope, "decodeURIComponent", 1, NativeGlobal::js_decodeURIComponent, false),
+                DONTENUM);
+        ScriptableObject.defineProperty(
+                scope,
+                "encodeURI",
+                new LambdaFunction(scope, "encodeURI", 1, NativeGlobal::js_encodeURI, false),
+                DONTENUM);
+        ScriptableObject.defineProperty(
+                scope,
+                "encodeURIComponent",
+                new LambdaFunction(
+                        scope, "encodeURIComponent", 1, NativeGlobal::js_encodeURIComponent, false),
+                DONTENUM);
+        ScriptableObject.defineProperty(
+                scope,
+                "escape",
+                new LambdaFunction(scope, "escape", 1, NativeGlobal::js_escape, false),
+                DONTENUM);
+        ScriptableObject.defineProperty(
+                scope,
+                "isFinite",
+                new LambdaFunction(scope, "isFinite", 1, NativeGlobal::js_isFinite, false),
+                DONTENUM);
+        ScriptableObject.defineProperty(
+                scope,
+                "isNaN",
+                new LambdaFunction(scope, "isNaN", 1, NativeGlobal::js_isNaN, false),
+                DONTENUM);
+        ScriptableObject.defineProperty(
+                scope,
+                "isXMLName",
+                new LambdaFunction(scope, "isXMLName", 1, NativeGlobal::js_isXMLName, false),
+                DONTENUM);
+        ScriptableObject.defineProperty(
+                scope,
+                "parseFloat",
+                new LambdaFunction(scope, "parseFloat", 1, NativeGlobal::js_parseFloat, false),
+                DONTENUM);
+        ScriptableObject.defineProperty(
+                scope,
+                "parseInt",
+                new LambdaFunction(scope, "parseInt", 2, NativeGlobal::js_parseInt, false),
+                DONTENUM);
+        ScriptableObject.defineProperty(
+                scope,
+                "unescape",
+                new LambdaFunction(scope, "unescape", 1, NativeGlobal::js_unescape, false),
+                DONTENUM);
+        ScriptableObject.defineProperty(
+                scope,
+                "uneval",
+                new LambdaFunction(scope, "uneval", 1, NativeGlobal::js_uneval, false),
+                DONTENUM);
 
-        for (int id = 1; id <= LAST_SCOPE_FUNCTION_ID; ++id) {
-            String name;
-            int arity = 1;
-            switch (id) {
-                case Id_decodeURI:
-                    name = "decodeURI";
-                    break;
-                case Id_decodeURIComponent:
-                    name = "decodeURIComponent";
-                    break;
-                case Id_encodeURI:
-                    name = "encodeURI";
-                    break;
-                case Id_encodeURIComponent:
-                    name = "encodeURIComponent";
-                    break;
-                case Id_escape:
-                    name = "escape";
-                    break;
-                case Id_eval:
-                    name = "eval";
-                    break;
-                case Id_isFinite:
-                    name = "isFinite";
-                    break;
-                case Id_isNaN:
-                    name = "isNaN";
-                    break;
-                case Id_isXMLName:
-                    name = "isXMLName";
-                    break;
-                case Id_parseFloat:
-                    name = "parseFloat";
-                    break;
-                case Id_parseInt:
-                    name = "parseInt";
-                    arity = 2;
-                    break;
-                case Id_unescape:
-                    name = "unescape";
-                    break;
-                case Id_uneval:
-                    name = "uneval";
-                    break;
-                default:
-                    throw Kit.codeBug();
-            }
-            IdFunctionObject f = new IdFunctionObject(obj, FTAG, id, name, arity, scope);
-            if (sealed) {
-                f.sealObject();
-            }
-            f.exportAsScopeProperty();
-        }
+        // This needs special handling so that the runtime can identify it
+        ScriptableObject.defineProperty(scope, "eval", new EvalFunction(scope), DONTENUM);
 
         ScriptableObject.defineProperty(
                 scope, "NaN", ScriptRuntime.NaNobj, READONLY | DONTENUM | PERMANENT);
@@ -101,6 +109,8 @@ public class NativeGlobal implements Serializable, IdFunctionCall {
                 ScriptableObject.ensureScriptable(
                         ScriptableObject.getProperty(nativeError, "prototype"));
 
+        ErrorWrapper wrapper = new ErrorWrapper();
+
         for (TopLevel.NativeErrors error : TopLevel.NativeErrors.values()) {
             if (error == TopLevel.NativeErrors.Error) {
                 // Error is initialized elsewhere and we should not overwrite it.
@@ -116,9 +126,11 @@ public class NativeGlobal implements Serializable, IdFunctionCall {
             errorProto.defineProperty("message", "", DONTENUM);
 
             if (error == TopLevel.NativeErrors.AggregateError) {
-                ctor = new IdFunctionObject(obj, FTAG, Id_new_AggregateError, name, 2, scope);
+                ctor =
+                        new IdFunctionObject(
+                                wrapper, FTAG, ConstructorId_makeAggregateError, name, 2, scope);
             } else {
-                ctor = new IdFunctionObject(obj, FTAG, Id_new_CommonError, name, 1, scope);
+                ctor = new IdFunctionObject(wrapper, FTAG, ConstructorId_makeError, name, 1, scope);
             }
             ctor.markAsConstructor(errorProto);
             ctor.setPrototype(nativeError);
@@ -131,93 +143,70 @@ public class NativeGlobal implements Serializable, IdFunctionCall {
             }
             ctor.setAttributes("name", DONTENUM | READONLY);
             ctor.setAttributes("length", DONTENUM | READONLY);
-            ctor.exportAsScopeProperty();
+            ScriptableObject.defineProperty(scope, name, ctor, DONTENUM);
         }
     }
 
-    @Override
-    public Object execIdCall(
-            IdFunctionObject f, Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-        if (f.hasTag(FTAG)) {
-            int methodId = f.methodId();
-            switch (methodId) {
-                case Id_decodeURI:
-                case Id_decodeURIComponent:
-                    {
-                        String str = ScriptRuntime.toString(args, 0);
-                        return decode(str, methodId == Id_decodeURI);
-                    }
-
-                case Id_encodeURI:
-                case Id_encodeURIComponent:
-                    {
-                        String str = ScriptRuntime.toString(args, 0);
-                        return encode(str, methodId == Id_encodeURI);
-                    }
-
-                case Id_escape:
-                    return js_escape(args);
-
-                case Id_eval:
-                    return js_eval(cx, scope, args);
-
-                case Id_isFinite:
-                    {
-                        if (args.length < 1) {
-                            return Boolean.FALSE;
-                        }
-                        return NativeNumber.isFinite(args[0]);
-                    }
-
-                case Id_isNaN:
-                    {
-                        // The global method isNaN, as per ECMA-262 15.1.2.6.
-                        boolean result;
-                        if (args.length < 1) {
-                            result = true;
-                        } else {
-                            double d = ScriptRuntime.toNumber(args[0]);
-                            result = Double.isNaN(d);
-                        }
-                        return ScriptRuntime.wrapBoolean(result);
-                    }
-
-                case Id_isXMLName:
-                    {
-                        Object name = (args.length == 0) ? Undefined.instance : args[0];
-                        XMLLib xmlLib = XMLLib.extractFromScope(scope);
-                        return ScriptRuntime.wrapBoolean(xmlLib.isXMLName(cx, name));
-                    }
-
-                case Id_parseFloat:
-                    return js_parseFloat(args);
-
-                case Id_parseInt:
-                    return js_parseInt(cx, args);
-
-                case Id_unescape:
-                    return js_unescape(args);
-
-                case Id_uneval:
-                    {
-                        Object value = (args.length != 0) ? args[0] : Undefined.instance;
-                        return ScriptRuntime.uneval(cx, scope, value);
-                    }
-
-                case Id_new_CommonError:
-                    // The implementation of all the ECMA error constructors
-                    // (SyntaxError, TypeError, etc.)
-                    return NativeError.make(cx, scope, f, args);
-
-                case Id_new_AggregateError:
-                    return NativeError.makeAggregate(cx, scope, f, args);
+    /**
+     * Since the Error hierarchy depends very much on IdFunctionObject, we will keep using it for
+     * these implementations for now.
+     */
+    private static final class ErrorWrapper implements Serializable, IdFunctionCall {
+        @Override
+        public Object execIdCall(
+                IdFunctionObject f,
+                Context cx,
+                Scriptable scope,
+                Scriptable thisObj,
+                Object[] args) {
+            if (f.hasTag(FTAG)) {
+                int id = f.methodId();
+                switch (id) {
+                    case ConstructorId_makeError:
+                        return NativeError.make(cx, scope, f, args);
+                    case ConstructorId_makeAggregateError:
+                        return NativeError.makeAggregate(cx, scope, f, args);
+                }
             }
+            throw f.unknown();
         }
-        throw f.unknown();
+    }
+
+    private static Object js_isFinite(
+            Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+        if (args.length < 1) {
+            return Boolean.FALSE;
+        }
+        return NativeNumber.isFinite(args[0]);
+    }
+
+    private static Object js_isNaN(
+            Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+        boolean result;
+        if (args.length < 1) {
+            result = true;
+        } else {
+            double d = ScriptRuntime.toNumber(args[0]);
+            result = Double.isNaN(d);
+        }
+        return ScriptRuntime.wrapBoolean(result);
+    }
+
+    private static Object js_isXMLName(
+            Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+        Object name = (args.length == 0) ? Undefined.instance : args[0];
+        XMLLib xmlLib = XMLLib.extractFromScope(scope);
+        return ScriptRuntime.wrapBoolean(xmlLib.isXMLName(cx, name));
+    }
+
+    private static Object js_uneval(
+            Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+        Object value = (args.length != 0) ? args[0] : Undefined.instance;
+        return ScriptRuntime.uneval(cx, scope, value);
     }
 
     /** The global method parseInt, as per ECMA-262 15.1.2.2. */
-    static Object js_parseInt(Context cx, Object[] args) {
+    static Object js_parseInt(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
         String s = ScriptRuntime.toString(args, 0);
         int radix = ScriptRuntime.toInt32(args, 1);
 
@@ -270,7 +259,7 @@ public class NativeGlobal implements Serializable, IdFunctionCall {
      *
      * @param args the arguments to parseFloat, ignoring args[>=1]
      */
-    static Object js_parseFloat(Object[] args) {
+    static Object js_parseFloat(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
         if (args.length < 1) return ScriptRuntime.NaNobj;
 
         String s = ScriptRuntime.toString(args[0]);
@@ -382,7 +371,8 @@ public class NativeGlobal implements Serializable, IdFunctionCall {
      * <p>Includes code for the 'mask' argument supported by the C escape method, which used to be
      * part of the browser embedding. Blame for the strange constant names should be directed there.
      */
-    private static Object js_escape(Object[] args) {
+    private static Object js_escape(
+            Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
         final int URL_XALPHAS = 1, URL_XPALPHAS = 2, URL_PATH = 4;
 
         String s = ScriptRuntime.toString(args, 0);
@@ -447,7 +437,8 @@ public class NativeGlobal implements Serializable, IdFunctionCall {
     }
 
     /** The global unescape method, as per ECMA-262 15.1.2.5. */
-    private static Object js_unescape(Object[] args) {
+    private static Object js_unescape(
+            Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
         String s = ScriptRuntime.toString(args, 0);
         int firstEscapePos = s.indexOf('%');
         if (firstEscapePos >= 0) {
@@ -489,19 +480,23 @@ public class NativeGlobal implements Serializable, IdFunctionCall {
      * This is an indirect call to eval, and thus uses the global environment. Direct calls are
      * executed via ScriptRuntime.callSpecial().
      */
-    private static Object js_eval(Context cx, Scriptable scope, Object[] args) {
+    private static Object js_eval(Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
         Scriptable global = ScriptableObject.getTopLevelScope(scope);
         return ScriptRuntime.evalSpecial(cx, global, global, args, "eval code", 1);
     }
 
+    /** Check if the given object is the eval function. We need this in the interpreter. */
     static boolean isEvalFunction(Object functionObj) {
-        if (functionObj instanceof IdFunctionObject) {
-            IdFunctionObject function = (IdFunctionObject) functionObj;
-            if (function.hasTag(FTAG) && function.methodId() == Id_eval) {
-                return true;
-            }
+        return functionObj instanceof EvalFunction;
+    }
+
+    /** Create a special subclass so that we can quickly identify the "eval" function. */
+    private static final class EvalFunction extends LambdaFunction {
+        private static final long serialVersionUID = 5882582647783767573L;
+
+        private EvalFunction(Scriptable scope) {
+            super(scope, "eval", 1, NativeGlobal::js_eval, false);
         }
-        return false;
     }
 
     /**
@@ -531,6 +526,18 @@ public class NativeGlobal implements Serializable, IdFunctionCall {
                 error, message,
                 sourceName, lineNumber,
                 lineSource, columnNumber);
+    }
+
+    private static Object js_encodeURI(
+            Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+        String str = ScriptRuntime.toString(args, 0);
+        return encode(str, true);
+    }
+
+    private static Object js_encodeURIComponent(
+            Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+        String str = ScriptRuntime.toString(args, 0);
+        return encode(str, false);
     }
 
     /*
@@ -587,7 +594,7 @@ public class NativeGlobal implements Serializable, IdFunctionCall {
     }
 
     private static char toHexChar(int i) {
-        if (i >> 4 != 0) Kit.codeBug();
+        if (i >> 4 != 0) throw Kit.codeBug();
         return (char) ((i < 10) ? i + '0' : i - 10 + 'A');
     }
 
@@ -610,6 +617,18 @@ public class NativeGlobal implements Serializable, IdFunctionCall {
             return (i1 << 4) | i2;
         }
         return -1;
+    }
+
+    private static Object js_decodeURI(
+            Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+        String str = ScriptRuntime.toString(args, 0);
+        return decode(str, true);
+    }
+
+    private static Object js_decodeURIComponent(
+            Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+        String str = ScriptRuntime.toString(args, 0);
+        return decode(str, false);
     }
 
     private static String decode(String str, boolean fullUri) {
@@ -756,20 +775,5 @@ public class NativeGlobal implements Serializable, IdFunctionCall {
 
     private static final Object FTAG = "Global";
 
-    private static final int Id_decodeURI = 1,
-            Id_decodeURIComponent = 2,
-            Id_encodeURI = 3,
-            Id_encodeURIComponent = 4,
-            Id_escape = 5,
-            Id_eval = 6,
-            Id_isFinite = 7,
-            Id_isNaN = 8,
-            Id_isXMLName = 9,
-            Id_parseFloat = 10,
-            Id_parseInt = 11,
-            Id_unescape = 12,
-            Id_uneval = 13,
-            LAST_SCOPE_FUNCTION_ID = 13,
-            Id_new_CommonError = 14,
-            Id_new_AggregateError = 15;
+    private static final int ConstructorId_makeError = 1, ConstructorId_makeAggregateError = 2;
 }
