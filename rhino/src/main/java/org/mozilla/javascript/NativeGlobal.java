@@ -21,69 +21,64 @@ import org.mozilla.javascript.xml.XMLLib;
  * @author Mike Shaver
  */
 public class NativeGlobal {
+    private static void initFunc(Scriptable scope, LambdaFunction func, boolean sealed) {
+        if (sealed) {
+            func.sealObject();
+        }
+        ScriptableObject.defineProperty(scope, func.getFunctionName(), func, DONTENUM);
+    }
+
     public static void init(Context cx, Scriptable scope, boolean sealed) {
-        ScriptableObject.defineProperty(
+        initFunc(
                 scope,
-                "decodeURI",
                 new LambdaFunction(scope, "decodeURI", 1, NativeGlobal::js_decodeURI, false),
-                DONTENUM);
-        ScriptableObject.defineProperty(
+                sealed);
+        initFunc(
                 scope,
-                "decodeURIComponent",
                 new LambdaFunction(
                         scope, "decodeURIComponent", 1, NativeGlobal::js_decodeURIComponent, false),
-                DONTENUM);
-        ScriptableObject.defineProperty(
+                sealed);
+        initFunc(
                 scope,
-                "encodeURI",
                 new LambdaFunction(scope, "encodeURI", 1, NativeGlobal::js_encodeURI, false),
-                DONTENUM);
-        ScriptableObject.defineProperty(
+                sealed);
+        initFunc(
                 scope,
-                "encodeURIComponent",
                 new LambdaFunction(
                         scope, "encodeURIComponent", 1, NativeGlobal::js_encodeURIComponent, false),
-                DONTENUM);
-        ScriptableObject.defineProperty(
+                sealed);
+        initFunc(
                 scope,
-                "escape",
                 new LambdaFunction(scope, "escape", 1, NativeGlobal::js_escape, false),
-                DONTENUM);
-        ScriptableObject.defineProperty(
+                sealed);
+        initFunc(
                 scope,
-                "isFinite",
                 new LambdaFunction(scope, "isFinite", 1, NativeGlobal::js_isFinite, false),
-                DONTENUM);
-        ScriptableObject.defineProperty(
+                sealed);
+        initFunc(
                 scope,
-                "isNaN",
                 new LambdaFunction(scope, "isNaN", 1, NativeGlobal::js_isNaN, false),
-                DONTENUM);
-        ScriptableObject.defineProperty(
+                sealed);
+        initFunc(
                 scope,
-                "isXMLName",
                 new LambdaFunction(scope, "isXMLName", 1, NativeGlobal::js_isXMLName, false),
-                DONTENUM);
-        ScriptableObject.defineProperty(
+                sealed);
+        initFunc(
                 scope,
-                "parseFloat",
                 new LambdaFunction(scope, "parseFloat", 1, NativeGlobal::js_parseFloat, false),
-                DONTENUM);
-        ScriptableObject.defineProperty(
+                sealed);
+        initFunc(
                 scope,
-                "parseInt",
                 new LambdaFunction(scope, "parseInt", 2, NativeGlobal::js_parseInt, false),
-                DONTENUM);
-        ScriptableObject.defineProperty(
+                sealed);
+        initFunc(
                 scope,
-                "unescape",
                 new LambdaFunction(scope, "unescape", 1, NativeGlobal::js_unescape, false),
-                DONTENUM);
-        ScriptableObject.defineProperty(
+                sealed);
+        initFunc(
                 scope,
-                "uneval",
                 new LambdaFunction(scope, "uneval", 1, NativeGlobal::js_uneval, false),
-                DONTENUM);
+                sealed);
 
         // This needs special handling so that the runtime can identify it
         ScriptableObject.defineProperty(scope, "eval", new EvalFunction(scope), DONTENUM);
@@ -143,7 +138,7 @@ public class NativeGlobal {
             }
             ctor.setAttributes("name", DONTENUM | READONLY);
             ctor.setAttributes("length", DONTENUM | READONLY);
-            ScriptableObject.defineProperty(scope, name, ctor, DONTENUM);
+            ctor.exportAsScopeProperty();
         }
     }
 

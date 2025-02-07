@@ -2043,9 +2043,9 @@ public final class Interpreter extends Icode implements Evaluator {
                                     }
                                     Constructable ctor = (Constructable) lhs;
 
-                                    if (ctor instanceof IdFunctionObject) {
-                                        IdFunctionObject ifun = (IdFunctionObject) ctor;
-                                        if (NativeContinuation.isContinuationConstructor(ifun)) {
+                                    if (ctor instanceof Function) {
+                                        Function fun = (Function) ctor;
+                                        if (NativeContinuation.isContinuationConstructor(fun)) {
                                             frame.stack[stackTop] =
                                                     captureContinuation(
                                                             cx, frame.parentFrame, false);
@@ -3810,8 +3810,9 @@ public final class Interpreter extends Icode implements Evaluator {
 
     private static NativeContinuation captureContinuation(
             Context cx, CallFrame frame, boolean requireContinuationsTopFrame) {
-        NativeContinuation c = new NativeContinuation();
-        ScriptRuntime.setObjectProtoAndParent(c, ScriptRuntime.getTopCallScope(cx));
+        Scriptable scope = ScriptRuntime.getTopCallScope(cx);
+        NativeContinuation c = new NativeContinuation(scope);
+        ScriptRuntime.setObjectProtoAndParent(c, scope);
 
         // Make sure that all frames are frozen
         CallFrame x = frame;
