@@ -91,6 +91,37 @@ public class OrderedSlotMap implements SlotMap {
         return null;
     }
 
+    @Override
+    public int lookupFast(Object key, int index) {
+        if (slots == null || deleteCount != 0) {
+            return -1;
+        }
+
+        int indexOrHash = (key != null ? key.hashCode() : index);
+        int slotIndex = getSlotIndex(slots.length, indexOrHash);
+        for (Slot slot = slots[slotIndex]; slot != null; slot = slot.next) {
+            if (indexOrHash == slot.indexOrHash && Objects.equals(slot.name, key)) {
+                return slot.orderedPos;
+            }
+        }
+        return -1;
+    }
+
+    @Override
+    public boolean validateFast(int index) {
+        // A fast index isn't valid if it's out of range, or if there
+        // was ever a deletion, because the same key could be re-used,
+        // making the index invalid.
+        assert index >= 0;
+        return index < orderedCount && orderedSlots[index] != DELETED_SENTINEL && deleteCount == 0;
+    }
+
+    @Override
+    public Slot queryFast(int index) {
+        assert validateFast(index);
+        return orderedSlots[index];
+    }
+
     /**
      * Locate the slot with given name or index, and create a new one if necessary.
      *

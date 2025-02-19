@@ -148,6 +148,8 @@ public class SlotMapBenchmark {
         final String[] randomKeys = new String[100];
         String size100LastKey;
         String size10LastKey;
+        int size100LastIndex;
+        int size10LastIndex;
 
         @Setup(Level.Trial)
         public void create() {
@@ -156,10 +158,18 @@ public class SlotMapBenchmark {
                 lastKey = insertRandomEntry(size10Map);
             }
             size10LastKey = lastKey;
+            size10LastIndex = size10Map.lookupFast(lastKey, 0);
+            if (size10LastIndex < 0) {
+                throw new AssertionError();
+            }
             for (int i = 0; i < 100; i++) {
                 lastKey = insertRandomEntry(size100Map);
             }
             size100LastKey = lastKey;
+            size100LastIndex = size100Map.lookupFast(lastKey, 0);
+            if (size100LastIndex < 0) {
+                throw new AssertionError();
+            }
             for (int i = 0; i < 100; i++) {
                 randomKeys[i] = makeRandomString();
             }
@@ -198,6 +208,38 @@ public class SlotMapBenchmark {
         Slot slot = null;
         for (int i = 0; i < 100; i++) {
             slot = state.size100Map.query(state.size100LastKey, 0);
+        }
+        if (slot == null) {
+            throw new AssertionError();
+        }
+        return slot;
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(100)
+    public Object orderedQueryKeyFast10Entries(OrderedState state) {
+        Slot slot = null;
+        for (int i = 0; i < 100; i++) {
+            if (!state.size10Map.validateFast(state.size10LastIndex)) {
+                throw new AssertionError();
+            }
+            slot = state.size10Map.queryFast(state.size10LastIndex);
+        }
+        if (slot == null) {
+            throw new AssertionError();
+        }
+        return slot;
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(100)
+    public Object orderedQueryKeyFast100Entries(OrderedState state) {
+        Slot slot = null;
+        for (int i = 0; i < 100; i++) {
+            if (!state.size100Map.validateFast(state.size100LastIndex)) {
+                throw new AssertionError();
+            }
+            slot = state.size100Map.queryFast(state.size100LastIndex);
         }
         if (slot == null) {
             throw new AssertionError();
