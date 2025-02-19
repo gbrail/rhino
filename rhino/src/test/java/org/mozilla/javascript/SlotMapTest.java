@@ -257,6 +257,56 @@ public class SlotMapTest {
         }
     }
 
+    @Test
+    public void testFastLookup() {
+        Slot newSlot = obj.getMap().modify(obj, "one", 0, 0);
+        newSlot.value = "one";
+        if (obj.getMap().lookupFast("one", 0) == -1) {
+            // This implementation doesn't support fast lookups
+            return;
+        }
+        newSlot = obj.getMap().modify(obj, "two", 0, 0);
+        newSlot.value = "two";
+
+        for (int i = 0; i < NUM_INDICES; i++) {
+            newSlot = obj.getMap().modify(obj, null, i, 0);
+            newSlot.value = i;
+        }
+        for (String key : KEYS) {
+            newSlot = obj.getMap().modify(obj, key, 0, 0);
+            newSlot.value = key;
+        }
+
+        for (int i = 0; i < NUM_INDICES; i++) {
+            int index = obj.getMap().lookupFast(null, i);
+            assertTrue(obj.getMap().validateFast(index));
+            Slot slot = obj.getMap().queryFast(index);
+            assertEquals(i, slot.value);
+        }
+        for (String key : KEYS) {
+            int index = obj.getMap().lookupFast(key, 0);
+            assertTrue(obj.getMap().validateFast(index));
+            Slot slot = obj.getMap().queryFast(index);
+            assertEquals(key, slot.value);
+        }
+
+        // Now remove a slot and make sure the fast lookup fails
+        int oldIndex = obj.getMap().lookupFast("one", 0);
+        int oldIndex2 = obj.getMap().lookupFast("two", 0);
+        assertTrue(obj.getMap().validateFast(oldIndex));
+        assertTrue(obj.getMap().validateFast(oldIndex2));
+
+        // Here comes the delete
+        obj.getMap().compute(obj, "one", 0, (k, i, e) -> null);
+        assertEquals(-1, obj.getMap().lookupFast("one", 0));
+        assertFalse(obj.getMap().validateFast(oldIndex));
+
+        // Since we introduced a delete, the optimization is now off and
+        // we can't use fast lookups any more
+        assertEquals(-1, obj.getMap().lookupFast("two", 0));
+        assertFalse(obj.getMap().validateFast(oldIndex2));
+    }
+
     private void verifyIndicesAndKeys() {
         long lockStamp = 0;
         lockStamp = obj.getMap().readLock();
