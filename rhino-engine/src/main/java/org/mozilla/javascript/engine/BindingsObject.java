@@ -37,8 +37,12 @@ public class BindingsObject extends ScriptableObject {
     }
 
     @Override
-    public void put(String name, Scriptable start, Object value) {
-        bindings.put(name, Context.javaToJS(value, start));
+    protected boolean putOwnProperty(String name, Scriptable start, Object value, boolean isThrow) {
+        if (bindings.containsKey(name)) {
+            bindings.put(name, Context.javaToJS(value, start));
+            return true;
+        }
+        return false;
     }
 
     @Override

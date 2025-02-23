@@ -261,7 +261,7 @@ public class SlotMapTest {
     public void testFastLookup() {
         Slot newSlot = obj.getMap().modify(obj, "one", 0, 0);
         newSlot.value = "one";
-        if (obj.getMap().lookupFast("one", 0) == -1) {
+        if (obj.getMap().lookupFast("one", 0) == null) {
             // This implementation doesn't support fast lookups
             return;
         }
@@ -277,34 +277,40 @@ public class SlotMapTest {
             newSlot.value = key;
         }
 
+        if (obj.getMap().lookupFast(null, 0) == null) {
+            // This implementation doesn't support fast lookups
+            // Need a second check to account for SingleEntrySlotMap.
+            return;
+        }
+
         for (int i = 0; i < NUM_INDICES; i++) {
-            int index = obj.getMap().lookupFast(null, i);
-            assertTrue(obj.getMap().validateFast(index));
-            Slot slot = obj.getMap().queryFast(index);
+            SlotMap.FastKey k = obj.getMap().lookupFast(null, i);
+            assertTrue(obj.getMap().validateFast(k));
+            Slot slot = obj.getMap().queryFast(k);
             assertEquals(i, slot.value);
         }
         for (String key : KEYS) {
-            int index = obj.getMap().lookupFast(key, 0);
-            assertTrue(obj.getMap().validateFast(index));
-            Slot slot = obj.getMap().queryFast(index);
+            SlotMap.FastKey k = obj.getMap().lookupFast(key, 0);
+            assertTrue(obj.getMap().validateFast(k));
+            Slot slot = obj.getMap().queryFast(k);
             assertEquals(key, slot.value);
         }
 
         // Now remove a slot and make sure the fast lookup fails
-        int oldIndex = obj.getMap().lookupFast("one", 0);
-        int oldIndex2 = obj.getMap().lookupFast("two", 0);
-        assertTrue(obj.getMap().validateFast(oldIndex));
-        assertTrue(obj.getMap().validateFast(oldIndex2));
+        SlotMap.FastKey oldKey = obj.getMap().lookupFast("one", 0);
+        SlotMap.FastKey oldKey2 = obj.getMap().lookupFast("two", 0);
+        assertTrue(obj.getMap().validateFast(oldKey));
+        assertTrue(obj.getMap().validateFast(oldKey2));
 
         // Here comes the delete
         obj.getMap().compute(obj, "one", 0, (k, i, e) -> null);
-        assertEquals(-1, obj.getMap().lookupFast("one", 0));
-        assertFalse(obj.getMap().validateFast(oldIndex));
+        assertEquals(null, obj.getMap().lookupFast("one", 0));
+        assertFalse(obj.getMap().validateFast(oldKey));
 
         // Since we introduced a delete, the optimization is now off and
         // we can't use fast lookups any more
-        assertEquals(-1, obj.getMap().lookupFast("two", 0));
-        assertFalse(obj.getMap().validateFast(oldIndex2));
+        assertEquals(null, obj.getMap().lookupFast("two", 0));
+        assertFalse(obj.getMap().validateFast(oldKey2));
     }
 
     private void verifyIndicesAndKeys() {

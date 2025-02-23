@@ -155,7 +155,7 @@ public abstract class SlotMapOwner {
         }
     }
 
-    static class SingleEntrySlotMap implements SlotMap {
+    static class SingleEntrySlotMap implements SlotMap, SlotMap.FastKey {
 
         SingleEntrySlotMap(Slot slot) {
             assert (slot != null);
@@ -220,6 +220,29 @@ public abstract class SlotMapOwner {
             owner.setMap(newMap);
             newMap.add(owner, slot);
             return newMap.compute(owner, key, index, c);
+        }
+
+        @Override
+        public SlotMap.FastKey lookupFast(Object key, int index) {
+            final int indexOrHash = (key != null ? key.hashCode() : index);
+
+            if (indexOrHash == slot.indexOrHash && Objects.equals(slot.name, key)) {
+                // Right now, a fast lookup is only valid if it's for this very
+                // same slot map, so all we need to do is return ourselves as the key.
+                return this;
+            }
+            return null;
+        }
+
+        @Override
+        public boolean validateFast(SlotMap.FastKey k) {
+            return k == this;
+        }
+
+        @Override
+        public Slot queryFast(FastKey k) {
+            assert validateFast(k);
+            return slot;
         }
     }
 

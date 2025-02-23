@@ -92,34 +92,42 @@ public class OrderedSlotMap implements SlotMap {
     }
 
     @Override
-    public int lookupFast(Object key, int index) {
+    public SlotMap.FastKey lookupFast(Object key, int index) {
         if (slots == null || deleteCount != 0) {
-            return -1;
+            return null;
         }
 
         int indexOrHash = (key != null ? key.hashCode() : index);
         int slotIndex = getSlotIndex(slots.length, indexOrHash);
         for (Slot slot = slots[slotIndex]; slot != null; slot = slot.next) {
             if (indexOrHash == slot.indexOrHash && Objects.equals(slot.name, key)) {
-                return slot.orderedPos;
+                return new OrderedFastKey(this, slot.orderedPos);
             }
         }
-        return -1;
+        return null;
     }
 
     @Override
-    public boolean validateFast(int index) {
+    public boolean validateFast(SlotMap.FastKey k) {
+        if (!(k instanceof OrderedFastKey)) {
+            return false;
+        }
+        OrderedFastKey fk = (OrderedFastKey) k;
         // A fast index isn't valid if it's out of range, or if there
         // was ever a deletion, because the same key could be re-used,
         // making the index invalid.
-        assert index >= 0;
-        return index < orderedCount && orderedSlots[index] != DELETED_SENTINEL && deleteCount == 0;
+        assert fk.index >= 0;
+        return fk.map == this
+                && fk.index < orderedCount
+                && orderedSlots[fk.index] != DELETED_SENTINEL
+                && deleteCount == 0;
     }
 
     @Override
-    public Slot queryFast(int index) {
-        assert validateFast(index);
-        return orderedSlots[index];
+    public Slot queryFast(SlotMap.FastKey k) {
+        assert validateFast(k);
+        OrderedFastKey fk = (OrderedFastKey) k;
+        return orderedSlots[fk.index];
     }
 
     /**
@@ -260,7 +268,7 @@ public class OrderedSlotMap implements SlotMap {
             orderedSlots = newOrderedSlots;
         }
         assert orderedCount < Short.MAX_VALUE;
-        newSlot.orderedPos = (short)orderedCount;
+        newSlot.orderedPos = (short) orderedCount;
         orderedSlots[orderedCount++] = newSlot;
         addKnownAbsentSlot(slots, newSlot);
     }
@@ -306,5 +314,20 @@ public class OrderedSlotMap implements SlotMap {
         // It only works if the table size is a power of 2.
         // The performance improvement is measurable.
         return indexOrHash & (tableSize - 1);
+    }
+
+    public static final class OrderedFastKey implements SlotMap.FastKey {
+        private final SlotMap map;
+        private final int index;
+
+        OrderedFastKey(SlotMap map, int index) {
+            this.map = map;
+            this.index = index;
+        }
+
+        @Override
+        public String toString() {
+            return "fastKey(" + map + ")[" + index + "]";
+        }
     }
 }

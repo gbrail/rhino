@@ -23,24 +23,20 @@ public interface SlotMap extends Iterable<Slot> {
         S compute(Object key, int index, Slot existing);
     }
 
-    /**
-     * Return the size of the map.
-     */
+    /** Return the size of the map. */
     int size();
 
-    /**
-     * Return whether the map is empty.
-     */
+    /** Return whether the map is empty. */
     boolean isEmpty();
 
     /**
      * Return the Slot that matches EITHER "key" or "index". (It will use "key" if it is not null,
      * and otherwise "index".) If no slot exists, then create a default slot class.
      *
-     * @param key        The key for the slot, which should be a String or a Symbol.
-     * @param index      if key is zero, then this will be used as the key instead.
+     * @param key The key for the slot, which should be a String or a Symbol.
+     * @param index if key is zero, then this will be used as the key instead.
      * @param attributes the attributes to be set on the slot if a new slot is created. Existing
-     *                   slots will not be modified.
+     *     slots will not be modified.
      * @return a Slot, which will be created anew if no such slot exists.
      */
     Slot modify(SlotMapOwner owner, Object key, int index, int attributes);
@@ -48,7 +44,7 @@ public interface SlotMap extends Iterable<Slot> {
     /**
      * Retrieve the slot at EITHER key or index, or return null if the slot cannot be found.
      *
-     * @param key   The key for the slot, which should be a String or a Symbol.
+     * @param key The key for the slot, which should be a String or a Symbol.
      * @param index if key is zero, then this will be used as the key instead.
      * @return either the Slot that matched the key and index, or null
      */
@@ -72,27 +68,26 @@ public interface SlotMap extends Iterable<Slot> {
 
     /**
      * Look up the slot at EITHER key or index. If the property is not found, or if the slot map
-     * does not support fast lookups, return -1. Otherwise, return a value that may be used
-     * in "queryFast" to retrieve the value later.
+     * does not support fast lookups, return null. Otherwise, return a value that may be used in
+     * "queryFast" to retrieve the value later.
      */
-    default int lookupFast(Object key, int index) {
-        return -1;
+    default FastKey lookupFast(Object key, int index) {
+        return null;
     }
 
     /**
-     * Validate that an index retrieved by "lookupFast" is still valid. It may not be
-     * valid if the slot map type has changed, for example.
+     * Validate that a key retrieved by "lookupFast" is still valid. It may not be valid if the slot
+     * map type has changed, for example.
      */
-    default boolean validateFast(int index) {
+    default boolean validateFast(FastKey k) {
         return false;
     }
 
     /**
-     * Return the slot at the index returned by "lookupFast". It is incorrect to
-     * use this without first getting a true result from "validateFast" -- the
-     * result is undefined.
+     * Return the slot at the index returned by "lookupFast". It is incorrect to use this without
+     * first getting a true result from "validateFast" -- the result is undefined.
      */
-    default Slot queryFast(int index) {
+    default Slot queryFast(FastKey k) {
         // It is incorrect to use this unless the implementation implements "lookupFast"
         assert false;
         return null;
@@ -110,4 +105,6 @@ public interface SlotMap extends Iterable<Slot> {
     default int dirtySize() {
         return size();
     }
+
+    interface FastKey {}
 }

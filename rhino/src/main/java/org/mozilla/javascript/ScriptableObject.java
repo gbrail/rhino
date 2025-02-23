@@ -266,30 +266,28 @@ public abstract class ScriptableObject extends SlotMapOwner
     }
 
     /**
-     * Return an index that can be passed to "getFast" to get the value of a slot
-     * in a more efficient way. This only works for certain types of objects
-     * and may be invalidated at any time. Return -1 if the fast lookup is not possible.
+     * Return an index that can be passed to "getFast" to get the value of a slot in a more
+     * efficient way. This only works for certain types of objects and may be invalidated at any
+     * time. Return -1 if the fast lookup is not possible.
      */
-    public int lookupFast(String name) {
+    public SlotMap.FastKey lookupFast(String name) {
         return getMap().lookupFast(name, 0);
     }
 
     /**
-     * Validate that an index retrieved by "lookupFast" is still valid. When such
-     * an index is invalid is subject to implementation details that could change at
-     * any time.
+     * Validate that an index retrieved by "lookupFast" is still valid. When such an index is
+     * invalid is subject to implementation details that could change at any time.
      */
-    public boolean validateFast(int index) {
+    public boolean validateFast(SlotMap.FastKey index) {
         return getMap().validateFast(index);
     }
 
     /**
-     * Get the value of a slot using an index retrieved by "lookupFast". This is only valid if
-     * the index returned from lookupFast is >= 0 <em>and</em> if "validateFast" returned
-     * true, <em>and</em> the object was not modified in between the validation and the
-     * "get" operation.
+     * Get the value of a slot using an index retrieved by "lookupFast". This is only valid if the
+     * index returned from lookupFast is >= 0 <em>and</em> if "validateFast" returned true,
+     * <em>and</em> the object was not modified in between the validation and the "get" operation.
      */
-    public Object getFast(int index) {
+    public Object getFast(SlotMap.FastKey index) {
         return getMap().queryFast(index).getValue(this);
     }
 
