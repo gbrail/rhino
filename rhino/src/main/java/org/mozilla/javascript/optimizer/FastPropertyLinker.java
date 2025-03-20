@@ -46,9 +46,12 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             }
         } else if (op.isNamespace(RhinoNamespace.NAME) && op.isOperation(StandardOperation.GET)) {
             assert target instanceof ScriptableObject;
-            SlotMap.FastKey fk = ((ScriptableObject) target).lookupFast(op.getName());
-            if (fk != null) {
-                return getFastRead(req, op, fk, 2, "testFastName", "getFastName");
+            ScriptableObject so = (ScriptableObject) target;
+            if (so.getPrototype() == null) {
+                SlotMap.FastKey fk = so.lookupFast(op.getName());
+                if (fk != null) {
+                    return getFastRead(req, op, fk, 2, "testFastName", "getFastName");
+                }
             }
         }
 
@@ -100,16 +103,13 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
     @SuppressWarnings("unused")
     private static boolean testFastName(Scriptable s, Context cx, SlotMap.FastKey k) {
         if (s instanceof ScriptableObject) {
-            System.out.println("true test: " + k);
             return ((ScriptableObject) s).validateFast(k);
         }
-        System.out.println("false test: " + k);
         return false;
     }
 
     @SuppressWarnings("unused")
     private static Object getFastName(Scriptable s, Context cx, SlotMap.FastKey k) {
-        System.out.println("get " + k);
         return ((ScriptableObject) s).getFast(k);
     }
 }

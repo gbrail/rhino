@@ -34,6 +34,9 @@ class DefaultLinker implements GuardingDynamicLinker {
 
         GuardedInvocation invocation = getInvocation(lookup, mType, op);
         if (DEBUG) {
+            if (req.isCallSiteUnstable()) {
+                System.out.println(op + ": unstable");
+            }
             String t1 =
                     req.getReceiver() == null
                             ? "null"

@@ -148,8 +148,8 @@ public class SlotMapBenchmark {
         final String[] randomKeys = new String[100];
         String size100LastKey;
         String size10LastKey;
-        int size100LastIndex;
-        int size10LastIndex;
+        SlotMap.FastKey size100LastIndex;
+        SlotMap.FastKey size10LastIndex;
 
         @Setup(Level.Trial)
         public void create() {
@@ -159,7 +159,7 @@ public class SlotMapBenchmark {
             }
             size10LastKey = lastKey;
             size10LastIndex = size10Map.lookupFast(lastKey, 0);
-            if (size10LastIndex < 0) {
+            if (size100LastIndex == null) {
                 throw new AssertionError();
             }
             for (int i = 0; i < 100; i++) {
@@ -167,7 +167,7 @@ public class SlotMapBenchmark {
             }
             size100LastKey = lastKey;
             size100LastIndex = size100Map.lookupFast(lastKey, 0);
-            if (size100LastIndex < 0) {
+            if (size100LastIndex == null) {
                 throw new AssertionError();
             }
             for (int i = 0; i < 100; i++) {
