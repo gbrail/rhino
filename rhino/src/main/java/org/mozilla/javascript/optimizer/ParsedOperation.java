@@ -45,6 +45,10 @@ class ParsedOperation {
         return op1.equals(operation) || op2.equals(operation);
     }
 
+    boolean isOperation(Operation op1, Operation op2, Operation op3) {
+        return op1.equals(operation) || op2.equals(operation) || op3.equals(operation);
+    }
+
     String getName() {
         return name;
     }

@@ -21,6 +21,7 @@ public class PropertyBenchmark {
         Function createFieldByField;
         Function getName;
         Function check;
+        Function checkGlobal;
 
         Object object;
 
@@ -43,6 +44,7 @@ public class PropertyBenchmark {
                     (Function) ScriptableObject.getProperty(scope, "createObjectFieldByField");
             getName = (Function) ScriptableObject.getProperty(scope, "getName");
             check = (Function) ScriptableObject.getProperty(scope, "check");
+            checkGlobal = (Function) ScriptableObject.getProperty(scope, "checkGlobal");
 
             object = create.call(cx, scope, null, new Object[] {"testing"});
         }
@@ -94,5 +96,10 @@ public class PropertyBenchmark {
     @Benchmark
     public Object addTwoProperties(PropertyBenchmark.PropertyState state) {
         return state.check.call(state.cx, state.scope, null, new Object[] {state.object});
+    }
+
+    @Benchmark
+    public Object addTwoPropertiesPrototype(PropertyBenchmark.PropertyState state) {
+        return state.checkGlobal.call(state.cx, state.scope, null, ScriptRuntime.emptyArgs);
     }
 }

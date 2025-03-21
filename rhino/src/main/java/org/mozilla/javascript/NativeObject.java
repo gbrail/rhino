@@ -24,6 +24,7 @@ import org.mozilla.javascript.ScriptRuntime.StringIdOrIndex;
  *
  * @author Norris Boyd
  */
+@WellBehavedProperties
 public class NativeObject extends ScriptableObject implements Map {
     private static final long serialVersionUID = -6345305608474346996L;
 

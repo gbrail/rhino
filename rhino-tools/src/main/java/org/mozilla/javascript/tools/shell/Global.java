@@ -47,6 +47,7 @@ import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Synchronizer;
 import org.mozilla.javascript.Undefined;
+import org.mozilla.javascript.WellBehavedProperties;
 import org.mozilla.javascript.Wrapper;
 import org.mozilla.javascript.commonjs.module.Require;
 import org.mozilla.javascript.commonjs.module.RequireBuilder;
@@ -62,6 +63,7 @@ import org.mozilla.javascript.tools.ToolErrorReporter;
  *
  * @author Norris Boyd
  */
+@WellBehavedProperties
 public class Global extends ImporterTopLevel {
     static final long serialVersionUID = 4029130780977538005L;
 

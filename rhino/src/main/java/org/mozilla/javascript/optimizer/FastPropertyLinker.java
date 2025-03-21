@@ -9,10 +9,13 @@ import jdk.dynalink.linker.GuardedInvocation;
 import jdk.dynalink.linker.LinkRequest;
 import jdk.dynalink.linker.LinkerServices;
 import jdk.dynalink.linker.TypeBasedGuardingDynamicLinker;
+import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.SlotMap;
+import org.mozilla.javascript.WellBehavedProperties;
 
 /**
  * This linker works with ScriptableObject to use the fast property support, which allows access to
@@ -23,7 +26,12 @@ import org.mozilla.javascript.SlotMap;
 class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
     @Override
     public boolean canLinkType(Class<?> type) {
-        return ScriptableObject.class.isAssignableFrom(type);
+        // We can only link here if we know that the object will behave well,
+        // and not override "get" and "set" in ways that make the fast property
+        // optimization break down. The WellBehavedProperties annotation is
+        // therefore only used on classes when we know that is the case.
+        return ScriptableObject.class.isAssignableFrom(type)
+                && type.isAnnotationPresent(WellBehavedProperties.class);
         // TODO NativeWith?
     }
 
@@ -36,22 +44,23 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
 
         ParsedOperation op = new ParsedOperation(req.getCallSiteDescriptor().getOperation());
         Object target = req.getReceiver();
+        assert target instanceof ScriptableObject;
 
         if (op.isNamespace(StandardNamespace.PROPERTY)
                 && op.isOperation(StandardOperation.GET, RhinoOperation.GETNOWARN)) {
-            assert target instanceof ScriptableObject;
             SlotMap.FastKey fk = ((ScriptableObject) target).lookupFast(op.getName());
             if (fk != null) {
                 return getFastRead(req, op, fk, 3, "testFastProperty", "getFastProperty");
             }
-        } else if (op.isNamespace(RhinoNamespace.NAME) && op.isOperation(StandardOperation.GET)) {
-            assert target instanceof ScriptableObject;
+        } else if (op.isNamespace(RhinoNamespace.NAME)
+                && op.isOperation(StandardOperation.GET, RhinoOperation.GETWITHTHIS)) {
             ScriptableObject so = (ScriptableObject) target;
-            if (so.getPrototype() == null) {
-                SlotMap.FastKey fk = so.lookupFast(op.getName());
-                if (fk != null) {
-                    return getFastRead(req, op, fk, 2, "testFastName", "getFastName");
+            SlotMap.FastKey fk = so.lookupFast(op.getName());
+            if (fk != null) {
+                if (op.isOperation(RhinoOperation.GETWITHTHIS)) {
+                    return getFastRead(req, op, fk, 2, "testFastName", "getFastNameAndThis");
                 }
+                return getFastRead(req, op, fk, 2, "testFastName", "getFastName");
             }
         }
 
@@ -78,9 +87,10 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
         MethodHandle guard = lookup.findStatic(FastPropertyLinker.class, testName, guardType);
         guard = MethodHandles.insertArguments(guard, targetArity, fk);
 
-        MethodType invokeType = mType.insertParameterTypes(targetArity, SlotMap.FastKey.class);
+        MethodType invokeType =
+                mType.insertParameterTypes(targetArity, SlotMap.FastKey.class, String.class);
         MethodHandle mh = lookup.findStatic(FastPropertyLinker.class, getName, invokeType);
-        mh = MethodHandles.insertArguments(mh, targetArity, fk);
+        mh = MethodHandles.insertArguments(mh, targetArity, fk, op.getName());
 
         return new GuardedInvocation(mh, guard);
     }
@@ -96,7 +106,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
 
     @SuppressWarnings("unused")
     private static Object getFastProperty(
-            Object o, Context cx, Scriptable scope, SlotMap.FastKey k) {
+            Object o, Context cx, Scriptable scope, SlotMap.FastKey k, String name) {
         return ((ScriptableObject) o).getFast(k);
     }
 
@@ -109,7 +119,21 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
     }
 
     @SuppressWarnings("unused")
-    private static Object getFastName(Scriptable s, Context cx, SlotMap.FastKey k) {
+    private static Object getFastName(Scriptable s, Context cx, SlotMap.FastKey k, String name) {
         return ((ScriptableObject) s).getFast(k);
+    }
+
+    @SuppressWarnings("unused")
+    private static Callable getFastNameAndThis(
+            Scriptable s, Context cx, SlotMap.FastKey k, String name) {
+        Object ret = ((ScriptableObject) s).getFast(k);
+        if (ret instanceof Callable) {
+            ScriptRuntime.storeScriptable(cx, s);
+            return (Callable) ret;
+        }
+        if (ret == Scriptable.NOT_FOUND) {
+            throw ScriptRuntime.notFoundError(s, name);
+        }
+        throw ScriptRuntime.notFunctionError(s, name);
     }
 }

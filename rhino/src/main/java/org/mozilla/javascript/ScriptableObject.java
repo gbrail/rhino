@@ -50,6 +50,7 @@ import org.mozilla.javascript.debug.DebuggableObject;
  * @see org.mozilla.javascript.Scriptable
  * @author Norris Boyd
  */
+@WellBehavedProperties
 public abstract class ScriptableObject extends SlotMapOwner
         implements Scriptable, SymbolScriptable, Serializable, DebuggableObject, ConstProperties {
 

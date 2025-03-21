@@ -1,5 +1,20 @@
 'use strict';
 
+function GlobalTestObject(name) {
+    this.name = name;
+    this.foo = 1;
+    this.bar = 2;
+    this.baz = 3;
+}
+
+GlobalTestObject.prototype.check = function() {
+    if (this.foo + this.bar != this.baz) {
+      throw 'Check failed';
+    }
+}
+
+const GlobalTest = new GlobalTestObject('GlobalTest');
+
 function createObject(name) {
   return {
     name: name,
@@ -29,3 +44,32 @@ function check(o) {
   }
   return x;
 }
+
+function checkGlobal() {
+    GlobalTest.check();
+}
+
+function test() {
+    let o = createObject('foo');
+    var name;
+    for (var i = 0; i < 10; i++) {
+        name = getName(o);
+    }
+    for (var i = 0; i < 10; i++) {
+        check(o);
+    }
+    for (var i = 0; i < 10; i++) {
+        checkGlobal();
+    }
+}
+
+function test10() {
+    for (var i = 0; i < 10; i++) {
+        let o = createObject('foo');
+        var name = getName(o);
+        check(o);
+    }
+}
+
+test();
+//test10();
