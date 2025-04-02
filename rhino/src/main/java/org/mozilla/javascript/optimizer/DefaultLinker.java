@@ -124,6 +124,12 @@ class DefaultLinker implements GuardingDynamicLinker {
             mh = lookup.findStatic(ScriptRuntime.class, "setSuperElem", mType);
         } else if (op.isOperation(RhinoOperation.SETINDEX)) {
             mh = lookup.findStatic(ScriptRuntime.class, "setObjectIndex", mType);
+        } else if (op.isOperation(RhinoOperation.CALL_0)) {
+            mh = bindStringParameter(lookup, mType, OptRuntime.class, "callProp0", 1, op.getName());
+        } else if (op.isOperation(RhinoOperation.CALL_0_OPTIONAL)) {
+            mh =
+                    bindStringParameter(
+                            lookup, mType, OptRuntime.class, "callProp0Optional", 1, op.getName());
         }
 
         if (mh != null) {
@@ -175,6 +181,27 @@ class DefaultLinker implements GuardingDynamicLinker {
             mh = bindStringParameter(lookup, mType, ScriptRuntime.class, "strictSetName", 4, name);
         } else if (op.isOperation(RhinoOperation.SETCONST)) {
             mh = bindStringParameter(lookup, mType, ScriptRuntime.class, "setConst", 3, name);
+        } else if (op.isOperation(RhinoOperation.CALL_0)) {
+            tt = MethodType.methodType(Object.class, String.class, Context.class, Scriptable.class);
+            mh = lookup.findStatic(OptRuntime.class, "callName0", tt);
+            mh = MethodHandles.insertArguments(mh, 0, name);
+            mh = MethodHandles.permuteArguments(mh, mType, 1, 0);
+        } else if (op.isOperation(RhinoOperation.CALL_0_OPTIONAL)) {
+            tt = MethodType.methodType(Object.class, String.class, Context.class, Scriptable.class);
+            mh = lookup.findStatic(OptRuntime.class, "callName0Optional", tt);
+            mh = MethodHandles.insertArguments(mh, 0, name);
+            mh = MethodHandles.permuteArguments(mh, mType, 1, 0);
+        } else if (op.isOperation(StandardOperation.CALL)) {
+            tt =
+                    MethodType.methodType(
+                            Object.class,
+                            Object[].class,
+                            String.class,
+                            Context.class,
+                            Scriptable.class);
+            mh = lookup.findStatic(OptRuntime.class, "callName", tt);
+            mh = MethodHandles.insertArguments(mh, 1, name);
+            mh = MethodHandles.permuteArguments(mh, mType, 2, 1, 0);
         }
 
         if (mh != null) {
