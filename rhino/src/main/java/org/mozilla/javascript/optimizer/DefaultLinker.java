@@ -9,11 +9,13 @@ import jdk.dynalink.linker.GuardedInvocation;
 import jdk.dynalink.linker.GuardingDynamicLinker;
 import jdk.dynalink.linker.LinkRequest;
 import jdk.dynalink.linker.LinkerServices;
+import jdk.dynalink.linker.support.Guards;
 import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.Token;
+import org.mozilla.javascript.Undefined;
 import org.mozilla.javascript.config.RhinoConfig;
 
 /**
@@ -54,6 +56,8 @@ class DefaultLinker implements GuardingDynamicLinker {
             return getPropertyInvocation(lookup, mType, op);
         } else if (op.isNamespace(RhinoNamespace.NAME)) {
             return getNameInvocation(lookup, mType, op);
+        } else if (op.isNamespace(StandardNamespace.METHOD)) {
+            return getMethodInvocation(lookup, mType, op);
         } else if (op.isNamespace(RhinoNamespace.MATH)) {
             return getMathInvocation(lookup, mType, op);
         }
@@ -192,6 +196,7 @@ class DefaultLinker implements GuardingDynamicLinker {
             mh = MethodHandles.insertArguments(mh, 0, name);
             mh = MethodHandles.permuteArguments(mh, mType, 1, 0);
         } else if (op.isOperation(StandardOperation.CALL)) {
+            // Rearrange parameters to adapt to standard "callName" method
             tt =
                     MethodType.methodType(
                             Object.class,
@@ -202,6 +207,34 @@ class DefaultLinker implements GuardingDynamicLinker {
             mh = lookup.findStatic(OptRuntime.class, "callName", tt);
             mh = MethodHandles.insertArguments(mh, 1, name);
             mh = MethodHandles.permuteArguments(mh, mType, 2, 1, 0);
+        }
+
+        if (mh != null) {
+            return new GuardedInvocation(mh);
+        }
+        throw new UnsupportedOperationException(op.toString());
+    }
+
+    private GuardedInvocation getMethodInvocation(
+            MethodHandles.Lookup lookup, MethodType mType, ParsedOperation op)
+            throws NoSuchMethodException, IllegalAccessException {
+        MethodHandle mh = null;
+
+        if (op.isOperation(StandardOperation.CALL)) {
+            MethodType mt = mType.dropParameterTypes(0, 1);
+            mh = lookup.findVirtual(Callable.class, "call", mt);
+        } else if (op.isOperation(RhinoOperation.CALL_0)) {
+            MethodType mt = mType.appendParameterTypes(Object[].class);
+            mt = mt.dropParameterTypes(0, 1);
+            mh = lookup.findVirtual(Callable.class, "call", mt);
+            mh = MethodHandles.insertArguments(mh, 4, OptRuntime.emptyArgsForVarargs());
+        } else if (op.isOperation(RhinoOperation.CALL_0_OPTIONAL)) {
+            // If the first arg is not null, call "call", otherwise return null.
+            MethodType mt = mType.dropParameterTypes(0, 1);
+            MethodHandle target = lookup.findVirtual(Callable.class, "call", mt);
+            MethodHandle guard = Guards.isNotNull();
+            MethodHandle fallback = MethodHandles.constant(Object.class, Undefined.instance);
+            mh = MethodHandles.guardWithTest(guard, target, fallback);
         }
 
         if (mh != null) {

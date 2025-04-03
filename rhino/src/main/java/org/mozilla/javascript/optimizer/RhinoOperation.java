@@ -36,6 +36,4 @@ public enum RhinoOperation implements Operation {
     TONUMERIC,
     CALL_0,
     CALL_0_OPTIONAL,
-    CALL_1,
-    CALL_2,
 }
