@@ -2763,6 +2763,58 @@ public class ScriptRuntime {
     }
 
     /**
+     * Prepare for calling name(...): return function corresponding to name and make current top
+     * scope available as ScriptRuntime.lastStoredScriptable() for consumption as thisObj. The
+     * caller must call ScriptRuntime.lastStoredScriptable() immediately after calling this method.
+     */
+    public static Object getNameAndThis(String name, Context cx, Scriptable scope) {
+        return getNameAndThisInner(name, cx, scope, false);
+    }
+
+    public static Object getNameAndThisOptional(String name, Context cx, Scriptable scope) {
+        return getNameAndThisInner(name, cx, scope, true);
+    }
+
+    private static Object getNameAndThisInner(
+            String name, Context cx, Scriptable scope, boolean isOptionalChainingCall) {
+        Scriptable parent = scope.getParentScope();
+        if (parent == null) {
+            Object result = topScopeName(cx, scope, name);
+            if (isOptionalChainingCall
+                    && (result == Scriptable.NOT_FOUND
+                            || result == null
+                            || Undefined.isUndefined(result))) {
+                storeScriptable(cx, null);
+                return null;
+            }
+            // Top scope is not NativeWith or NativeCall => thisObj == scope
+            if (result == Scriptable.NOT_FOUND) {
+                throw referenceError("msg.undef.prop");
+            }
+            storeScriptable(cx, scope);
+            return result;
+        }
+
+        // name will call storeScriptable(cx, thisObj);
+        Object result = nameOrFunction(cx, scope, parent, name, false, isOptionalChainingCall);
+        if (result == Scriptable.NOT_FOUND) {
+            discardLastStoredScriptable(cx);
+            throw referenceError("msg.undef.prop");
+        }
+        return result;
+    }
+
+    /**
+     * Verify that the result of getNameAndThis() is actually callable.
+     */
+    public static Callable coerceCallable(Context cx, Object arg) {
+        if (!(arg instanceof Callable)) {
+            throw notFunctionError(arg);
+        }
+        return (Callable) arg;
+    }
+
+    /**
      * Prepare for calling obj[id](...): return function corresponding to obj[id] and make obj
      * properly converted to Scriptable available as ScriptRuntime.lastStoredScriptable() for
      * consumption as thisObj. The caller must call ScriptRuntime.lastStoredScriptable() immediately
@@ -2909,6 +2961,64 @@ public class ScriptRuntime {
     }
 
     /**
+     * Prepare for calling obj.property(...): return function corresponding to obj.property and make
+     * obj properly converted to Scriptable available as ScriptRuntime.lastStoredScriptable() for
+     * consumption as thisObj. The caller must call ScriptRuntime.lastStoredScriptable() immediately
+     * after calling this method.
+     */
+    public static Object getPropAndThis(Object obj, String property, Context cx, Scriptable scope) {
+        return getPropAndThisInner(obj, property, cx, scope, false);
+    }
+
+    public static Object getPropAndThisOptional(
+            Object obj, String property, Context cx, Scriptable scope) {
+        return getPropAndThisInner(obj, property, cx, scope, true);
+    }
+
+    private static Object getPropAndThisInner(
+            Object obj,
+            String property,
+            Context cx,
+            Scriptable scope,
+            boolean isOptionalChainingCall) {
+        Scriptable thisObj = toObjectOrNull(cx, obj, scope);
+        return getPropAndThisHelper(obj, property, cx, thisObj, isOptionalChainingCall);
+    }
+
+    private static Object getPropAndThisHelper(
+            Object obj,
+            String property,
+            Context cx,
+            Scriptable thisObj,
+            boolean isOptionalChainingCall) {
+        if (thisObj == null) {
+            if (isOptionalChainingCall) {
+                storeScriptable(cx, null);
+                return null;
+            }
+            throw undefCallError(obj, property);
+        }
+
+        Object value = ScriptableObject.getProperty(thisObj, property);
+        if (!(value instanceof Callable)) {
+            Object noSuchMethod = ScriptableObject.getProperty(thisObj, "__noSuchMethod__");
+            if (noSuchMethod instanceof Callable)
+                value = new NoSuchMethodShim((Callable) noSuchMethod, property);
+        }
+
+        if (isOptionalChainingCall
+                && (value == Scriptable.NOT_FOUND
+                        || value == null
+                        || Undefined.isUndefined(value))) {
+            storeScriptable(cx, null);
+            return null;
+        }
+
+        storeScriptable(cx, thisObj);
+        return value;
+    }
+
+    /**
      * Prepare for calling &lt;expression&gt;(...): return function corresponding to
      * &lt;expression&gt; and make parent scope of the function available as
      * ScriptRuntime.lastStoredScriptable() for consumption as thisObj. The caller must call
@@ -3030,6 +3140,7 @@ public class ScriptRuntime {
         }
 
         if (callType == Node.SPECIALCALL_EVAL) {
+            assert thisObj != null;
             if (thisObj.getParentScope() == null && NativeGlobal.isEvalFunction(fun)) {
                 return evalSpecial(cx, scope, callerThis, args, filename, lineNumber);
             }

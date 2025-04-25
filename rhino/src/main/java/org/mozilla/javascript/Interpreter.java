@@ -1851,8 +1851,7 @@ public final class Interpreter extends Icode implements Evaluator {
                                 // stringReg: name
                                 ++stackTop;
                                 stack[stackTop] =
-                                        ScriptRuntime.getNameFunctionAndThis(
-                                                stringReg, cx, frame.scope);
+                                        ScriptRuntime.getNameAndThis(stringReg, cx, frame.scope);
                                 ++stackTop;
                                 stack[stackTop] = ScriptRuntime.lastStoredScriptable(cx);
                                 continue Loop;
@@ -1860,7 +1859,7 @@ public final class Interpreter extends Icode implements Evaluator {
                                 // stringReg: name
                                 ++stackTop;
                                 stack[stackTop] =
-                                        ScriptRuntime.getNameFunctionAndThisOptional(
+                                        ScriptRuntime.getNameAndThisOptional(
                                                 stringReg, cx, frame.scope);
                                 ++stackTop;
                                 stack[stackTop] = ScriptRuntime.lastStoredScriptable(cx);
@@ -1872,7 +1871,7 @@ public final class Interpreter extends Icode implements Evaluator {
                                         obj = ScriptRuntime.wrapNumber(sDbl[stackTop]);
                                     // stringReg: property
                                     stack[stackTop] =
-                                            ScriptRuntime.getPropFunctionAndThis(
+                                            ScriptRuntime.getPropAndThis(
                                                     obj, stringReg, cx, frame.scope);
                                     ++stackTop;
                                     stack[stackTop] = ScriptRuntime.lastStoredScriptable(cx);
@@ -1885,7 +1884,7 @@ public final class Interpreter extends Icode implements Evaluator {
                                         obj = ScriptRuntime.wrapNumber(sDbl[stackTop]);
                                     // stringReg: property
                                     stack[stackTop] =
-                                            ScriptRuntime.getPropFunctionAndThisOptional(
+                                            ScriptRuntime.getPropAndThisOptional(
                                                     obj, stringReg, cx, frame.scope);
                                     ++stackTop;
                                     stack[stackTop] = ScriptRuntime.lastStoredScriptable(cx);
@@ -2803,7 +2802,7 @@ public final class Interpreter extends Icode implements Evaluator {
                 : ScriptRuntime.wrapNumber(interpreterResultDbl);
     }
 
-    private static final NewState doCallByteCode(
+    private static NewState doCallByteCode(
             Context cx,
             CallFrame frame,
             boolean instructionCounting,
@@ -2820,9 +2819,10 @@ public final class Interpreter extends Icode implements Evaluator {
         // indexReg: number of arguments
         stackTop -= 1 + indexReg;
 
-        // CALL generation ensures that fun and funThisObj
-        // are already Scriptable and Callable objects respectively
-        Callable fun = (Callable) stack[stackTop];
+        // CALL generation does NOT ensure that "fun" is already scriptable
+        // because of rules about order of argument evaluation -- check now!
+        Callable fun = ScriptRuntime.coerceCallable(cx, stack[stackTop]);
+        // CALL generation ensures that "this" is already Scriptable
         Scriptable funThisObj = (Scriptable) stack[stackTop + 1];
         Scriptable funHomeObj =
                 (fun instanceof BaseFunction) ? ((BaseFunction) fun).getHomeObject() : null;
@@ -3267,7 +3267,7 @@ public final class Interpreter extends Icode implements Evaluator {
             // Call code generation ensure that stack here
             // is ... Callable Scriptable
             Scriptable functionThis = (Scriptable) stack[stackTop + 1];
-            Callable function = (Callable) stack[stackTop];
+            Callable function = ScriptRuntime.coerceCallable(cx, stack[stackTop]);
             Object[] outArgs = getArgsArray(stack, sDbl, stackTop + 2, indexReg);
             stack[stackTop] =
                     ScriptRuntime.callSpecial(
