@@ -2507,15 +2507,10 @@ class BodyCodegen {
         Node firstArgChild = child.getNext();
         int childType = child.getType();
         boolean isOptionalChainingCall = node.getIntProp(Node.OPTIONAL_CHAINING, 0) == 1;
-
-        String methodName;
-        String signature;
         Integer afterLabel = null;
 
         if (node.getIntProp(Node.SUPER_PROPERTY_ACCESS, 0) == 1) {
             // Just one general case, non optimized depending on the number of arguments
-
-            int argCount = countArguments(firstArgChild);
             generateFunctionAndThisObj(child, node);
 
             // stack: ... functionObj, superObj is stored on scratch last scriptable
@@ -2529,58 +2524,7 @@ class BodyCodegen {
                     "(Lorg/mozilla/javascript/Context;)V");
             cfw.addALoad(thisObjLocal);
 
-            if (argCount == 0) {
-                methodName = "call0";
-                signature = SIGNATURE_CALL0;
-            } else if (argCount == 1) {
-                generateExpression(firstArgChild, node);
-                methodName = "call1";
-                signature = SIGNATURE_CALL1;
-            } else {
-                if (argCount == 2) {
-                    generateExpression(firstArgChild, node);
-                    generateExpression(firstArgChild.getNext(), node);
-                    methodName = "call2";
-                    signature = SIGNATURE_CALL2;
-                } else {
-                    generateCallArgArray(node, firstArgChild, false);
-                    methodName = "callN";
-                    signature = SIGNATURE_CALLN;
-                }
-            }
-        } else if (firstArgChild == null) {
-            if (childType == Token.NAME) {
-                // name() call
-                String name = child.getString();
-                cfw.addPush(name);
-                methodName = isOptionalChainingCall ? "callName0Optional" : "callName0";
-                signature =
-                        "(Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
-            } else if (childType == Token.GETPROP) {
-                // x.name() call
-                Node propTarget = child.getFirstChild();
-                generateExpression(propTarget, node);
-                Node id = propTarget.getNext();
-                String property = id.getString();
-                cfw.addPush(property);
-                methodName = isOptionalChainingCall ? "callProp0Optional" : "callProp0";
-                signature =
-                        "(Ljava/lang/Object;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
-            } else if (childType == Token.GETPROPNOWARN) {
-                throw Kit.codeBug();
-            } else {
-                generateFunctionAndThisObj(child, node);
-                pushThisFromLastScriptable();
-                methodName = isOptionalChainingCall ? "call0Optional" : "call0";
-                signature = SIGNATURE_CALL0;
-            }
+            generateCallArgArray(node, firstArgChild, false);
 
         } else if (childType == Token.NAME) {
             // XXX: this optimization is only possible if name
@@ -2614,22 +2558,17 @@ class BodyCodegen {
                 // push this, arguments, and do call
                 cfw.markLabel(doCallLabel);
                 pushThisFromLastScriptable();
-                methodName = "callN";
                 generateCallArgArray(node, firstArgChild, false);
-                signature = SIGNATURE_CALLN;
+
             } else {
+                cfw.addALoad(variableObjectLocal);
+                cfw.addALoad(contextLocal);
+                addDynamicInvoke("NAME:GETWITHTHIS:" + name, Signatures.NAME_GET_THIS);
+
+                pushThisFromLastScriptable();
                 generateCallArgArray(node, firstArgChild, false);
-                cfw.addPush(name);
-                methodName = "callName";
-                signature =
-                        "([Ljava/lang/Object;"
-                                + "Ljava/lang/String;"
-                                + "Lorg/mozilla/javascript/Context;"
-                                + "Lorg/mozilla/javascript/Scriptable;"
-                                + ")Ljava/lang/Object;";
             }
         } else {
-            int argCount = countArguments(firstArgChild);
             generateFunctionAndThisObj(child, node);
             // stack: ... functionObj, thisObj is stored on scratch last scriptable
 
@@ -2655,27 +2594,28 @@ class BodyCodegen {
             }
 
             pushThisFromLastScriptable();
-            if (argCount == 1) {
-                generateExpression(firstArgChild, node);
-                methodName = "call1";
-                signature = SIGNATURE_CALL1;
-            } else {
-                if (argCount == 2) {
-                    generateExpression(firstArgChild, node);
-                    generateExpression(firstArgChild.getNext(), node);
-                    methodName = "call2";
-                    signature = SIGNATURE_CALL2;
-                } else {
-                    generateCallArgArray(node, firstArgChild, false);
-                    methodName = "callN";
-                    signature = SIGNATURE_CALLN;
-                }
-            }
+            generateCallArgArray(node, firstArgChild, false);
         }
 
+        // Stack: callable, this, args ...
         cfw.addALoad(contextLocal);
+        cfw.add(ByteCode.DUP_X2);
+        cfw.add(ByteCode.POP);
         cfw.addALoad(variableObjectLocal);
-        addOptRuntimeInvoke(methodName, signature);
+        cfw.add(ByteCode.DUP_X2);
+        cfw.add(ByteCode.POP);
+        // Stack: callable, context, scope, this, args ...
+
+        cfw.addInvoke(
+                ByteCode.INVOKEINTERFACE,
+                "org/mozilla/javascript/Callable",
+                "call",
+                "(Lorg/mozilla/javascript/Context;"
+                        + "Lorg/mozilla/javascript/Scriptable;"
+                        + "Lorg/mozilla/javascript/Scriptable;"
+                        + "[Ljava/lang/Object;"
+                        + ")Ljava/lang/Object;");
+
         if (afterLabel != null) {
             cfw.markLabel(afterLabel);
         }
@@ -4696,35 +4636,6 @@ class BodyCodegen {
         if (local < firstFreeLocal) firstFreeLocal = local;
         locals[local] = 0;
     }
-
-    private static final String SIGNATURE_CALL1 =
-            "(Lorg/mozilla/javascript/Callable;"
-                    + "Lorg/mozilla/javascript/Scriptable;"
-                    + "Ljava/lang/Object;"
-                    + "Lorg/mozilla/javascript/Context;"
-                    + "Lorg/mozilla/javascript/Scriptable;"
-                    + ")Ljava/lang/Object;";
-    private static final String SIGNATURE_CALL2 =
-            "(Lorg/mozilla/javascript/Callable;"
-                    + "Lorg/mozilla/javascript/Scriptable;"
-                    + "Ljava/lang/Object;"
-                    + "Ljava/lang/Object;"
-                    + "Lorg/mozilla/javascript/Context;"
-                    + "Lorg/mozilla/javascript/Scriptable;"
-                    + ")Ljava/lang/Object;";
-    private static final String SIGNATURE_CALLN =
-            "(Lorg/mozilla/javascript/Callable;"
-                    + "Lorg/mozilla/javascript/Scriptable;"
-                    + "[Ljava/lang/Object;"
-                    + "Lorg/mozilla/javascript/Context;"
-                    + "Lorg/mozilla/javascript/Scriptable;"
-                    + ")Ljava/lang/Object;";
-    private static final String SIGNATURE_CALL0 =
-            "(Lorg/mozilla/javascript/Callable;"
-                    + "Lorg/mozilla/javascript/Scriptable;"
-                    + "Lorg/mozilla/javascript/Context;"
-                    + "Lorg/mozilla/javascript/Scriptable;"
-                    + ")Ljava/lang/Object;";
 
     static final int GENERATOR_TERMINATE = -1;
     static final int GENERATOR_START = 0;
