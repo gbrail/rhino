@@ -2288,6 +2288,85 @@ public class ScriptRuntime {
         return result;
     }
 
+    private static Object nameOrMaybeFunction(
+            Context cx,
+            Scriptable scope,
+            Scriptable parentScope,
+            String name,
+            boolean isOptionalChainingCall) {
+        Object result;
+        Scriptable thisObj = scope; // It is used only if asFunctionCall==true.
+
+        XMLObject firstXMLObject = null;
+        for (; ; ) {
+            if (scope instanceof NativeWith) {
+                Scriptable withObj = scope.getPrototype();
+                if (withObj instanceof XMLObject) {
+                    XMLObject xmlObj = (XMLObject) withObj;
+                    if (xmlObj.has(name, xmlObj)) {
+                        // function this should be the target object of with
+                        thisObj = xmlObj;
+                        result = xmlObj.get(name, xmlObj);
+                        break;
+                    }
+                    if (firstXMLObject == null) {
+                        firstXMLObject = xmlObj;
+                    }
+                } else {
+                    result = ScriptableObject.getProperty(withObj, name);
+                    if (result != Scriptable.NOT_FOUND) {
+                        // function this should be the target object of with
+                        thisObj = withObj;
+                        break;
+                    }
+                }
+            } else if (scope instanceof NativeCall) {
+                // NativeCall does not prototype chain and Scriptable.get
+                // can be called directly.
+                result = scope.get(name, scope);
+                if (result != Scriptable.NOT_FOUND) {
+                    // ECMA 262 requires that this for nested funtions
+                    // should be top scope
+                    thisObj = ScriptableObject.getTopLevelScope(parentScope);
+                    break;
+                }
+            } else {
+                // Can happen if Rhino embedding decided that nested
+                // scopes are useful for what ever reasons.
+                result = ScriptableObject.getProperty(scope, name);
+                if (result != Scriptable.NOT_FOUND) {
+                    thisObj = scope;
+                    break;
+                }
+            }
+            scope = parentScope;
+            parentScope = parentScope.getParentScope();
+            if (parentScope == null) {
+                result = topScopeName(cx, scope, name);
+                if (result == Scriptable.NOT_FOUND) {
+                    throw notFoundError(scope, name);
+                }
+                // For top scope thisObj for functions is always scope itself.
+                thisObj = scope;
+                break;
+            }
+        }
+
+        if (!(result instanceof Callable)) {
+            if (isOptionalChainingCall
+                    && (result == Scriptable.NOT_FOUND
+                            || result == null
+                            || Undefined.isUndefined(result))) {
+                storeScriptable(cx, null);
+                return null;
+            }
+            return result;
+        }
+        storeScriptable(cx, thisObj);
+
+        return result;
+    }
+
     private static Object topScopeName(Context cx, Scriptable scope, String name) {
         if (cx.useDynamicScope) {
             scope = checkDynamicScope(cx.topCallScope, scope);
@@ -2780,33 +2859,30 @@ public class ScriptRuntime {
         Scriptable parent = scope.getParentScope();
         if (parent == null) {
             Object result = topScopeName(cx, scope, name);
-            if (isOptionalChainingCall
-                    && (result == Scriptable.NOT_FOUND
-                            || result == null
-                            || Undefined.isUndefined(result))) {
-                storeScriptable(cx, null);
-                return null;
+            if (!(result instanceof Callable)) {
+                if (isOptionalChainingCall
+                        && (result == Scriptable.NOT_FOUND
+                                || result == null
+                                || Undefined.isUndefined(result))) {
+                    storeScriptable(cx, null);
+                    return null;
+                }
+
+                if (result == Scriptable.NOT_FOUND) {
+                    throw notFoundError(scope, name);
+                }
+                return result;
             }
             // Top scope is not NativeWith or NativeCall => thisObj == scope
-            if (result == Scriptable.NOT_FOUND) {
-                throw referenceError("msg.undef.prop");
-            }
             storeScriptable(cx, scope);
             return result;
         }
 
         // name will call storeScriptable(cx, thisObj);
-        Object result = nameOrFunction(cx, scope, parent, name, false, isOptionalChainingCall);
-        if (result == Scriptable.NOT_FOUND) {
-            discardLastStoredScriptable(cx);
-            throw referenceError("msg.undef.prop");
-        }
-        return result;
+        return nameOrMaybeFunction(cx, scope, parent, name, isOptionalChainingCall);
     }
 
-    /**
-     * Verify that the result of getNameAndThis() is actually callable.
-     */
+    /** Verify that the result of getNameAndThis() is actually callable. */
     public static Callable coerceCallable(Context cx, Object arg) {
         if (!(arg instanceof Callable)) {
             throw notFunctionError(arg);
@@ -3000,13 +3076,14 @@ public class ScriptRuntime {
         }
 
         Object value = ScriptableObject.getProperty(thisObj, property);
-        if (!(value instanceof Callable)) {
+        if (value == ScriptableObject.NOT_FOUND) {
             Object noSuchMethod = ScriptableObject.getProperty(thisObj, "__noSuchMethod__");
             if (noSuchMethod instanceof Callable)
                 value = new NoSuchMethodShim((Callable) noSuchMethod, property);
         }
 
-        if (isOptionalChainingCall
+        if (!(value instanceof Callable)
+                && isOptionalChainingCall
                 && (value == Scriptable.NOT_FOUND
                         || value == null
                         || Undefined.isUndefined(value))) {
@@ -3140,7 +3217,6 @@ public class ScriptRuntime {
         }
 
         if (callType == Node.SPECIALCALL_EVAL) {
-            assert thisObj != null;
             if (thisObj.getParentScope() == null && NativeGlobal.isEvalFunction(fun)) {
                 return evalSpecial(cx, scope, callerThis, args, filename, lineNumber);
             }
