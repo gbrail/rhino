@@ -2590,22 +2590,42 @@ class BodyCodegen {
                 cfw.add(ByteCode.GOTO, afterLabel);
 
                 cfw.markLabel(doCallLabel);
-                cfw.add(ByteCode.CHECKCAST, "org/mozilla/javascript/Callable");
             }
 
             pushThisFromLastScriptable();
             generateCallArgArray(node, firstArgChild, false);
         }
 
-        // Stack: callable, this, args ...
         cfw.addALoad(contextLocal);
-        cfw.add(ByteCode.DUP_X2);
-        cfw.add(ByteCode.POP);
         cfw.addALoad(variableObjectLocal);
-        cfw.add(ByteCode.DUP_X2);
-        cfw.add(ByteCode.POP);
-        // Stack: callable, context, scope, this, args ...
+        addOptRuntimeInvoke(
+                "callPossibleFunction",
+                "(Ljava/lang/Object;"
+                        + "Lorg/mozilla/javascript/Scriptable;"
+                        + "[Ljava/lang/Object;"
+                        + "Lorg/mozilla/javascript/Context;"
+                        + "Lorg/mozilla/javascript/Scriptable;"
+                        + ")Ljava/lang/Object;");
 
+        /* I like this better but it won't work
+        // Stack: callable, this, args ...
+        // Need to store this stuff for complicated stack manipulation
+        int callArgsLocal = getNewWordLocal();
+        cfw.addAStore(callArgsLocal);
+        cfw.addAStore(thisObjLocal);
+
+        // Spec requires that we don't check if the result is actually
+        // a function until now
+        cfw.addALoad(contextLocal);
+        cfw.add(ByteCode.SWAP);
+        addScriptRuntimeInvoke("coerceCallable",
+                "(Lorg/mozilla/javascript/Context;Ljava/lang/Object;)Lorg/mozilla/javascript/Callable;");
+
+        // Now we can build the call
+        cfw.addALoad(contextLocal);
+        cfw.addALoad(variableObjectLocal);
+        cfw.addALoad(thisObjLocal);
+        cfw.addALoad(callArgsLocal);
         cfw.addInvoke(
                 ByteCode.INVOKEINTERFACE,
                 "org/mozilla/javascript/Callable",
@@ -2615,6 +2635,9 @@ class BodyCodegen {
                         + "Lorg/mozilla/javascript/Scriptable;"
                         + "[Ljava/lang/Object;"
                         + ")Ljava/lang/Object;");
+
+        releaseWordLocal(callArgsLocal);
+         */
 
         if (afterLabel != null) {
             cfw.markLabel(afterLabel);

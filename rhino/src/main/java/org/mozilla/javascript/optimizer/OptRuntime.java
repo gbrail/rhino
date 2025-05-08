@@ -60,6 +60,12 @@ public final class OptRuntime extends ScriptRuntime {
         return fun.call(cx, scope, thisObj, args);
     }
 
+    public static Object callPossibleFunction(
+            Object o, Scriptable thisObj, Object[] args, Context cx, Scriptable scope) {
+        Callable c = coerceCallable(cx, o);
+        return c.call(cx, scope, thisObj, args);
+    }
+
     /** Implement name(args) call shrinking optimizer code. */
     public static Object callName(Object[] args, String name, Context cx, Scriptable scope) {
         Callable f = getNameFunctionAndThis(name, cx, scope);
