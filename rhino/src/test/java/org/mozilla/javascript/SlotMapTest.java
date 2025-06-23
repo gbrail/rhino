@@ -50,6 +50,7 @@ public class SlotMapTest {
                         () -> new SlotMapOwner.SingleEntrySlotMap(new Slot(new Object(), 0, 0)),
                         () -> new EmbeddedSlotMap(),
                         () -> new HashSlotMap(),
+                        () -> new ShapedSlotMap(),
                         () -> SlotMapOwner.THREAD_SAFE_EMPTY_SLOT_MAP,
                         () ->
                                 new SlotMapOwner.ThreadSafeSingleEntrySlotMap(
