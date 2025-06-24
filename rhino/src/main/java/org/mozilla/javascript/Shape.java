@@ -1,16 +1,16 @@
 package org.mozilla.javascript;
 
+import java.lang.ref.WeakReference;
 import java.util.Objects;
 
-/**
- * A Shape represents a node in a tree of object shape transitions.
- */
+/** A Shape represents a node in a tree of object shape transitions. */
 public class Shape {
     private final Object property;
     private final Shape parent;
     private final int index;
 
     private ShapeNode[] children;
+    private final Object childrenLock;
     private PropNode[] properties;
 
     public static final Shape EMPTY = new Shape(null, null, -1);
@@ -19,21 +19,21 @@ public class Shape {
         this.property = property;
         this.parent = parent;
         this.index = index;
+        this.childrenLock = new Object();
         if (property != null) {
             buildPropertyMap();
         }
     }
 
-    /**
-     * Find the specified key in the property map, and if not found, then
-     * return -1;
-     */
+    /** Find the specified key in the property map, and if not found, then return -1. */
     public int get(Object key) {
+        // For a given shape, "properties" is immutable so there is no
+        // need for locking here.
         if (properties == null) {
             return -1;
         }
-        int hash = hashObject(key, properties.length);
-        for (var n = properties[hash]; n != null; n = n.next) {
+        int bucket = hashObject(key, properties.length);
+        for (var n = properties[bucket]; n != null; n = n.next) {
             if (Objects.equals(n.key, key)) {
                 return n.index;
             }
@@ -42,14 +42,13 @@ public class Shape {
     }
 
     /**
-     * Find the specified key in the property map. If found, return the
-     * result with the new index. If not, then transition to a new 
-     * shape that contains the key and return it.
+     * Find the specified key in the property map. If found, return the result with the new index.
+     * If not, then transition to a new shape that contains the key and return it.
      */
     public PutResult putIfAbsent(Object key) {
         if (properties != null) {
-            int hash = hashObject(key, properties.length);
-            var n = properties[hash];
+            int bucket = hashObject(key, properties.length);
+            var n = properties[bucket];
             while (n != null && !Objects.equals(key, n.key)) {
                 n = n.next;
             }
@@ -58,8 +57,10 @@ public class Shape {
             }
         }
 
-        var newShape = putChildIfAbsent(key);
-        return new PutResult(newShape.index, newShape);
+        synchronized (childrenLock) {
+            var newShape = putChildIfAbsent(key);
+            return new PutResult(newShape.index, newShape);
+        }
     }
 
     private void buildPropertyMap() {
@@ -82,15 +83,19 @@ public class Shape {
 
     private Shape putChildIfAbsent(Object key) {
         if (children != null) {
-            int hash = hashObject(key, children.length);
-            var c = children[hash];
+            int bucket = hashObject(key, children.length);
+            var c = children[bucket];
             while (c != null && !Objects.equals(key, c.key)) {
                 c = c.next;
             }
             if (c != null) {
-                return c.shape;
+                var found = c.shape.get();
+                if (found != null) {
+                    return found;
+                } else {
+                    gcChildren(bucket);
+                }
             }
-            // TODO if map is not too big, then insert it right here
         }
 
         if (children == null) {
@@ -102,28 +107,46 @@ public class Shape {
         }
         var newShape = new Shape(key, this, index + 1);
         var newNode = new ShapeNode(key, newShape);
-        int hash = hashObject(key, children.length);
-        newNode.next = children[hash];
-        children[hash] = newNode;
+        int bucket = hashObject(key, children.length);
+        newNode.next = children[bucket];
+        children[bucket] = newNode;
         return newShape;
+    }
+
+    private void gcChildren(int bucket) {
+        ShapeNode newBucket = null;
+        var node = children[bucket];
+        while (node != null) {
+            var shape = node.shape.get();
+            if (shape != null) {
+                // Only re-insert nodes that haven't been GCed
+                node.next = newBucket;
+                newBucket = node;
+            }
+            node = node.next;
+        }
+        children[bucket] = newBucket;
     }
 
     private static void rehashChildren(ShapeNode[] oldShapes, ShapeNode[] newShapes) {
         for (ShapeNode o : oldShapes) {
             while (o != null) {
-                int hash = hashObject(o.key, newShapes.length);
-                var nn = new ShapeNode(o.key, o.shape);
-                nn.next = newShapes[hash];
-                newShapes[hash] = nn;
+                var oldShape = o.shape.get();
+                if (oldShape != null) {
+                    // Clear out WeakReferences as we expand
+                    int bucket = hashObject(o.key, newShapes.length);
+                    var nn = new ShapeNode(o.key, oldShape);
+                    nn.next = newShapes[bucket];
+                    newShapes[bucket] = nn;
+                }
                 o = o.next;
             }
         }
     }
 
-    /**
-     * Calculate power of two that leaves map no more than 3/4 full.
-     */
+    /** Calculate power of two that leaves map no more than 3/4 full. */
     private static int calculateMapSize(int size) {
+        // TODO there is a clever way to do this using Integer.numberOfLeadingZeroes
         int s = 2;
         while (4 * size > 3 * s) {
             s *= 2;
@@ -170,12 +193,12 @@ public class Shape {
 
     private static final class ShapeNode {
         private final Object key;
-        private final Shape shape;
+        private final WeakReference<Shape> shape;
         private ShapeNode next;
 
         ShapeNode(Object key, Shape shape) {
             this.key = key;
-            this.shape = shape;
+            this.shape = new WeakReference<>(shape);
         }
     }
 }
