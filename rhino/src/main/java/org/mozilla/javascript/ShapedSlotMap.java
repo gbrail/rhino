@@ -130,8 +130,13 @@ public class ShapedSlotMap implements SlotMap {
     private void promoteMap(SlotMapOwner owner, Slot newSlot) {
         // TODO embedded map instead?
         if (newSlot == null) {
-            owner.setMap(new HashSlotMap(this));
-        } else {
+            if (owner != null) {
+                owner.setMap(new HashSlotMap(this));
+            } else {
+                // This should only happen in tests
+                throw new AssertionError("No slot map can support a delete here");
+            }
+        } else if (owner != null) {
             owner.setMap(new HashSlotMap(this, newSlot));
         }
     }
