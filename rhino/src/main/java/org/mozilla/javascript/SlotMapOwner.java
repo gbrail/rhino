@@ -324,6 +324,10 @@ public abstract class SlotMapOwner {
             } else {
                 return new ThreadSafeEmbeddedSlotMap();
             }
+        } else if ((cx != null)
+                && !cx.isInterpretedMode()
+                && initialSize < ShapedSlotMap.MAXIMUM_SIZE) {
+            return new ShapedSlotMap();
         } else if (initialSize == 0) {
             return EMPTY_SLOT_MAP;
         } else if (initialSize > LARGE_HASH_SIZE) {

@@ -4,6 +4,8 @@ import java.util.Iterator;
 
 public class ShapedSlotMap implements SlotMap {
     private static final int INITIAL_LENGTH = 8;
+    // The value of this type of slot map tapers off with larger objects
+    public static final int MAXIMUM_SIZE = 32;
 
     private Slot[] slots;
     private int length;
@@ -43,15 +45,21 @@ public class ShapedSlotMap implements SlotMap {
             return slots[r.getIndex()];
         }
         assert r.getIndex() == length;
-        ensureMoreCapacity();
         Slot newSlot = new Slot(key, index, attributes);
+        if (length == MAXIMUM_SIZE) {
+            promoteMap(owner, newSlot);
+            return newSlot;
+        }
+
+        ensureMoreCapacity();
         slots[length++] = newSlot;
         shape = r.getShape();
         return newSlot;
     }
 
     @Override
-    public <S extends Slot> S compute(SlotMapOwner owner, Object key, int index, SlotComputer<S> compute) {
+    public <S extends Slot> S compute(
+            SlotMapOwner owner, Object key, int index, SlotComputer<S> compute) {
         Object k = makeKey(key, index);
         var r = shape.putIfAbsent(k);
         if (r.isNewShape()) {
@@ -62,29 +70,38 @@ public class ShapedSlotMap implements SlotMap {
         }
     }
 
-    private <S extends Slot> S computeExisting(SlotMapOwner owner, Object key, int index, Slot slot, int slotIndex, SlotComputer<S> compute) {
+    private <S extends Slot> S computeExisting(
+            SlotMapOwner owner,
+            Object key,
+            int index,
+            Slot slot,
+            int slotIndex,
+            SlotComputer<S> compute) {
         S result = compute.compute(key, index, slot);
         if (result == null) {
-            // This class does not support deletes
-            var newMap = new HashSlotMap(this);
-            owner.setMap(newMap);
-            // TODO can we do this if "compute" has a side effect?
-            return newMap.compute(owner, key, index, compute);
+            // We do not support delete, so promote to a slot map that can
+            promoteMap(owner, null);
+            owner.getMap().compute(owner, key, index, (k, i, s) -> null);
+        } else {
+            assert slotIndex < length;
+            slots[slotIndex] = result;
         }
-
-        assert slotIndex < length;
-        slots[slotIndex] = result;
         return result;
     }
 
-    private <S extends Slot> S computeNew(SlotMapOwner owner, Object key, int index, Shape newShape, SlotComputer<S> compute) {
-        S result = compute.compute(key, index, null);
-        if (result != null) {
-            ensureMoreCapacity();
-            slots[length++] = result;
-            shape = newShape;
+    private <S extends Slot> S computeNew(
+            SlotMapOwner owner, Object key, int index, Shape newShape, SlotComputer<S> compute) {
+        S newSlot = compute.compute(key, index, null);
+        if (newSlot != null) {
+            if (length == MAXIMUM_SIZE) {
+                promoteMap(owner, newSlot);
+            } else {
+                ensureMoreCapacity();
+                slots[length++] = newSlot;
+                shape = newShape;
+            }
         }
-        return result;
+        return newSlot;
     }
 
     @Override
@@ -93,9 +110,13 @@ public class ShapedSlotMap implements SlotMap {
         var r = shape.putIfAbsent(k);
         assert r.isNewShape();
         assert r.getIndex() == length;
-        ensureMoreCapacity();
-        slots[length++] = newSlot;
-        shape = r.getShape();
+        if (length == MAXIMUM_SIZE) {
+            promoteMap(owner, newSlot);
+        } else {
+            ensureMoreCapacity();
+            slots[length++] = newSlot;
+            shape = r.getShape();
+        }
     }
 
     private void ensureMoreCapacity() {
@@ -103,6 +124,15 @@ public class ShapedSlotMap implements SlotMap {
             Slot[] newSlots = new Slot[slots.length * 2];
             System.arraycopy(slots, 0, newSlots, 0, slots.length);
             slots = newSlots;
+        }
+    }
+
+    private void promoteMap(SlotMapOwner owner, Slot newSlot) {
+        // TODO embedded map instead?
+        if (newSlot == null) {
+            owner.setMap(new HashSlotMap(this));
+        } else {
+            owner.setMap(new HashSlotMap(this, newSlot));
         }
     }
 
@@ -115,8 +145,7 @@ public class ShapedSlotMap implements SlotMap {
         return name == null ? index : name;
     }
 
-    private final class Iter
-        implements Iterator<Slot> {
+    private final class Iter implements Iterator<Slot> {
         private int pos;
 
         @Override
