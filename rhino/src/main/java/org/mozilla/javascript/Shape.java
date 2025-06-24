@@ -32,9 +32,10 @@ public class Shape {
         if (properties == null) {
             return -1;
         }
-        int bucket = hashObject(key, properties.length);
+        int hashCode = key.hashCode();
+        int bucket = hashObject(hashCode, properties.length);
         for (var n = properties[bucket]; n != null; n = n.next) {
-            if (Objects.equals(n.key, key)) {
+            if (hashCode == n.hashCode && Objects.equals(n.key, key)) {
                 return n.index;
             }
         }
@@ -47,13 +48,12 @@ public class Shape {
      */
     public PutResult putIfAbsent(Object key) {
         if (properties != null) {
-            int bucket = hashObject(key, properties.length);
-            var n = properties[bucket];
-            while (n != null && !Objects.equals(key, n.key)) {
-                n = n.next;
-            }
-            if (n != null) {
-                return new PutResult(n.index, null);
+            int hashCode = key.hashCode();
+            int bucket = hashObject(hashCode, properties.length);
+            for (var n = properties[bucket]; n != null; n = n.next) {
+                if (hashCode == n.hashCode && Objects.equals(n.key, key)) {
+                    return new PutResult(n.index, null);
+                }
             }
         }
 
@@ -68,32 +68,32 @@ public class Shape {
         properties = new PropNode[numSlots];
         putProperty(property, index);
         Shape p = parent;
-        while (p != EMPTY) {
+        while (p.index >= 0) {
             putProperty(p.property, p.index);
             p = p.parent;
         }
     }
 
     private void putProperty(Object key, int index) {
-        int hash = hashObject(key, properties.length);
+        int hash = hashObject(key.hashCode(), properties.length);
         var n = new PropNode(key, index);
         n.next = properties[hash];
         properties[hash] = n;
     }
 
     private Shape putChildIfAbsent(Object key) {
+        int hashCode = key.hashCode();
         if (children != null) {
-            int bucket = hashObject(key, children.length);
-            var c = children[bucket];
-            while (c != null && !Objects.equals(key, c.key)) {
-                c = c.next;
-            }
-            if (c != null) {
-                var found = c.shape.get();
-                if (found != null) {
-                    return found;
-                } else {
-                    gcChildren(bucket);
+            int bucket = hashObject(hashCode, children.length);
+            for (var c = children[bucket]; c != null; c = c.next) {
+                if (hashCode == c.hashCode && Objects.equals(key, c.key)) {
+                    // Make sure that the weak reference hasn't been collected
+                    var found = c.shape.get();
+                    if (found != null) {
+                        return found;
+                    } else {
+                        gcChildren(bucket);
+                    }
                 }
             }
         }
@@ -107,7 +107,7 @@ public class Shape {
         }
         var newShape = new Shape(key, this, index + 1);
         var newNode = new ShapeNode(key, newShape);
-        int bucket = hashObject(key, children.length);
+        int bucket = hashObject(hashCode, children.length);
         newNode.next = children[bucket];
         children[bucket] = newNode;
         return newShape;
@@ -134,7 +134,7 @@ public class Shape {
                 var oldShape = o.shape.get();
                 if (oldShape != null) {
                     // Clear out WeakReferences as we expand
-                    int bucket = hashObject(o.key, newShapes.length);
+                    int bucket = hashObject(o.hashCode, newShapes.length);
                     var nn = new ShapeNode(o.key, oldShape);
                     nn.next = newShapes[bucket];
                     newShapes[bucket] = nn;
@@ -148,14 +148,25 @@ public class Shape {
     private static int calculateMapSize(int size) {
         // TODO there is a clever way to do this using Integer.numberOfLeadingZeroes
         int s = 2;
-        while (4 * size > 3 * s) {
+        while (3 * size > 4 * s) {
             s *= 2;
         }
         return s;
     }
 
-    private static int hashObject(Object key, int numSlots) {
-        return key.hashCode() & (numSlots - 1);
+    private static int hashObject(int hashCode, int numSlots) {
+        return hashCode & (numSlots - 1);
+    }
+
+    @Override
+    public String toString() {
+        return "Shape{property = \""
+                + property
+                + "\" index = "
+                + index
+                + " buckets = "
+                + properties.length
+                + "}";
     }
 
     public static final class PutResult {
@@ -182,22 +193,26 @@ public class Shape {
 
     private static final class PropNode {
         private final Object key;
+        private final int hashCode;
         private final int index;
         private PropNode next;
 
         PropNode(Object key, int index) {
             this.key = key;
+            this.hashCode = key.hashCode();
             this.index = index;
         }
     }
 
     private static final class ShapeNode {
         private final Object key;
+        private final int hashCode;
         private final WeakReference<Shape> shape;
         private ShapeNode next;
 
         ShapeNode(Object key, Shape shape) {
             this.key = key;
+            this.hashCode = key.hashCode();
             this.shape = new WeakReference<>(shape);
         }
     }

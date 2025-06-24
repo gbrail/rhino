@@ -148,9 +148,9 @@ public class SlotMapBenchmark {
     public static class ShapedState {
         final ShapedSlotMap emptyMap = new ShapedSlotMap();
         final ShapedSlotMap size10Map = new ShapedSlotMap();
-        final ShapedSlotMap size100Map = new ShapedSlotMap();
+        final ShapedSlotMap size25Map = new ShapedSlotMap();
         final String[] randomKeys = new String[100];
-        String size100LastKey;
+        String size25LastKey;
         String size10LastKey;
 
         @Setup(Level.Trial)
@@ -160,10 +160,10 @@ public class SlotMapBenchmark {
                 lastKey = insertRandomEntry(size10Map);
             }
             size10LastKey = lastKey;
-            for (int i = 0; i < 100; i++) {
-                lastKey = insertRandomEntry(size100Map);
+            for (int i = 0; i < 25; i++) {
+                lastKey = insertRandomEntry(size25Map);
             }
-            size100LastKey = lastKey;
+            size25LastKey = lastKey;
             for (int i = 0; i < 100; i++) {
                 randomKeys[i] = makeRandomString();
             }
@@ -198,10 +198,10 @@ public class SlotMapBenchmark {
 
     @Benchmark
     @OperationsPerInvocation(100)
-    public Object shapedQueryKey100Entries(ShapedState state) {
+    public Object shapedQueryKey25Entries(ShapedState state) {
         Slot slot = null;
         for (int i = 0; i < 100; i++) {
-            slot = state.size100Map.query(state.size100LastKey, 0);
+            slot = state.size25Map.query(state.size25LastKey, 0);
         }
         if (slot == null) {
             throw new AssertionError();
