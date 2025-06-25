@@ -2,6 +2,7 @@ package org.mozilla.javascript.benchmarks;
 
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import org.mozilla.javascript.Context;
 import org.mozilla.javascript.EmbeddedSlotMap;
 import org.mozilla.javascript.HashSlotMap;
 import org.mozilla.javascript.ShapedSlotMap;
@@ -146,12 +147,20 @@ public class SlotMapBenchmark {
 
     @State(Scope.Thread)
     public static class ShapedState {
-        final ShapedSlotMap emptyMap = new ShapedSlotMap();
-        final ShapedSlotMap size10Map = new ShapedSlotMap();
-        final ShapedSlotMap size25Map = new ShapedSlotMap();
+        final ShapedSlotMap emptyMap;
+        final ShapedSlotMap size10Map;
+        final ShapedSlotMap size25Map;
         final String[] randomKeys = new String[100];
         String size25LastKey;
         String size10LastKey;
+
+        public ShapedState() {
+            try (Context cx = Context.enter()) {
+                emptyMap = new ShapedSlotMap(cx);
+                size10Map = new ShapedSlotMap(cx);
+                size25Map = new ShapedSlotMap(cx);
+            }
+        }
 
         @Setup(Level.Trial)
         public void create() {
