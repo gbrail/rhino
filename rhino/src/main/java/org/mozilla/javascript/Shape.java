@@ -82,6 +82,7 @@ public class Shape {
     }
 
     private Shape putChildIfAbsent(Object key) {
+        assert Thread.holdsLock(childrenLock);
         int hashCode = key.hashCode();
         if (children != null) {
             int bucket = hashObject(hashCode, children.length);
@@ -114,6 +115,7 @@ public class Shape {
     }
 
     private void gcChildren(int bucket) {
+        assert Thread.holdsLock(childrenLock);
         ShapeNode newBucket = null;
         var node = children[bucket];
         while (node != null) {
@@ -155,17 +157,19 @@ public class Shape {
     }
 
     private static int hashObject(int hashCode, int numSlots) {
-        return hashCode & (numSlots - 1);
+        // Use bit mixing for a more even hash code, as suggested by GPT-4.1.
+        return (hashCode ^ (hashCode >>> 16)) & (numSlots - 1);
     }
 
     @Override
     public String toString() {
+        int buckets = properties == null ? 0 : properties.length;
         return "Shape{property = \""
                 + property
                 + "\" index = "
                 + index
                 + " buckets = "
-                + properties.length
+                + buckets
                 + "}";
     }
 
