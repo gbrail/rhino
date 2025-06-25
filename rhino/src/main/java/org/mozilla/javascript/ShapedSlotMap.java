@@ -1,6 +1,7 @@
 package org.mozilla.javascript;
 
 import java.util.Iterator;
+import java.util.Objects;
 
 public class ShapedSlotMap implements SlotMap {
     private static final int INITIAL_LENGTH = 8;
@@ -35,6 +36,30 @@ public class ShapedSlotMap implements SlotMap {
         }
         assert found < length;
         return slots[found];
+    }
+
+    @Override
+    public ScriptableObject.FastKey getFastKey(Object key) {
+        int found = shape.get(key);
+        if (found < 0) {
+            return null;
+        }
+        assert found < length;
+        return new Key(shape, found);
+    }
+
+    @Override
+    public boolean validateFastKey(ScriptableObject.FastKey key) {
+        if (key instanceof Key) {
+            return Objects.equals(((Key) key).shape, shape);
+        }
+        return false;
+    }
+
+    @Override
+    public Slot getFast(ScriptableObject.FastKey key) {
+        assert key instanceof Key;
+        return slots[((Key) key).index];
     }
 
     @Override
@@ -128,16 +153,15 @@ public class ShapedSlotMap implements SlotMap {
     }
 
     private void promoteMap(SlotMapOwner owner, Slot newSlot) {
-        // TODO embedded map instead?
         if (newSlot == null) {
             if (owner != null) {
-                owner.setMap(new HashSlotMap(this));
+                owner.setMap(new EmbeddedSlotMap(this));
             } else {
                 // This should only happen in tests
                 throw new AssertionError("No slot map can support a delete here");
             }
         } else if (owner != null) {
-            owner.setMap(new HashSlotMap(this, newSlot));
+            owner.setMap(new EmbeddedSlotMap(this, newSlot));
         }
     }
 
@@ -161,6 +185,16 @@ public class ShapedSlotMap implements SlotMap {
         @Override
         public Slot next() {
             return slots[pos++];
+        }
+    }
+
+    private static final class Key implements ScriptableObject.FastKey {
+        private final Shape shape;
+        private final int index;
+
+        Key(Shape shape, int index) {
+            this.shape = shape;
+            this.index = index;
         }
     }
 }

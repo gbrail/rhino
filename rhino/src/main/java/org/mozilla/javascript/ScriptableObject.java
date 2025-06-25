@@ -3202,4 +3202,31 @@ public abstract class ScriptableObject extends SlotMapOwner
                 obj.getClass().getName(),
                 clazz.getName());
     }
+
+    public interface FastKey {}
+
+    public FastKey getFastPropertyKey(String property) {
+        return getMap().getFastKey(property);
+    }
+
+    public boolean validateFastPropertyKey(FastKey key) {
+        return getMap().validateFastKey(key);
+    }
+
+    public Object getFastProperty(FastKey key, Scriptable start) {
+        Slot slot = getMap().getFast(key);
+        // validateFastProperty should have returned false if not found
+        assert slot != null;
+        return slot.getValue(start);
+    }
+
+    public boolean putFastProperty(
+            Object key, FastKey fk, Scriptable start, Object value, boolean isThrow) {
+        Slot slot = getMap().getFast(fk);
+        assert slot != null;
+        if (isSealed) {
+            checkNotSealed(key, 0);
+        }
+        return slot.setValue(value, this, start, isThrow);
+    }
 }

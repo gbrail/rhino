@@ -62,6 +62,21 @@ public class EmbeddedSlotMap implements SlotMap {
         slots = new Slot[n];
     }
 
+    public EmbeddedSlotMap(SlotMap oldMap) {
+        this(oldMap.size());
+        for (Slot n : oldMap) {
+            add(null, n.copySlot());
+        }
+    }
+
+    public EmbeddedSlotMap(SlotMap oldMap, Slot newSlot) {
+        this(oldMap.size() + 1);
+        for (Slot n : oldMap) {
+            add(null, n.copySlot());
+        }
+        add(null, newSlot);
+    }
+
     @Override
     public int size() {
         return count;
