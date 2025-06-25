@@ -74,6 +74,31 @@ public class ShapeTest {
         System.out.println(s);
     }
 
+    @Test
+    public void testDifferentKeyTypes() {
+        var s = Shape.EMPTY;
+        s = s.putIfAbsent("key").getShape();
+        s = s.putIfAbsent(123).getShape();
+        s = s.putIfAbsent(45.6).getShape();
+        assertEquals(0, s.get("key"));
+        assertEquals(1, s.get(123));
+        assertEquals(2, s.get(45.6));
+    }
+
+    @Test
+    public void testToStringNotNull() {
+        var s = Shape.EMPTY.putIfAbsent("foo").getShape();
+        assertNotNull(s.toString());
+    }
+
+    @Test
+    public void testShapeImmutability() {
+        var s1 = Shape.EMPTY.putIfAbsent("a").getShape();
+        var s2 = s1.putIfAbsent("b").getShape();
+        assertEquals(-1, s1.get("b"));
+        assertEquals(1, s2.get("b"));
+    }
+
     private static String makeRandomString() {
         int len = rand.nextInt(49) + 1;
         char[] c = new char[len];
