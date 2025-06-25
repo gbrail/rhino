@@ -1,6 +1,5 @@
 package org.mozilla.javascript;
 
-import java.lang.ref.WeakReference;
 import java.util.Objects;
 
 /** A Shape represents a node in a tree of object shape transitions. */
@@ -10,16 +9,19 @@ public class Shape {
     private final int index;
 
     private ShapeNode[] children;
-    private final Object childrenLock;
     private PropNode[] properties;
 
-    public static final Shape EMPTY = new Shape(null, null, -1);
+    /** Create an empty Shape. */
+    public Shape() {
+        this.property = null;
+        this.parent = null;
+        this.index = -1;
+    }
 
     private Shape(Object property, Shape parent, int index) {
         this.property = property;
         this.parent = parent;
         this.index = index;
-        this.childrenLock = new Object();
         if (property != null) {
             buildPropertyMap();
         }
@@ -40,10 +42,8 @@ public class Shape {
             return new PutResult(index, null);
         }
 
-        synchronized (childrenLock) {
-            var newShape = putChildIfAbsent(key);
-            return new PutResult(newShape.index, newShape);
-        }
+        var newShape = putChildIfAbsent(key);
+        return new PutResult(newShape.index, newShape);
     }
 
     private int findProperty(Object key) {
@@ -79,19 +79,12 @@ public class Shape {
     }
 
     private Shape putChildIfAbsent(Object key) {
-        assert Thread.holdsLock(childrenLock);
         int hashCode = key.hashCode();
         if (children != null) {
             int bucket = hashObject(hashCode, children.length);
             for (var c = children[bucket]; c != null; c = c.next) {
                 if (hashCode == c.hashCode && Objects.equals(key, c.key)) {
-                    // Make sure that the weak reference hasn't been collected
-                    var found = c.shape.get();
-                    if (found != null) {
-                        return found;
-                    } else {
-                        gcChildren(bucket);
-                    }
+                    return c.shape;
                 }
             }
         }
@@ -111,33 +104,13 @@ public class Shape {
         return newShape;
     }
 
-    private void gcChildren(int bucket) {
-        assert Thread.holdsLock(childrenLock);
-        ShapeNode newBucket = null;
-        var node = children[bucket];
-        while (node != null) {
-            var shape = node.shape.get();
-            if (shape != null) {
-                // Only re-insert nodes that haven't been GCed
-                node.next = newBucket;
-                newBucket = node;
-            }
-            node = node.next;
-        }
-        children[bucket] = newBucket;
-    }
-
     private static void rehashChildren(ShapeNode[] oldShapes, ShapeNode[] newShapes) {
         for (ShapeNode o : oldShapes) {
             while (o != null) {
-                var oldShape = o.shape.get();
-                if (oldShape != null) {
-                    // Clear out WeakReferences as we expand
-                    int bucket = hashObject(o.hashCode, newShapes.length);
-                    var nn = new ShapeNode(o.key, oldShape);
-                    nn.next = newShapes[bucket];
-                    newShapes[bucket] = nn;
-                }
+                int bucket = hashObject(o.hashCode, newShapes.length);
+                var nn = new ShapeNode(o.key, o.shape);
+                nn.next = newShapes[bucket];
+                newShapes[bucket] = nn;
                 o = o.next;
             }
         }
@@ -204,13 +177,13 @@ public class Shape {
     private static final class ShapeNode {
         private final Object key;
         private final int hashCode;
-        private final WeakReference<Shape> shape;
+        private final Shape shape;
         private ShapeNode next;
 
         ShapeNode(Object key, Shape shape) {
             this.key = key;
             this.hashCode = key.hashCode();
-            this.shape = new WeakReference<>(shape);
+            this.shape = shape;
         }
     }
 }

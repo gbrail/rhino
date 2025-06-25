@@ -2770,6 +2770,11 @@ public class Context implements Closeable {
         return cx.isStrictMode();
     }
 
+    /** Get the root of the shape tree for shaped slot maps. */
+    Shape getRootShape() {
+        return rootShape;
+    }
+
     private final ContextFactory factory;
     private boolean sealed;
     private Object sealKey;
@@ -2812,6 +2817,7 @@ public class Context implements Closeable {
     private UnaryOperator<Object> javaToJSONConverter;
     private final ArrayDeque<Runnable> microtasks = new ArrayDeque<>();
     private final UnhandledRejectionTracker unhandledPromises = new UnhandledRejectionTracker();
+    private final Shape rootShape = new Shape();
 
     /** This is the list of names of objects forcing the creation of function activation records. */
     Set<String> activationNames;

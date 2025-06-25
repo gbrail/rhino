@@ -12,9 +12,10 @@ public class ShapedSlotMap implements SlotMap {
     private int length;
     private Shape shape;
 
-    public ShapedSlotMap() {
+    public ShapedSlotMap(Context cx) {
         slots = new Slot[INITIAL_LENGTH];
-        shape = Shape.EMPTY;
+        // Support null contexts for tests only
+        shape = cx == null ? new Shape() : cx.getRootShape();
     }
 
     @Override

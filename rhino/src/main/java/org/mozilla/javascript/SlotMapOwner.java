@@ -327,7 +327,7 @@ public abstract class SlotMapOwner {
         } else if ((cx != null)
                 && !cx.isInterpretedMode()
                 && initialSize < ShapedSlotMap.MAXIMUM_SIZE) {
-            return new ShapedSlotMap();
+            return new ShapedSlotMap(cx);
         } else if (initialSize == 0) {
             return EMPTY_SLOT_MAP;
         } else if (initialSize > LARGE_HASH_SIZE) {

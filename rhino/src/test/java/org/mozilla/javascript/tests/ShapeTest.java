@@ -15,10 +15,11 @@ public class ShapeTest {
 
     @Test
     public void testFirstProperty() {
-        assertEquals(-1, Shape.EMPTY.get("foo"));
+        var empty = new Shape();
+        assertEquals(-1, empty.get("foo"));
 
         // Inserting new key gives new shape
-        var r = Shape.EMPTY.putIfAbsent("foo");
+        var r = empty.putIfAbsent("foo");
         assertTrue(r.isNewShape());
         assertEquals(0, r.getIndex());
         assertNotNull(r.getShape());
@@ -26,7 +27,7 @@ public class ShapeTest {
         assertEquals(0, fooShape.get("foo"));
 
         // Inserting same key gives same shape
-        r = Shape.EMPTY.putIfAbsent("foo");
+        r = empty.putIfAbsent("foo");
         assertTrue(r.isNewShape());
         assertEquals(0, r.getIndex());
         assertNotNull(r.getShape());
@@ -35,12 +36,12 @@ public class ShapeTest {
 
     @Test
     public void testPropertyTree() {
-        // Don't use "foo" here so we don't depend on test order
-        var s1 = Shape.EMPTY.putIfAbsent("one").getShape();
+        var empty = new Shape();
+        var s1 = empty.putIfAbsent("one").getShape();
         s1 = s1.putIfAbsent("two").getShape();
         s1 = s1.putIfAbsent("three").getShape();
 
-        var s2 = Shape.EMPTY.putIfAbsent("three").getShape();
+        var s2 = empty.putIfAbsent("three").getShape();
         s2 = s2.putIfAbsent("two").getShape();
         s2 = s2.putIfAbsent("one").getShape();
 
@@ -63,7 +64,7 @@ public class ShapeTest {
         for (int i = 0; i < 10; i++) {
             keys[i] = makeRandomString();
         }
-        var s = Shape.EMPTY;
+        var s = new Shape();
         for (int i = 0; i < 10; i++) {
             s = s.putIfAbsent(keys[i]).getShape();
         }
@@ -76,7 +77,7 @@ public class ShapeTest {
 
     @Test
     public void testDifferentKeyTypes() {
-        var s = Shape.EMPTY;
+        var s = new Shape();
         s = s.putIfAbsent("key").getShape();
         s = s.putIfAbsent(123).getShape();
         s = s.putIfAbsent(45.6).getShape();
@@ -87,13 +88,13 @@ public class ShapeTest {
 
     @Test
     public void testToStringNotNull() {
-        var s = Shape.EMPTY.putIfAbsent("foo").getShape();
+        var s = new Shape().putIfAbsent("foo").getShape();
         assertNotNull(s.toString());
     }
 
     @Test
     public void testShapeImmutability() {
-        var s1 = Shape.EMPTY.putIfAbsent("a").getShape();
+        var s1 = new Shape().putIfAbsent("a").getShape();
         var s2 = s1.putIfAbsent("b").getShape();
         assertEquals(-1, s1.get("b"));
         assertEquals(1, s2.get("b"));
