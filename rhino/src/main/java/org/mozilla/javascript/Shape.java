@@ -27,8 +27,26 @@ public class Shape {
 
     /** Find the specified key in the property map, and if not found, then return -1. */
     public int get(Object key) {
-        // For a given shape, "properties" is immutable so there is no
-        // need for locking here.
+        return findProperty(key);
+    }
+
+    /**
+     * Find the specified key in the property map. If found, return the result with the new index.
+     * If not, then transition to a new shape that contains the key and return it.
+     */
+    public PutResult putIfAbsent(Object key) {
+        int index = findProperty(key);
+        if (index >= 0) {
+            return new PutResult(index, null);
+        }
+
+        synchronized (childrenLock) {
+            var newShape = putChildIfAbsent(key);
+            return new PutResult(newShape.index, newShape);
+        }
+    }
+
+    private int findProperty(Object key) {
         if (properties == null) {
             return -1;
         }
@@ -40,27 +58,6 @@ public class Shape {
             }
         }
         return -1;
-    }
-
-    /**
-     * Find the specified key in the property map. If found, return the result with the new index.
-     * If not, then transition to a new shape that contains the key and return it.
-     */
-    public PutResult putIfAbsent(Object key) {
-        if (properties != null) {
-            int hashCode = key.hashCode();
-            int bucket = hashObject(hashCode, properties.length);
-            for (var n = properties[bucket]; n != null; n = n.next) {
-                if (hashCode == n.hashCode && Objects.equals(n.key, key)) {
-                    return new PutResult(n.index, null);
-                }
-            }
-        }
-
-        synchronized (childrenLock) {
-            var newShape = putChildIfAbsent(key);
-            return new PutResult(newShape.index, newShape);
-        }
     }
 
     private void buildPropertyMap() {
@@ -148,12 +145,8 @@ public class Shape {
 
     /** Calculate power of two that leaves map no more than 3/4 full. */
     private static int calculateMapSize(int size) {
-        // TODO there is a clever way to do this using Integer.numberOfLeadingZeroes
-        int s = 2;
-        while (3 * size > 4 * s) {
-            s *= 2;
-        }
-        return s;
+        int needed = Math.max((size * 4) / 3, 2);
+        return 1 << (32 - Integer.numberOfLeadingZeros(needed - 1));
     }
 
     private static int hashObject(int hashCode, int numSlots) {
