@@ -104,14 +104,13 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
                 return new GuardedInvocation(get, guard);
             }
         }
-        // TODO "and this" operations
         return null;
     }
 
     @SuppressWarnings("unused")
     private static boolean checkFastGet(
             ScriptableObject.FastKey key, Object target, Context cx, Scriptable scope) {
-        if (isCompatibleScriptable(target.getClass())) {
+        if (target instanceof ScriptableObject) {
             return ((ScriptableObject) target).validateFastPropertyKey(key);
         }
         return false;
@@ -124,7 +123,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             Object value,
             Context cx,
             Scriptable scope) {
-        if (isCompatibleScriptable(target.getClass())) {
+        if (target instanceof ScriptableObject) {
             return ((ScriptableObject) target).validateFastPropertyKey(key);
         }
         return false;
@@ -133,7 +132,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
     @SuppressWarnings("unused")
     private static boolean checkFastGetWithThis(
             ScriptableObject.FastKey key, Object target, Context cx, Scriptable scope) {
-        if (isCompatibleScriptable(target.getClass())) {
+        if (target instanceof ScriptableObject) {
             return ((ScriptableObject) target).validateFastPropertyKey(key);
         }
         return false;
