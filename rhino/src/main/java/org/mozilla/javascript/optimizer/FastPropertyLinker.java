@@ -45,7 +45,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
         if (op.isNamespace(StandardNamespace.PROPERTY)
                 && op.isOperation(StandardOperation.GET, RhinoOperation.GETNOWARN)) {
             var fastKey = target.getFastPropertyKey(op.getName());
-            if (fastKey != null) {
+            if (fastKey.isPresent()) {
                 MethodType mt =
                         req.getCallSiteDescriptor()
                                 .getMethodType()
@@ -64,7 +64,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
         } else if (op.isNamespace(StandardNamespace.PROPERTY)
                 && op.isOperation(StandardOperation.SET)) {
             var fastKey = target.getFastPropertyKey(op.getName());
-            if (fastKey != null) {
+            if (fastKey.isPresent()) {
                 MethodType mt =
                         req.getCallSiteDescriptor()
                                 .getMethodType()
@@ -84,7 +84,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
         } else if (op.isNamespace(StandardNamespace.PROPERTY)
                 && op.isOperation(RhinoOperation.GETWITHTHIS)) {
             var fastKey = target.getFastPropertyKey(op.getName());
-            if (fastKey != null) {
+            if (fastKey.isPresent()) {
                 MethodType mt =
                         req.getCallSiteDescriptor()
                                 .getMethodType()
@@ -111,7 +111,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
     private static boolean checkFastGet(
             ScriptableObject.FastKey key, Object target, Context cx, Scriptable scope) {
         if (target instanceof ScriptableObject) {
-            return ((ScriptableObject) target).validateFastPropertyKey(key);
+            return key.isSameShape((ScriptableObject) target);
         }
         return false;
     }
@@ -124,7 +124,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             Context cx,
             Scriptable scope) {
         if (target instanceof ScriptableObject) {
-            return ((ScriptableObject) target).validateFastPropertyKey(key);
+            return key.isSameShape((ScriptableObject) target);
         }
         return false;
     }
@@ -133,7 +133,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
     private static boolean checkFastGetWithThis(
             ScriptableObject.FastKey key, Object target, Context cx, Scriptable scope) {
         if (target instanceof ScriptableObject) {
-            return ((ScriptableObject) target).validateFastPropertyKey(key);
+            return key.isSameShape((ScriptableObject) target);
         }
         return false;
     }
