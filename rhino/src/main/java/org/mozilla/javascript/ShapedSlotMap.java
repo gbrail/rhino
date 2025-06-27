@@ -30,8 +30,11 @@ public class ShapedSlotMap implements SlotMap {
 
     @Override
     public Slot query(Object key, int index) {
-        Object k = makeKey(key, index);
-        int found = shape.get(k);
+        if (key == null) {
+            // We do not support indexed keys
+            return null;
+        }
+        int found = shape.get(key);
         if (found < 0) {
             return null;
         }
@@ -41,6 +44,10 @@ public class ShapedSlotMap implements SlotMap {
 
     @Override
     public ScriptableObject.FastKey getFastKey(Object key) {
+        if (key == null) {
+            // We do not support indexed keys
+            return null;
+        }
         int found = shape.get(key);
         if (found < 0) {
             return null;
@@ -65,8 +72,12 @@ public class ShapedSlotMap implements SlotMap {
 
     @Override
     public Slot modify(SlotMapOwner owner, Object key, int index, int attributes) {
-        Object k = makeKey(key, index);
-        var r = shape.putIfAbsent(k);
+        if (key == null) {
+            // We do not support integer keys
+            promoteMap(owner, null);
+            return owner.getMap().modify(owner, key, index, attributes);
+        }
+        var r = shape.putIfAbsent(key);
         if (!r.isNewShape()) {
             return slots[r.getIndex()];
         }
@@ -86,8 +97,12 @@ public class ShapedSlotMap implements SlotMap {
     @Override
     public <S extends Slot> S compute(
             SlotMapOwner owner, Object key, int index, SlotComputer<S> compute) {
-        Object k = makeKey(key, index);
-        var r = shape.putIfAbsent(k);
+        if (key == null) {
+            // We do not support integer keys
+            promoteMap(owner, null);
+            return owner.getMap().compute(owner, key, index, compute);
+        }
+        var r = shape.putIfAbsent(key);
         if (r.isNewShape()) {
             assert r.getIndex() == length;
             return computeNew(owner, key, index, r.getShape(), compute);
@@ -132,8 +147,12 @@ public class ShapedSlotMap implements SlotMap {
 
     @Override
     public void add(SlotMapOwner owner, Slot newSlot) {
-        Object k = makeKey(newSlot.name, newSlot.indexOrHash);
-        var r = shape.putIfAbsent(k);
+        if (newSlot.name == null) {
+            // We do not support integer keys
+            promoteMap(owner, newSlot);
+            return;
+        }
+        var r = shape.putIfAbsent(newSlot.name);
         assert r.isNewShape();
         assert r.getIndex() == length;
         if (length == MAXIMUM_SIZE) {
@@ -169,10 +188,6 @@ public class ShapedSlotMap implements SlotMap {
     @Override
     public Iterator<Slot> iterator() {
         return new Iter();
-    }
-
-    private static Object makeKey(Object name, int index) {
-        return name == null ? index : name;
     }
 
     private final class Iter implements Iterator<Slot> {
