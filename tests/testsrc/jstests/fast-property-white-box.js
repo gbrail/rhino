@@ -53,9 +53,18 @@ function FastMaker() {
 
 FastMaker.prototype.checkBazness = function() { return this.baz == 'baz'; }
 
-let fm1 = new FastMaker();
-assertTrue(fm1.checkBazness());
-fm1.baz = 'bar';
-assertFalse(fm1.checkBazness());
+// Loop calling the prototype, should see no relinking
+for (var i = 0; i < 100; i++) {
+  let fm1 = new FastMaker();
+  assertTrue(fm1.checkBazness());
+  fm1.baz = 'bar';
+  assertFalse(fm1.checkBazness());
+}
+
+// One more time, but obscure the prototype function
+let fm2 = new FastMaker();
+assertTrue(fm2.checkBazness());
+fm2.checkBazness = function() { return 123; }
+assertEquals(123, fm2.checkBazness());
 
 'success';
