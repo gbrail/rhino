@@ -46,22 +46,13 @@ public class ShapedSlotMap implements SlotMap {
     public ScriptableObject.FastKey getFastKey(Object key) {
         if (key == null) {
             // We do not support indexed keys
-            return null;
+            return new Key(shape, -1);
         }
         int found = shape.get(key);
-        if (found < 0) {
-            return null;
-        }
         assert found < length;
+        // If found is < 0, then the returned key will
+        // not be "present".
         return new Key(shape, found);
-    }
-
-    @Override
-    public boolean validateFastKey(ScriptableObject.FastKey key) {
-        if (key instanceof Key) {
-            return Objects.equals(((Key) key).shape, shape);
-        }
-        return false;
     }
 
     @Override
@@ -211,6 +202,20 @@ public class ShapedSlotMap implements SlotMap {
         Key(Shape shape, int index) {
             this.shape = shape;
             this.index = index;
+        }
+
+        @Override
+        public boolean isSameShape(ScriptableObject so) {
+            SlotMap m = so.getMap();
+            if (m instanceof ShapedSlotMap) {
+                return Objects.equals(shape, ((ShapedSlotMap) m).shape);
+            }
+            return false;
+        }
+
+        @Override
+        public boolean isPresent() {
+            return index >= 0;
         }
     }
 }

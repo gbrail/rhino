@@ -3203,19 +3203,33 @@ public abstract class ScriptableObject extends SlotMapOwner
                 clazz.getName());
     }
 
-    public interface FastKey {}
+    public interface FastKey {
+        /**
+         * Return true if the returned key represents a key that's actually present in the object.
+         * "getFastProperty" and "putFastProperty" will fail if this is not true when the key is
+         * retrieved.
+         */
+        boolean isPresent();
 
+        /**
+         * Return true if the key comes from an object with the same shape. This must be called
+         * *every time* before calling "getFastProperty" and "putFastProperty".
+         */
+        boolean isSameShape(ScriptableObject so);
+    }
+
+    /**
+     * Return a key that can be used for fast property lookups. The caller must call "isPresent" to
+     * check if the property is found -- otherwise, the key may still be used to check if the object
+     * has changed "shape" since the key was looked up.
+     */
     public FastKey getFastPropertyKey(String property) {
         return getMap().getFastKey(property);
     }
 
-    public boolean validateFastPropertyKey(FastKey key) {
-        return getMap().validateFastKey(key);
-    }
-
     public Object getFastProperty(FastKey key, Scriptable start) {
         Slot slot = getMap().getFast(key);
-        // validateFastProperty should have returned false if not found
+        // Key should already have been validated
         assert slot != null;
         return slot.getValue(start);
     }
@@ -3223,7 +3237,7 @@ public abstract class ScriptableObject extends SlotMapOwner
     public boolean putFastProperty(
             Object key, FastKey fk, Scriptable start, Object value, boolean isThrow) {
         Slot slot = getMap().getFast(fk);
-        // Only working for slots that exist is a prerequisite
+        // Key should already have been validated
         assert slot != null;
         if (!isExtensible
                 && (!(slot instanceof AccessorSlot) && (slot.getAttributes() & READONLY) != 0)
