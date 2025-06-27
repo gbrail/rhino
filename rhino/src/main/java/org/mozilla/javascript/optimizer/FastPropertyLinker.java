@@ -103,6 +103,39 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
                 }
                 return new GuardedInvocation(get, guard);
             }
+            // Test again on the prototype
+            if ((target.getPrototype() != null) &&
+                    isCompatibleScriptable(target.getPrototype().getClass())) {
+                ScriptableObject proto = (ScriptableObject) target.getPrototype();
+                var protoFastKey = proto.getFastPropertyKey(op.getName());
+                if (protoFastKey.isPresent()) {
+                    MethodType mt =
+                            req.getCallSiteDescriptor()
+                                    .getMethodType()
+                                    .insertParameterTypes(
+                                            0,
+                                            ScriptableObject.FastKey.class,
+                                            ScriptableObject.FastKey.class);
+                    MethodType guardType = mt.changeReturnType(Boolean.TYPE);
+                    MethodHandle guard =
+                            lookup.findStatic(
+                                    FastPropertyLinker.class,
+                                    "checkFastGetWithThisPrototype",
+                                    guardType);
+                    mt = mt.insertParameterTypes(0, String.class);
+                    guard = MethodHandles.insertArguments(guard, 0, fastKey, protoFastKey);
+                    MethodHandle get =
+                            lookup.findStatic(
+                                    FastPropertyLinker.class, "getFastWithThisPrototype", mt);
+                    get =
+                            MethodHandles.insertArguments(
+                                    get, 0, op.getName(), fastKey, protoFastKey);
+                    if (DefaultLinker.DEBUG) {
+                        System.out.println(op + ": fast prototype property get");
+                    }
+                    return new GuardedInvocation(get, guard);
+                }
+            }
         }
         return null;
     }
@@ -130,15 +163,6 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
     }
 
     @SuppressWarnings("unused")
-    private static boolean checkFastGetWithThis(
-            ScriptableObject.FastKey key, Object target, Context cx, Scriptable scope) {
-        if (target instanceof ScriptableObject) {
-            return key.isSameShape((ScriptableObject) target);
-        }
-        return false;
-    }
-
-    @SuppressWarnings("unused")
     private static Object getFast(
             ScriptableObject.FastKey key, Object target, Context cx, Scriptable scope) {
         ScriptableObject so = (ScriptableObject) target;
@@ -154,8 +178,17 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             Context cx,
             Scriptable scope) {
         ScriptableObject so = (ScriptableObject) target;
-        so.putFastProperty(name, key, so, value, Context.isCurrentContextStrict());
+        so.putFastProperty(name, key, so, value, cx.isStrictMode());
         return value;
+    }
+
+    @SuppressWarnings("unused")
+    private static boolean checkFastGetWithThis(
+            ScriptableObject.FastKey key, Object target, Context cx, Scriptable scope) {
+        if (target instanceof ScriptableObject) {
+            return key.isSameShape((ScriptableObject) target);
+        }
+        return false;
     }
 
     @SuppressWarnings("unused")
@@ -167,6 +200,40 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             Scriptable scope) {
         ScriptableObject so = (ScriptableObject) target;
         Object val = so.getFastProperty(key, so);
+        return new ScriptRuntime.LookupResult(val, so, name);
+    }
+
+    @SuppressWarnings("unused")
+    private static boolean checkFastGetWithThisPrototype(
+            ScriptableObject.FastKey key,
+            ScriptableObject.FastKey prototypeKey,
+            Object target,
+            Context cx,
+            Scriptable scope) {
+        // Both the prototype and the target must be the same shape.
+        // The prototype, because that's how the optimization works,
+        // and the target, because a new property might have masked a
+        // prototype property.
+        if (target instanceof ScriptableObject) {
+            ScriptableObject so = (ScriptableObject) target;
+            if (key.isSameShape(so) && so.getPrototype() instanceof ScriptableObject) {
+                return prototypeKey.isSameShape((ScriptableObject) so.getPrototype());
+            }
+        }
+        return false;
+    }
+
+    @SuppressWarnings("unused")
+    private static ScriptRuntime.LookupResult getFastWithThisPrototype(
+            String name,
+            ScriptableObject.FastKey key,
+            ScriptableObject.FastKey prototypeKey,
+            Object target,
+            Context cx,
+            Scriptable scope) {
+        ScriptableObject so = (ScriptableObject) target;
+        ScriptableObject proto = (ScriptableObject) so.getPrototype();
+        Object val = proto.getFastProperty(prototypeKey, so);
         return new ScriptRuntime.LookupResult(val, so, name);
     }
 }
