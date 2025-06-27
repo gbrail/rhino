@@ -154,7 +154,8 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             Context cx,
             Scriptable scope) {
         ScriptableObject so = (ScriptableObject) target;
-        return so.putFastProperty(name, key, so, value, true);
+        so.putFastProperty(name, key, so, value, Context.isCurrentContextStrict());
+        return value;
     }
 
     @SuppressWarnings("unused")

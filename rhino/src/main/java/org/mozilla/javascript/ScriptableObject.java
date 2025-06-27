@@ -3223,7 +3223,13 @@ public abstract class ScriptableObject extends SlotMapOwner
     public boolean putFastProperty(
             Object key, FastKey fk, Scriptable start, Object value, boolean isThrow) {
         Slot slot = getMap().getFast(fk);
+        // Only working for slots that exist is a prerequisite
         assert slot != null;
+        if (!isExtensible
+                && (!(slot instanceof AccessorSlot) && (slot.getAttributes() & READONLY) != 0)
+                && isThrow) {
+            throw ScriptRuntime.typeErrorById("msg.not.extensible");
+        }
         if (isSealed) {
             checkNotSealed(key, 0);
         }
