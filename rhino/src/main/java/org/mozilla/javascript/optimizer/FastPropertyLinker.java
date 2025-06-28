@@ -104,8 +104,8 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
                 return new GuardedInvocation(get, guard);
             }
             // Test again on the prototype
-            if ((target.getPrototype() != null) &&
-                    isCompatibleScriptable(target.getPrototype().getClass())) {
+            if ((target.getPrototype() != null)
+                    && isCompatibleScriptable(target.getPrototype().getClass())) {
                 ScriptableObject proto = (ScriptableObject) target.getPrototype();
                 var protoFastKey = proto.getFastPropertyKey(op.getName());
                 if (protoFastKey.isPresent()) {
@@ -137,6 +137,14 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
                 }
             }
         }
+
+        /*
+         * TODO new optimization:
+         *    When adding a new property, if we're adding the same property to
+         * the same shape, then we are always transitioning to the same new shape.
+         * We can optimize that too, and it will speed up the splay benchmark.
+         */
+
         return null;
     }
 
