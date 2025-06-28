@@ -61,6 +61,16 @@ public class ShapedSlotMap implements SlotMap {
         return slots[((Key) key).index];
     }
 
+    /*
+     * TODO new optimization: modifyFast
+     *    putIfAbsent on shape
+     *    if not new, work exactly like getFast
+     *    if new, record new shape and old shape in key,
+     *    "modifyFast" then simply inserts and transitions
+     *    to the new shape.
+     *    Works when adding properties in same order every time.
+     */
+
     @Override
     public Slot modify(SlotMapOwner owner, Object key, int index, int attributes) {
         if (key == null) {
