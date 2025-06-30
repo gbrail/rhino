@@ -3224,19 +3224,35 @@ public abstract class ScriptableObject extends SlotMapOwner
      * has changed "shape" since the key was looked up.
      */
     public FastKey getFastPropertyKey(String property) {
-        return getMap().getFastKey(property);
+        return getMap().getFastQueryKey(property);
     }
 
+    /**
+     * This variant behaves just like getFastPropertyKey but can support insertion of a new property
+     * or modification of an existing one.
+     */
+    public FastKey getWritableFastPropertyKey(String property, int attributes) {
+        return getMap().getFastModifyKey(property, attributes);
+    }
+
+    /**
+     * This method is used to retrieve a property from an object using a fast key. The key must have
+     * been retrieved from this object, and "isSameShape" and "isPresent" must have returned true.
+     */
     public Object getFastProperty(FastKey key, Scriptable start) {
-        Slot slot = getMap().getFast(key);
+        Slot slot = getMap().queryFast(key);
         // Key should already have been validated
         assert slot != null;
         return slot.getValue(start);
     }
 
+    /**
+     * This method is used to set a property in an object using a fast key. The key must have been
+     * retrieved from this object, and "isSameShape" and "isPresent" must have returned true.
+     */
     public boolean putFastProperty(
             Object key, FastKey fk, Scriptable start, Object value, boolean isThrow) {
-        Slot slot = getMap().getFast(fk);
+        Slot slot = getMap().modifyFast(fk);
         // Key should already have been validated
         assert slot != null;
         if (!isExtensible

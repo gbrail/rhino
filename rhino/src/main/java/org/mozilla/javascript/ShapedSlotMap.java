@@ -43,33 +43,23 @@ public class ShapedSlotMap implements SlotMap {
     }
 
     @Override
-    public ScriptableObject.FastKey getFastKey(Object key) {
+    public ScriptableObject.FastKey getFastQueryKey(Object key) {
         if (key == null) {
             // We do not support indexed keys
-            return new Key(shape, -1);
+            return new QueryKey(shape, -1);
         }
         int found = shape.get(key);
         assert found < length;
         // If found is < 0, then the returned key will
         // not be "present".
-        return new Key(shape, found);
+        return new QueryKey(shape, found);
     }
 
     @Override
-    public Slot getFast(ScriptableObject.FastKey key) {
-        assert key instanceof Key;
-        return slots[((Key) key).index];
+    public Slot queryFast(ScriptableObject.FastKey key) {
+        assert key instanceof QueryKey;
+        return slots[((QueryKey) key).index];
     }
-
-    /*
-     * TODO new optimization: modifyFast
-     *    putIfAbsent on shape
-     *    if not new, work exactly like getFast
-     *    if new, record new shape and old shape in key,
-     *    "modifyFast" then simply inserts and transitions
-     *    to the new shape.
-     *    Works when adding properties in same order every time.
-     */
 
     @Override
     public Slot modify(SlotMapOwner owner, Object key, int index, int attributes) {
@@ -92,6 +82,39 @@ public class ShapedSlotMap implements SlotMap {
         ensureMoreCapacity();
         slots[length++] = newSlot;
         shape = r.getShape();
+        return newSlot;
+    }
+
+    @Override
+    public ScriptableObject.FastKey getFastModifyKey(Object key, int attributes) {
+        if (key == null) {
+            // We do not support indexed keys
+            return new QueryKey(shape, -1);
+        }
+        var r = shape.putIfAbsent(key);
+        if (!r.isNewShape()) {
+            // Return same result as if the key were a query
+            return new QueryKey(shape, r.getIndex());
+        }
+        if (length == MAXIMUM_SIZE) {
+            return new QueryKey(shape, -1);
+        }
+        return new ModifyKey(key, attributes, shape, r.getShape(), r.getIndex());
+    }
+
+    @Override
+    public Slot modifyFast(ScriptableObject.FastKey key) {
+        if (key instanceof QueryKey) {
+            return queryFast(key);
+        }
+        assert key instanceof ModifyKey;
+        ModifyKey m = (ModifyKey) key;
+        assert m.index == length;
+        assert m.index < MAXIMUM_SIZE;
+        Slot newSlot = new Slot(m.key, 0, m.attributes);
+        ensureMoreCapacity();
+        slots[length++] = newSlot;
+        shape = m.successorShape;
         return newSlot;
     }
 
@@ -205,12 +228,42 @@ public class ShapedSlotMap implements SlotMap {
         }
     }
 
-    private static final class Key implements ScriptableObject.FastKey {
+    private static final class QueryKey implements ScriptableObject.FastKey {
         private final Shape shape;
         private final int index;
 
-        Key(Shape shape, int index) {
+        QueryKey(Shape shape, int index) {
             this.shape = shape;
+            this.index = index;
+        }
+
+        @Override
+        public boolean isSameShape(ScriptableObject so) {
+            SlotMap m = so.getMap();
+            if (m instanceof ShapedSlotMap) {
+                return Objects.equals(shape, ((ShapedSlotMap) m).shape);
+            }
+            return false;
+        }
+
+        @Override
+        public boolean isPresent() {
+            return index >= 0;
+        }
+    }
+
+    private static final class ModifyKey implements ScriptableObject.FastKey {
+        private final Object key;
+        private final int attributes;
+        private final Shape shape;
+        private final Shape successorShape;
+        private final int index;
+
+        ModifyKey(Object key, int attributes, Shape shape, Shape successorShape, int index) {
+            this.key = key;
+            this.attributes = attributes;
+            this.shape = shape;
+            this.successorShape = successorShape;
             this.index = index;
         }
 

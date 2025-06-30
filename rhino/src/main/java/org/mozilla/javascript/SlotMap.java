@@ -96,7 +96,15 @@ public interface SlotMap extends Iterable<Slot> {
      * If the slot map supports fast property keys, it should return a FastKey instance that may be
      * used to fetch the specified property.
      */
-    default ScriptableObject.FastKey getFastKey(Object key) {
+    default ScriptableObject.FastKey getFastQueryKey(Object key) {
+        return DEFAULT_KEY;
+    }
+
+    /**
+     * If the slot map supports fast property keys, it should return a FastKey instance that may be
+     * used to modify the specified property.
+     */
+    default ScriptableObject.FastKey getFastModifyKey(Object key, int attributes) {
         return DEFAULT_KEY;
     }
 
@@ -104,7 +112,15 @@ public interface SlotMap extends Iterable<Slot> {
      * If the slot map supports fast property keys, if a valid key was returned and has the same
      * shape, then we must return the slot associated with the key.
      */
-    default Slot getFast(ScriptableObject.FastKey key) {
+    default Slot queryFast(ScriptableObject.FastKey key) {
+        return null;
+    }
+
+    /**
+     * If the slot map supports fast property keys, if a valid key was returned and has the same
+     * shape, then we must return the slot associated with the key.
+     */
+    default Slot modifyFast(ScriptableObject.FastKey key) {
         return null;
     }
 

@@ -67,4 +67,13 @@ assertTrue(fm2.checkBazness());
 fm2.checkBazness = function() { return 123; }
 assertEquals(123, fm2.checkBazness());
 
+// Loop creating an object with the same properties -- should link fast
+for (var i = 0; i < 100; i++) {
+    let o = {};
+    o.one = 1;
+    o.two = 2;
+    o.three = 3;
+    assertEquals(3, o.three);
+}
+
 'success';

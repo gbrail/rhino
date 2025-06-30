@@ -63,7 +63,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             }
         } else if (op.isNamespace(StandardNamespace.PROPERTY)
                 && op.isOperation(StandardOperation.SET)) {
-            var fastKey = target.getFastPropertyKey(op.getName());
+            var fastKey = target.getWritableFastPropertyKey(op.getName(), 0);
             if (fastKey.isPresent()) {
                 MethodType mt =
                         req.getCallSiteDescriptor()
