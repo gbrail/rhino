@@ -86,29 +86,33 @@ public class ShapedSlotMap implements SlotMap {
     }
 
     @Override
-    public ScriptableObject.FastKey getFastModifyKey(Object key, int attributes) {
+    public ScriptableObject.FastWriteKey getFastModifyKey(
+            Object key, int attributes, boolean isExtensible) {
         if (key == null) {
             // We do not support indexed keys
-            return new QueryKey(shape, -1);
+            return new ModifyKey(shape, -1);
         }
         var r = shape.putIfAbsent(key);
         if (!r.isNewShape()) {
-            // Return same result as if the key were a query
-            return new QueryKey(shape, r.getIndex());
+            // Key may only be used to modify an existing property
+            return new ModifyKey(shape, r.getIndex());
         }
-        if (length == MAXIMUM_SIZE) {
-            return new QueryKey(shape, -1);
+        if (length == MAXIMUM_SIZE || !isExtensible) {
+            // Edge case, no fast property here so that we can promote the map
+            // Also canot support this if the map is not extensible
+            return new ModifyKey(shape, -1);
         }
-        return new ModifyKey(key, attributes, shape, r.getShape(), r.getIndex());
+        // A key that represents a new property
+        return new ExtendKey(key, attributes, shape, r.getShape(), r.getIndex());
     }
 
     @Override
-    public Slot modifyFast(ScriptableObject.FastKey key) {
-        if (key instanceof QueryKey) {
+    public Slot modifyFast(ScriptableObject.FastWriteKey key) {
+        if (key instanceof ModifyKey) {
             return queryFast(key);
         }
-        assert key instanceof ModifyKey;
-        ModifyKey m = (ModifyKey) key;
+        assert key instanceof ExtendKey;
+        ExtendKey m = (ExtendKey) key;
         assert m.index == length;
         assert m.index < MAXIMUM_SIZE;
         Slot newSlot = new Slot(m.key, 0, m.attributes);
@@ -228,7 +232,7 @@ public class ShapedSlotMap implements SlotMap {
         }
     }
 
-    private static final class QueryKey implements ScriptableObject.FastKey {
+    private static class QueryKey implements ScriptableObject.FastKey {
         private final Shape shape;
         private final int index;
 
@@ -252,14 +256,20 @@ public class ShapedSlotMap implements SlotMap {
         }
     }
 
-    private static final class ModifyKey implements ScriptableObject.FastKey {
+    private static final class ModifyKey extends QueryKey implements ScriptableObject.FastWriteKey {
+        ModifyKey(Shape shape, int index) {
+            super(shape, index);
+        }
+    }
+
+    private static final class ExtendKey implements ScriptableObject.FastWriteKey {
         private final Object key;
         private final int attributes;
         private final Shape shape;
         private final Shape successorShape;
         private final int index;
 
-        ModifyKey(Object key, int attributes, Shape shape, Shape successorShape, int index) {
+        ExtendKey(Object key, int attributes, Shape shape, Shape successorShape, int index) {
             this.key = key;
             this.attributes = attributes;
             this.shape = shape;
@@ -271,7 +281,7 @@ public class ShapedSlotMap implements SlotMap {
         public boolean isSameShape(ScriptableObject so) {
             SlotMap m = so.getMap();
             if (m instanceof ShapedSlotMap) {
-                return Objects.equals(shape, ((ShapedSlotMap) m).shape);
+                return Objects.equals(shape, ((ShapedSlotMap) m).shape) && so.isExtensible();
             }
             return false;
         }

@@ -44,7 +44,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
         ParsedOperation op = new ParsedOperation(req.getCallSiteDescriptor().getOperation());
         if (op.isNamespace(StandardNamespace.PROPERTY)
                 && op.isOperation(StandardOperation.GET, RhinoOperation.GETNOWARN)) {
-            var fastKey = target.getFastPropertyKey(op.getName());
+            var fastKey = target.getFastKey(op.getName());
             if (fastKey.isPresent()) {
                 MethodType mt =
                         req.getCallSiteDescriptor()
@@ -63,12 +63,12 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             }
         } else if (op.isNamespace(StandardNamespace.PROPERTY)
                 && op.isOperation(StandardOperation.SET)) {
-            var fastKey = target.getWritableFastPropertyKey(op.getName(), 0);
+            var fastKey = target.getFastWriteKey(op.getName(), 0);
             if (fastKey.isPresent()) {
                 MethodType mt =
                         req.getCallSiteDescriptor()
                                 .getMethodType()
-                                .insertParameterTypes(0, ScriptableObject.FastKey.class);
+                                .insertParameterTypes(0, ScriptableObject.FastWriteKey.class);
                 MethodType guardType = mt.changeReturnType(Boolean.TYPE);
                 MethodHandle guard =
                         lookup.findStatic(FastPropertyLinker.class, "checkFastSet", guardType);
@@ -83,7 +83,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             }
         } else if (op.isNamespace(StandardNamespace.PROPERTY)
                 && op.isOperation(RhinoOperation.GETWITHTHIS)) {
-            var fastKey = target.getFastPropertyKey(op.getName());
+            var fastKey = target.getFastKey(op.getName());
             if (fastKey.isPresent()) {
                 MethodType mt =
                         req.getCallSiteDescriptor()
@@ -107,7 +107,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             if ((target.getPrototype() != null)
                     && isCompatibleScriptable(target.getPrototype().getClass())) {
                 ScriptableObject proto = (ScriptableObject) target.getPrototype();
-                var protoFastKey = proto.getFastPropertyKey(op.getName());
+                var protoFastKey = proto.getFastKey(op.getName());
                 if (protoFastKey.isPresent()) {
                     MethodType mt =
                             req.getCallSiteDescriptor()
@@ -137,14 +137,6 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
                 }
             }
         }
-
-        /*
-         * TODO new optimization:
-         *    When adding a new property, if we're adding the same property to
-         * the same shape, then we are always transitioning to the same new shape.
-         * We can optimize that too, and it will speed up the splay benchmark.
-         */
-
         return null;
     }
 
@@ -159,7 +151,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
 
     @SuppressWarnings("unused")
     private static boolean checkFastSet(
-            ScriptableObject.FastKey key,
+            ScriptableObject.FastWriteKey key,
             Object target,
             Object value,
             Context cx,
@@ -174,19 +166,19 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
     private static Object getFast(
             ScriptableObject.FastKey key, Object target, Context cx, Scriptable scope) {
         ScriptableObject so = (ScriptableObject) target;
-        return so.getFastProperty(key, so);
+        return so.getPropertyFast(key, so);
     }
 
     @SuppressWarnings("unused")
     private static Object setFast(
             String name,
-            ScriptableObject.FastKey key,
+            ScriptableObject.FastWriteKey key,
             Object target,
             Object value,
             Context cx,
             Scriptable scope) {
         ScriptableObject so = (ScriptableObject) target;
-        so.putFastProperty(name, key, so, value, cx.isStrictMode());
+        so.putPropertyFast(name, key, so, value, cx.isStrictMode());
         return value;
     }
 
@@ -207,7 +199,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             Context cx,
             Scriptable scope) {
         ScriptableObject so = (ScriptableObject) target;
-        Object val = so.getFastProperty(key, so);
+        Object val = so.getPropertyFast(key, so);
         return new ScriptRuntime.LookupResult(val, so, name);
     }
 
@@ -241,7 +233,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             Scriptable scope) {
         ScriptableObject so = (ScriptableObject) target;
         ScriptableObject proto = (ScriptableObject) so.getPrototype();
-        Object val = proto.getFastProperty(prototypeKey, so);
+        Object val = proto.getPropertyFast(prototypeKey, so);
         return new ScriptRuntime.LookupResult(val, so, name);
     }
 }
