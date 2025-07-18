@@ -25,6 +25,36 @@ class FastPropertyOperations {
         return null;
     }
 
+    static ScriptableObject.FastKey getFastWriteKey(
+            ScriptableObject target, String property, int attributes) {
+        if (target.isSealed()) {
+            return null;
+        }
+        if (target.getPrototype() instanceof ScriptableObject) {
+            var proto = (ScriptableObject) target.getPrototype();
+            var objKey =
+                    target.getMap().getFastModifyKey(property, attributes, target.isExtensible());
+            if (objKey != null) {
+                // Property can be set on the target object
+                var protoKey = proto.getMap().getFastWildcardKey();
+                if (protoKey != null) {
+                    return new SetDirectObjectProp(objKey, protoKey);
+                }
+                /*} else {
+                   var protoKey = proto.getMap().getFastQueryKey(property);
+                   if (protoKey != null) {
+                       // Property is on the prototype
+                       objKey = target.getMap().getFastWildcardKey();
+                       if (objKey != null) {
+                           return new GetPrototypeObjectProp(objKey, protoKey);
+                       }
+                   }
+                */
+            }
+        }
+        return null;
+    }
+
     abstract static class GetObjectProp implements ScriptableObject.FastKey {
         protected final SlotMap.Key objKey;
         protected final SlotMap.Key protoKey;
@@ -77,6 +107,58 @@ class FastPropertyOperations {
             // Key should already have been validated
             assert slot != null;
             return slot.getValue(start);
+        }
+    }
+
+    abstract static class SetObjectProp implements ScriptableObject.FastKey {
+        protected final SlotMap.Key objKey;
+        protected final SlotMap.Key protoKey;
+
+        protected SetObjectProp(SlotMap.Key objKey, SlotMap.Key protoKey) {
+            assert objKey != null;
+            assert protoKey != null;
+            this.objKey = objKey;
+            this.protoKey = protoKey;
+        }
+
+        @Override
+        public boolean isCompatible(ScriptableObject target) {
+            if (target.isSealed()) {
+                // Let non-optimized code deal with sealed objects
+                return false;
+            }
+            if (target.getPrototype() instanceof ScriptableObject) {
+                ScriptableObject proto = (ScriptableObject) target.getPrototype();
+                return objKey.isCompatible(target.getMap())
+                        && protoKey.isCompatible(proto.getMap());
+            }
+            return false;
+        }
+
+        abstract boolean putProperty(
+                ScriptableObject target, Scriptable start, Object value, boolean isThrow);
+    }
+
+    static final class SetDirectObjectProp extends SetObjectProp {
+        SetDirectObjectProp(SlotMap.Key objKey, SlotMap.Key protoKey) {
+            super(objKey, protoKey);
+        }
+
+        @Override
+        public boolean isCompatible(ScriptableObject target) {
+            if (objKey.isExtending() && !target.isExtensible()) {
+                // Let non-optimized code deal with extending non-extensible objects
+                return false;
+            }
+            return super.isCompatible(target);
+        }
+
+        @Override
+        boolean putProperty(
+                ScriptableObject target, Scriptable start, Object value, boolean isThrow) {
+            Slot slot = target.getMap().modifyFast(objKey);
+            assert slot != null;
+            return slot.setValue(value, target, start, isThrow);
         }
     }
 }
