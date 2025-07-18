@@ -22,12 +22,19 @@ class FastPropertyOperations {
                 }
             }
         }
+        // Otherwise, the fast path is not available for this operation.
         return null;
     }
 
     static ScriptableObject.FastKey getFastWriteKey(
             ScriptableObject target, String property, int attributes) {
         if (target.isSealed()) {
+            // Let non-fast-path code deal with sealed objects
+            return null;
+        }
+        Scriptable base = ScriptableObject.getBase(target, property);
+        if (base != null && base != target) {
+            // We don't do fast-path writes to properties on the prototype chain.
             return null;
         }
         if (target.getPrototype() instanceof ScriptableObject) {
@@ -35,21 +42,11 @@ class FastPropertyOperations {
             var objKey =
                     target.getMap().getFastModifyKey(property, attributes, target.isExtensible());
             if (objKey != null) {
-                // Property can be set on the target object
+                // Property already exists on the target object and can be set there
                 var protoKey = proto.getMap().getFastWildcardKey();
                 if (protoKey != null) {
                     return new SetDirectObjectProp(objKey, protoKey);
                 }
-                /*} else {
-                   var protoKey = proto.getMap().getFastQueryKey(property);
-                   if (protoKey != null) {
-                       // Property is on the prototype
-                       objKey = target.getMap().getFastWildcardKey();
-                       if (objKey != null) {
-                           return new GetPrototypeObjectProp(objKey, protoKey);
-                       }
-                   }
-                */
             }
         }
         return null;
