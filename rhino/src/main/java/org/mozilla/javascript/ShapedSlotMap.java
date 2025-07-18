@@ -43,20 +43,21 @@ public class ShapedSlotMap implements SlotMap {
     }
 
     @Override
-    public ScriptableObject.FastKey getFastQueryKey(Object key) {
+    public SlotMap.Key getFastQueryKey(Object key) {
         if (key == null) {
             // We do not support indexed keys
-            return new QueryKey(shape, -1);
+            return null;
         }
         int found = shape.get(key);
         assert found < length;
-        // If found is < 0, then the returned key will
-        // not be "present".
-        return new QueryKey(shape, found);
+        if (found >= 0) {
+            return new QueryKey(shape, found);
+        }
+        return null;
     }
 
     @Override
-    public Slot queryFast(ScriptableObject.FastKey key) {
+    public Slot queryFast(SlotMap.Key key) {
         assert key instanceof QueryKey;
         return slots[((QueryKey) key).index];
     }
@@ -86,11 +87,10 @@ public class ShapedSlotMap implements SlotMap {
     }
 
     @Override
-    public ScriptableObject.FastWriteKey getFastModifyKey(
-            Object key, int attributes, boolean isExtensible) {
+    public SlotMap.Key getFastModifyKey(Object key, int attributes, boolean isExtensible) {
         if (key == null) {
             // We do not support indexed keys
-            return new ModifyKey(shape, -1);
+            return null;
         }
         var r = shape.putIfAbsent(key);
         if (!r.isNewShape()) {
@@ -98,16 +98,17 @@ public class ShapedSlotMap implements SlotMap {
             return new ModifyKey(shape, r.getIndex());
         }
         if (length == MAXIMUM_SIZE || !isExtensible) {
-            // Edge case, no fast property here so that we can promote the map
-            // Also canot support this if the map is not extensible
-            return new ModifyKey(shape, -1);
+            // Does not work if object is not extensible, and also
+            // support the edge case of a map that is about to be promoted
+            // to a non-shaped map.
+            return null;
         }
         // A key that represents a new property
         return new ExtendKey(key, attributes, shape, r.getShape(), r.getIndex());
     }
 
     @Override
-    public Slot modifyFast(ScriptableObject.FastWriteKey key) {
+    public Slot modifyFast(SlotMap.Key key) {
         if (key instanceof ModifyKey) {
             return queryFast(key);
         }
@@ -192,6 +193,11 @@ public class ShapedSlotMap implements SlotMap {
         }
     }
 
+    @Override
+    public SlotMap.Key getFastWildcardKey() {
+        return new QueryKey(shape, 0);
+    }
+
     private void ensureMoreCapacity() {
         if (length + 1 == slots.length) {
             Slot[] newSlots = new Slot[slots.length * 2];
@@ -232,7 +238,7 @@ public class ShapedSlotMap implements SlotMap {
         }
     }
 
-    private static class QueryKey implements ScriptableObject.FastKey {
+    private static class QueryKey implements SlotMap.Key {
         private final Shape shape;
         private final int index;
 
@@ -242,27 +248,21 @@ public class ShapedSlotMap implements SlotMap {
         }
 
         @Override
-        public boolean isSameShape(ScriptableObject so) {
-            SlotMap m = so.getMap();
+        public boolean isCompatible(SlotMap m) {
             if (m instanceof ShapedSlotMap) {
                 return Objects.equals(shape, ((ShapedSlotMap) m).shape);
             }
             return false;
         }
-
-        @Override
-        public boolean isPresent() {
-            return index >= 0;
-        }
     }
 
-    private static final class ModifyKey extends QueryKey implements ScriptableObject.FastWriteKey {
+    private static final class ModifyKey extends QueryKey {
         ModifyKey(Shape shape, int index) {
             super(shape, index);
         }
     }
 
-    private static final class ExtendKey implements ScriptableObject.FastWriteKey {
+    private static final class ExtendKey implements SlotMap.Key {
         private final Object key;
         private final int attributes;
         private final Shape shape;
@@ -278,17 +278,16 @@ public class ShapedSlotMap implements SlotMap {
         }
 
         @Override
-        public boolean isSameShape(ScriptableObject so) {
-            SlotMap m = so.getMap();
+        public boolean isCompatible(SlotMap m) {
             if (m instanceof ShapedSlotMap) {
-                return Objects.equals(shape, ((ShapedSlotMap) m).shape) && so.isExtensible();
+                return Objects.equals(shape, ((ShapedSlotMap) m).shape);
             }
             return false;
         }
 
         @Override
-        public boolean isPresent() {
-            return index >= 0;
+        public boolean isExtending() {
+            return true;
         }
     }
 }
