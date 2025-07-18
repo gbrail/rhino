@@ -191,6 +191,63 @@ public class SlotMapTest {
         assertEquals(0 + startingSize, obj.getMap().size());
     }
 
+    @Test
+    public void testFastQuery() {
+        Slot slot = obj.getMap().modify(obj, "one", 0, 0);
+        slot.value = "foo";
+        SlotMap.Key oneKey = obj.getMap().getFastQueryKey("one");
+        if (oneKey == null) {
+            // No fast keys supported, nothing to test
+            return;
+        }
+        // Fast query should work
+        assertTrue(oneKey.isCompatible(obj.getMap()));
+        slot = obj.getMap().queryFast(oneKey);
+        assertEquals("foo", slot.value);
+        slot = obj.getMap().modify(obj, "two", 0, 0);
+        slot.value = "two";
+        // Old key should be invalid
+        assertFalse(oneKey.isCompatible(obj.getMap()));
+    }
+
+    @Test
+    public void testFastModifyExisting() {
+        Slot slot = obj.getMap().modify(obj, "one", 0, 0);
+        slot.value = "foo";
+        SlotMap.Key oneKey = obj.getMap().getFastModifyKey("one", 0, true);
+        if (oneKey == null) {
+            // No fast keys supported, nothing to test
+            return;
+        }
+        // Fast modify should work
+        assertTrue(oneKey.isCompatible(obj.getMap()));
+        assertFalse(oneKey.isExtending());
+        slot = obj.getMap().modifyFast(oneKey);
+        assertEquals("foo", slot.value);
+        slot = obj.getMap().modify(obj, "two", 0, 0);
+        slot.value = "two";
+        // Old key should be invalid
+        assertFalse(oneKey.isCompatible(obj.getMap()));
+    }
+
+    @Test
+    public void testFastModifyExtend() {
+        Slot slot = obj.getMap().modify(obj, "one", 0, 0);
+        slot.value = "foo";
+        SlotMap.Key oneKey = obj.getMap().getFastModifyKey("two", 0, true);
+        if (oneKey == null) {
+            // No fast keys supported, nothing to test
+            return;
+        }
+        // Fast modify should work
+        assertTrue(oneKey.isCompatible(obj.getMap()));
+        assertTrue(oneKey.isExtending());
+        slot = obj.getMap().modify(obj, "three", 0, 0);
+        slot.value = "three";
+        // Old key should be invalid
+        assertFalse(oneKey.isCompatible(obj.getMap()));
+    }
+
     private static final int NUM_INDICES = 67;
 
     @Test

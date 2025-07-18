@@ -93,27 +93,26 @@ public interface SlotMap extends Iterable<Slot> {
     }
     
     /**
-     * If the slot map supports fast property keys, it should return a FastKey instance that may be
-     * used to fetch the specified property.
+     * If the slot map supports fast property keys, it should return a Key instance that may be used
+     * to fetch the specified property.
      */
-    default ScriptableObject.FastKey getFastQueryKey(Object key) {
-        return DEFAULT_KEY;
+    default Key getFastQueryKey(Object key) {
+        return null;
     }
 
     /**
-     * If the slot map supports fast property keys, it should return a FastKey instance that may be
-     * used to modify the specified property.
+     * If the slot map supports fast property keys, it should return a Key instance that may be used
+     * to modify the specified property.
      */
-    default ScriptableObject.FastWriteKey getFastModifyKey(
-            Object key, int attributes, boolean isExtensible) {
-        return DEFAULT_WRITE_KEY;
+    default Key getFastModifyKey(Object key, int attributes, boolean isExtensible) {
+        return null;
     }
 
     /**
-     * If the slot map supports fast property keys, if a valid key was returned and has the same
-     * shape, then we must return the slot associated with the key.
+     * If the slot map supports fast property keys, it should return a Key instance that just
+     * returns true if the specified map is compatible.
      */
-    default Slot queryFast(ScriptableObject.FastKey key) {
+    default Key getFastWildcardKey() {
         return null;
     }
 
@@ -121,32 +120,38 @@ public interface SlotMap extends Iterable<Slot> {
      * If the slot map supports fast property keys, if a valid key was returned and has the same
      * shape, then we must return the slot associated with the key.
      */
-    default Slot modifyFast(ScriptableObject.FastWriteKey key) {
-        return null;
+    default Slot queryFast(Key key) {
+        throw new UnsupportedOperationException("queryFast");
     }
 
-    ScriptableObject.FastKey DEFAULT_KEY =
-            new ScriptableObject.FastKey() {
-                @Override
-                public boolean isPresent() {
-                    return false;
-                }
+    /**
+     * If the slot map supports fast property keys, if a valid key was returned and has the same
+     * shape, then we must return the slot associated with the key.
+     */
+    default Slot modifyFast(Key key) {
+        throw new UnsupportedOperationException("modifyFast");
+    }
 
-                @Override
-                public boolean isSameShape(ScriptableObject so) {
-                    return false;
-                }
-            };
-    ScriptableObject.FastWriteKey DEFAULT_WRITE_KEY =
-            new ScriptableObject.FastWriteKey() {
-                @Override
-                public boolean isPresent() {
-                    return false;
-                }
+    /**
+     * The Key interface is used when doing fast-path operations. The "isCompatible" method
+     * <em>must</em> be called on every operation, and must return "true" before any other fast path
+     * operation can be made on that particular key. Furthermore, keys may not be mixed -- a key
+     * from "queryFast" <em>must</em> not be used with "modifyFast" and vice versa.
+     */
+    interface Key {
+        /**
+         * Users of the "queryFast" and "modifyFast" methods <em>must</em> call this method and
+         * ensure that it returns true before <em>each</em> operation.
+         */
+        boolean isCompatible(SlotMap otherMap);
 
-                @Override
-                public boolean isSameShape(ScriptableObject so) {
-                    return false;
-                }
-            };
+        /**
+         * When used with "modifyFast", callers <em>must</em> call this method to determine if the
+         * saved operation extends the properties on the object before using it.
+         */
+        default boolean isExtending() {
+            return false;
+        }
+        ;
+    }
 }

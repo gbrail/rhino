@@ -42,122 +42,105 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         ScriptableObject target = (ScriptableObject) req.getReceiver();
         ParsedOperation op = new ParsedOperation(req.getCallSiteDescriptor().getOperation());
+        String propertyName = op.getName();
         if (op.isNamespace(StandardNamespace.PROPERTY)
                 && op.isOperation(StandardOperation.GET, RhinoOperation.GETNOWARN)) {
-            var fastKey = target.getFastKey(op.getName());
-            if (fastKey.isPresent()) {
-                MethodType mt =
-                        req.getCallSiteDescriptor()
-                                .getMethodType()
-                                .insertParameterTypes(0, ScriptableObject.FastKey.class);
-                MethodType guardType = mt.changeReturnType(Boolean.TYPE);
-                MethodHandle guard =
-                        lookup.findStatic(FastPropertyLinker.class, "checkFastGet", guardType);
-                guard = MethodHandles.insertArguments(guard, 0, fastKey);
-                MethodHandle get = lookup.findStatic(FastPropertyLinker.class, "getFast", mt);
-                get = MethodHandles.insertArguments(get, 0, fastKey);
+            // Look up property using fast path. Should work for direct properties
+            // and also properties on the prototype.
+            var fastKey = target.getFastKey(propertyName);
+            if (fastKey != null) {
                 if (DefaultLinker.DEBUG) {
                     System.out.println(op + ": fast property get");
                 }
-                return new GuardedInvocation(get, guard);
-            }
-        } else if (op.isNamespace(StandardNamespace.PROPERTY)
-                && op.isOperation(StandardOperation.SET)) {
-            var fastKey = target.getFastWriteKey(op.getName(), 0);
-            if (fastKey.isPresent()) {
-                MethodType mt =
-                        req.getCallSiteDescriptor()
-                                .getMethodType()
-                                .insertParameterTypes(0, ScriptableObject.FastWriteKey.class);
-                MethodType guardType = mt.changeReturnType(Boolean.TYPE);
-                MethodHandle guard =
-                        lookup.findStatic(FastPropertyLinker.class, "checkFastSet", guardType);
-                mt = mt.insertParameterTypes(0, String.class);
-                guard = MethodHandles.insertArguments(guard, 0, fastKey);
-                MethodHandle get = lookup.findStatic(FastPropertyLinker.class, "setFast", mt);
-                get = MethodHandles.insertArguments(get, 0, op.getName(), fastKey);
-                if (DefaultLinker.DEBUG) {
-                    System.out.println(op + ": fast property set");
-                }
-                return new GuardedInvocation(get, guard);
+                return makeInvocation(
+                        propertyName, lookup, req, fastKey, "checkFastGet", "getFast", false);
             }
         } else if (op.isNamespace(StandardNamespace.PROPERTY)
                 && op.isOperation(RhinoOperation.GETWITHTHIS)) {
-            var fastKey = target.getFastKey(op.getName());
-            if (fastKey.isPresent()) {
-                MethodType mt =
-                        req.getCallSiteDescriptor()
-                                .getMethodType()
-                                .insertParameterTypes(0, ScriptableObject.FastKey.class);
-                MethodType guardType = mt.changeReturnType(Boolean.TYPE);
-                MethodHandle guard =
-                        lookup.findStatic(
-                                FastPropertyLinker.class, "checkFastGetWithThis", guardType);
-                mt = mt.insertParameterTypes(0, String.class);
-                guard = MethodHandles.insertArguments(guard, 0, fastKey);
-                MethodHandle get =
-                        lookup.findStatic(FastPropertyLinker.class, "getFastWithThis", mt);
-                get = MethodHandles.insertArguments(get, 0, op.getName(), fastKey);
+            // Same as above, but return the extra information needed when
+            // we're about to call a function.
+            var fastKey = target.getFastKey(propertyName);
+            if (fastKey != null) {
                 if (DefaultLinker.DEBUG) {
                     System.out.println(op + ": fast property get");
                 }
-                return new GuardedInvocation(get, guard);
+                return makeInvocation(
+                        propertyName,
+                        lookup,
+                        req,
+                        fastKey,
+                        "checkFastGet",
+                        "getFastWithThis",
+                        true);
             }
-            // Test again on the prototype
-            if ((target.getPrototype() != null)
-                    && isCompatibleScriptable(target.getPrototype().getClass())) {
-                ScriptableObject proto = (ScriptableObject) target.getPrototype();
-                var protoFastKey = proto.getFastKey(op.getName());
-                if (protoFastKey.isPresent()) {
+            /*
+            } else if (op.isNamespace(StandardNamespace.PROPERTY)
+                    && op.isOperation(StandardOperation.SET)) {
+                // Set using fast path if the property is not on the prototype.
+                // TODO should change if the prototype does, possibly for other reasons
+                // too.
+                var fastKey = target.getFastWriteKey(op.getName(), 0);
+                if (fastKey.isPresent()) {
                     MethodType mt =
                             req.getCallSiteDescriptor()
                                     .getMethodType()
-                                    .insertParameterTypes(
-                                            0,
-                                            ScriptableObject.FastKey.class,
-                                            ScriptableObject.FastKey.class);
+                                    .insertParameterTypes(0, ScriptableObject.FastWriteKey.class);
                     MethodType guardType = mt.changeReturnType(Boolean.TYPE);
                     MethodHandle guard =
-                            lookup.findStatic(
-                                    FastPropertyLinker.class,
-                                    "checkFastGetWithThisPrototype",
-                                    guardType);
+                            lookup.findStatic(FastPropertyLinker.class, "checkFastSet", guardType);
                     mt = mt.insertParameterTypes(0, String.class);
-                    guard = MethodHandles.insertArguments(guard, 0, fastKey, protoFastKey);
-                    MethodHandle get =
-                            lookup.findStatic(
-                                    FastPropertyLinker.class, "getFastWithThisPrototype", mt);
-                    get =
-                            MethodHandles.insertArguments(
-                                    get, 0, op.getName(), fastKey, protoFastKey);
+                    guard = MethodHandles.insertArguments(guard, 0, fastKey);
+                    MethodHandle get = lookup.findStatic(FastPropertyLinker.class, "setFast", mt);
+                    get = MethodHandles.insertArguments(get, 0, op.getName(), fastKey);
                     if (DefaultLinker.DEBUG) {
-                        System.out.println(op + ": fast prototype property get");
+                        System.out.println(op + ": fast property set");
                     }
                     return new GuardedInvocation(get, guard);
                 }
-            }
+                 */
         }
         return null;
+    }
+
+    /**
+     * Assume that "opMethod" is a method on this class with the same arguments as the target call,
+     * with FastKey added as the first parameter, and that "guardMethod" has the same arguments as
+     * "opMethod" but the return type is boolean. If "addPropertyName" is true, add the property
+     * name as the first argument to the operation method.
+     */
+    private GuardedInvocation makeInvocation(
+            String propertyName,
+            MethodHandles.Lookup lookup,
+            LinkRequest req,
+            ScriptableObject.FastKey fastKey,
+            String guardMethod,
+            String opMethod,
+            boolean addPropertyName)
+            throws NoSuchMethodException, IllegalAccessException {
+        MethodType mt =
+                req.getCallSiteDescriptor()
+                        .getMethodType()
+                        .insertParameterTypes(0, ScriptableObject.FastKey.class);
+        MethodType guardType = mt.changeReturnType(Boolean.TYPE);
+        MethodHandle guard = lookup.findStatic(FastPropertyLinker.class, guardMethod, guardType);
+        guard = MethodHandles.insertArguments(guard, 0, fastKey);
+        if (addPropertyName) {
+            mt = mt.insertParameterTypes(0, String.class);
+        }
+        MethodHandle get = lookup.findStatic(FastPropertyLinker.class, opMethod, mt);
+        if (addPropertyName) {
+            get = MethodHandles.insertArguments(get, 0, propertyName, fastKey);
+        } else {
+            get = MethodHandles.insertArguments(get, 0, fastKey);
+        }
+        return new GuardedInvocation(get, guard);
     }
 
     @SuppressWarnings("unused")
     private static boolean checkFastGet(
             ScriptableObject.FastKey key, Object target, Context cx, Scriptable scope) {
         if (target instanceof ScriptableObject) {
-            return key.isSameShape((ScriptableObject) target);
-        }
-        return false;
-    }
-
-    @SuppressWarnings("unused")
-    private static boolean checkFastSet(
-            ScriptableObject.FastWriteKey key,
-            Object target,
-            Object value,
-            Context cx,
-            Scriptable scope) {
-        if (target instanceof ScriptableObject) {
-            return key.isSameShape((ScriptableObject) target);
+            return key.isCompatible((ScriptableObject) target);
         }
         return false;
     }
@@ -168,6 +151,38 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
         ScriptableObject so = (ScriptableObject) target;
         return so.getPropertyFast(key, so);
     }
+
+    @SuppressWarnings("unused")
+    private static ScriptRuntime.LookupResult getFastWithThis(
+            String name,
+            ScriptableObject.FastKey key,
+            Object target,
+            Context cx,
+            Scriptable scope) {
+        ScriptableObject so = (ScriptableObject) target;
+        Object val = so.getPropertyFast(key, so);
+        return new ScriptRuntime.LookupResult(val, so, name);
+    }
+
+    /*
+    @SuppressWarnings("unused")
+    private static boolean checkFastSet(
+            ScriptableObject.FastWriteKey key,
+            Object target,
+            Object value,
+            Context cx,
+            Scriptable scope) {
+        if (target instanceof ScriptableObject) {
+            ScriptableObject so = (ScriptableObject) target;
+            if (key.isSameShape(so) && so.getPrototype() instanceof ScriptableObject) {
+                return prototypeKey.isSameShape((ScriptableObject) so.getPrototype());
+            }
+            return key.isSameShape((ScriptableObject) target);
+        }
+        return false;
+    }
+
+
 
     @SuppressWarnings("unused")
     private static Object setFast(
@@ -182,26 +197,7 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
         return value;
     }
 
-    @SuppressWarnings("unused")
-    private static boolean checkFastGetWithThis(
-            ScriptableObject.FastKey key, Object target, Context cx, Scriptable scope) {
-        if (target instanceof ScriptableObject) {
-            return key.isSameShape((ScriptableObject) target);
-        }
-        return false;
-    }
 
-    @SuppressWarnings("unused")
-    private static ScriptRuntime.LookupResult getFastWithThis(
-            String name,
-            ScriptableObject.FastKey key,
-            Object target,
-            Context cx,
-            Scriptable scope) {
-        ScriptableObject so = (ScriptableObject) target;
-        Object val = so.getPropertyFast(key, so);
-        return new ScriptRuntime.LookupResult(val, so, name);
-    }
 
     @SuppressWarnings("unused")
     private static boolean checkFastGetWithThisPrototype(
@@ -236,4 +232,5 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
         Object val = proto.getPropertyFast(prototypeKey, so);
         return new ScriptRuntime.LookupResult(val, so, name);
     }
+     */
 }

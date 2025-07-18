@@ -3211,40 +3211,29 @@ public abstract class ScriptableObject extends SlotMapOwner
      */
     public interface FastKey {
         /**
-         * Return true if the returned key represents a key that's actually present in the object.
-         * "getFastProperty" and "putFastProperty" will fail if this is not true when the key is
-         * retrieved.
-         */
-        boolean isPresent();
-
-        /**
          * Return true if the key comes from an object with the same shape. This must be called
          * *every time* before calling "getFastProperty" and "putFastProperty".
          */
-        boolean isSameShape(ScriptableObject so);
+        boolean isCompatible(ScriptableObject so);
     }
-
-    /**
-     * FastWriteKey extends FastKey and is used for keys that can be used to modify properties in a
-     * ScriptableObject.
-     */
-    public interface FastWriteKey extends FastKey {}
 
     /**
      * Return a key that can be used for fast property lookups. The caller must call "isPresent" to
      * check if the property is found -- otherwise, the key may still be used to check if the object
-     * has changed "shape" since the key was looked up.
+     * has changed "shape" since the key was looked up. For supported slot map types, this
+     * optimization works for properties that are directly on this object, and properties on the
+     * prototype.
      */
     public FastKey getFastKey(String property) {
-        return getMap().getFastQueryKey(property);
+        return FastPropertyOperations.getFastKey(this, property);
     }
 
     /**
      * This variant behaves just like getFastPropertyKey but can support insertion of a new property
      * or modification of an existing one.
      */
-    public FastWriteKey getFastWriteKey(String property, int attributes) {
-        return getMap().getFastModifyKey(property, attributes, isExtensible);
+    public FastKey getFastWriteKey(String property, int attributes) {
+        return null;
     }
 
     /**
@@ -3252,10 +3241,7 @@ public abstract class ScriptableObject extends SlotMapOwner
      * been retrieved from this object, and "isSameShape" and "isPresent" must have returned true.
      */
     public Object getPropertyFast(FastKey key, Scriptable start) {
-        Slot slot = getMap().queryFast(key);
-        // Key should already have been validated
-        assert slot != null;
-        return slot.getValue(start);
+        return ((FastPropertyOperations.GetObjectProp) key).getProperty(this, start);
     }
 
     /**
@@ -3263,7 +3249,9 @@ public abstract class ScriptableObject extends SlotMapOwner
      * retrieved from this object, and "isSameShape" and "isPresent" must have returned true.
      */
     public boolean putPropertyFast(
-            Object key, FastWriteKey fk, Scriptable start, Object value, boolean isThrow) {
+            Object key, FastKey fk, Scriptable start, Object value, boolean isThrow) {
+        throw new UnsupportedOperationException("putPropertyFast");
+        /*
         Slot slot = getMap().modifyFast(fk);
         // Key should already have been validated
         assert slot != null;
@@ -3276,5 +3264,6 @@ public abstract class ScriptableObject extends SlotMapOwner
             checkNotSealed(key, 0);
         }
         return slot.setValue(value, this, start, isThrow);
+         */
     }
 }
