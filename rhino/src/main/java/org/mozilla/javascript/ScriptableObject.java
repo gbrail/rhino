@@ -3233,7 +3233,7 @@ public abstract class ScriptableObject extends SlotMapOwner
      * or modification of an existing one.
      */
     public FastKey getFastWriteKey(String property, int attributes) {
-        return null;
+        return FastPropertyOperations.getFastWriteKey(this, property, attributes);
     }
 
     /**
@@ -3248,22 +3248,7 @@ public abstract class ScriptableObject extends SlotMapOwner
      * This method is used to set a property in an object using a fast key. The key must have been
      * retrieved from this object, and "isSameShape" and "isPresent" must have returned true.
      */
-    public boolean putPropertyFast(
-            Object key, FastKey fk, Scriptable start, Object value, boolean isThrow) {
-        throw new UnsupportedOperationException("putPropertyFast");
-        /*
-        Slot slot = getMap().modifyFast(fk);
-        // Key should already have been validated
-        assert slot != null;
-        if (!isExtensible
-                && (!(slot instanceof AccessorSlot) && (slot.getAttributes() & READONLY) != 0)
-                && isThrow) {
-            throw ScriptRuntime.typeErrorById("msg.not.extensible");
-        }
-        if (isSealed) {
-            checkNotSealed(key, 0);
-        }
-        return slot.setValue(value, this, start, isThrow);
-         */
+    public boolean putPropertyFast(FastKey fk, Scriptable start, Object value, boolean isThrow) {
+        return ((FastPropertyOperations.SetObjectProp) fk).putProperty(this, start, value, isThrow);
     }
 }

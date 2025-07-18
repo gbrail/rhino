@@ -100,17 +100,20 @@ public class FastKeyTest {
         assertFalse(fk.isCompatible(obj2));
     }
 
-    /*
     @Test
     public void testModifyOneExistingProperty() {
         var obj = (ScriptableObject) cx.newObject(scope);
         obj.defineProperty("test", 1, 0);
         var fk = obj.getFastWriteKey("test", 0);
         assertNotNull(fk);
-        assertTrue(fk.isPresent());
-        assertEquals(1, obj.getPropertyFast(fk, obj));
-        obj.putPropertyFast("test", fk, obj, 2, true);
-        assertEquals(2, obj.getPropertyFast(fk, obj));
+        assertEquals(1, obj.getProperty(obj, "test"));
+        obj.putPropertyFast(fk, obj, 2, true);
+        assertEquals(2, obj.getProperty(obj, "test"));
+        // Test that it still works if the object is not extensible
+        obj.preventExtensions();
+        assertTrue(fk.isCompatible(obj));
+        obj.putPropertyFast(fk, obj, 3, true);
+        assertEquals(3, obj.getProperty(obj, "test"));
     }
 
     @Test
@@ -119,21 +122,27 @@ public class FastKeyTest {
         var obj = (ScriptableObject) cx.newObject(scope);
         var fk = obj.getFastWriteKey("test", 0);
         assertNotNull(fk);
-        assertTrue(fk.isPresent());
-        obj.putPropertyFast("test", fk, obj, 1, true);
+        obj.putPropertyFast(fk, obj, 1, true);
         assertEquals(1, obj.get("test", obj));
         // Test that it works with a different empty object
         var obj2 = (ScriptableObject) cx.newObject(scope);
-        assertTrue(fk.isSameShape(obj2));
-        obj2.putPropertyFast("test", fk, obj2, 2, true);
+        assertTrue(fk.isCompatible(obj2));
+        obj2.putPropertyFast(fk, obj2, 2, true);
         assertEquals(2, obj2.get("test", obj2));
         // Test that it does not work with a different shape
         obj2.defineProperty("test2", 3, 0);
-        assertFalse(fk.isSameShape(obj2));
+        assertFalse(fk.isCompatible(obj2));
         // And a new object with a different shape
         var obj3 = (ScriptableObject) cx.newObject(scope);
         obj3.defineProperty("test2", 4, 0);
-        assertFalse(fk.isSameShape(obj3));
+        assertFalse(fk.isCompatible(obj3));
+        // But it fails if the object is sealed
+        obj.sealObject();
+        assertFalse(fk.isCompatible(obj));
+        // It also fails if the object is not extensible
+        var obj4 = (ScriptableObject) cx.newObject(scope);
+        obj4.preventExtensions();
+        assertFalse(fk.isCompatible(obj4));
     }
 
     @Test
@@ -144,29 +153,27 @@ public class FastKeyTest {
         obj.defineProperty("test3", 3, 0);
         var fk = obj.getFastKey("test");
         assertNotNull(fk);
-        assertTrue(fk.isPresent());
         assertEquals(1, obj.getPropertyFast(fk, obj));
         var notFound = obj.getFastKey("notFound");
-        assertNotNull(notFound);
-        assertFalse(notFound.isPresent());
+        assertNull(notFound);
         // Fast key works with same object
-        assertTrue(fk.isSameShape(obj));
+        assertTrue(fk.isCompatible(obj));
         // Fast key works with different object with same shape
         var obj2 = (ScriptableObject) cx.newObject(scope);
         obj2.defineProperty("test", 6, 0);
         obj2.defineProperty("test2", 4, 0);
         obj2.defineProperty("test3", 5, 0);
-        assertTrue(fk.isSameShape(obj2));
+        assertTrue(fk.isCompatible(obj2));
         assertEquals(6, obj2.getPropertyFast(fk, obj2));
         // Fast key does not work if the shape is different
         obj2.defineProperty("test4", 7, 0);
-        assertFalse(fk.isSameShape(obj2));
+        assertFalse(fk.isCompatible(obj2));
         // Or if an object has same properties in a different order
         var obj3 = (ScriptableObject) cx.newObject(scope);
         obj3.defineProperty("test", 8, 0);
         obj3.defineProperty("test3", 9, 0);
         obj3.defineProperty("test2", 10, 0);
-        assertFalse(fk.isSameShape(obj3));
+        assertFalse(fk.isCompatible(obj3));
     }
 
     @Test
@@ -178,9 +185,8 @@ public class FastKeyTest {
         var fk = obj.getFastKey("test");
         var fkw = obj.getFastWriteKey("test", 0);
         assertNotNull(fk);
-        assertTrue(fk.isPresent());
         assertEquals(1, obj.getPropertyFast(fk, obj));
-        obj.putPropertyFast("test", fkw, obj, 4, true);
+        obj.putPropertyFast(fkw, obj, 4, true);
         assertEquals(4, obj.getPropertyFast(fk, obj));
     }
 
@@ -192,14 +198,12 @@ public class FastKeyTest {
         obj.defineProperty("test3", 3, 0);
         var fk = obj.getFastWriteKey("test4", 0);
         assertNotNull(fk);
-        assertTrue(fk.isPresent());
         var obj2 = (ScriptableObject) cx.newObject(scope);
         obj2.defineProperty("test", 1, 0);
         obj2.defineProperty("test2", 2, 0);
         obj2.defineProperty("test3", 3, 0);
-        assertTrue(fk.isSameShape(obj2));
-        obj2.putPropertyFast("test4", fk, obj2, 4, true);
+        assertTrue(fk.isCompatible(obj2));
+        obj2.putPropertyFast(fk, obj2, 4, true);
         assertEquals(4, obj2.get("test4", obj2));
     }
-     */
 }
