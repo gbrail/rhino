@@ -564,6 +564,8 @@ public class NativeArray extends ScriptableObject implements List {
     }
 
     private void createLengthProp() {
+        // TODO create a better FastKey mechanism for this
+        // so that we can use the shape to avoid hash operations on this.
         ScriptableObject.defineBuiltInProperty(
                 this,
                 "length",
