@@ -69,10 +69,21 @@ public class NativeArray extends ScriptableObject implements List {
     };
 
     static void init(Context cx, Scriptable scope, boolean sealed) {
-        LambdaConstructor ctor =
-                new LambdaConstructor(scope, CLASS_NAME, 1, NativeArray::jsConstructor);
+        // Array is one of the classes that uses itself as a prototype.
+        var proto = new NativeArray(0, null);
 
-        var proto = new NativeArray(0);
+        // Since we add properties in the same order every time, get a fast key
+        // for the constructor to use so we can do this with no hash table
+        // operation.
+        var lengthKey = proto.getMap().getFastAddKey("length");
+
+        LambdaConstructor ctor =
+                new LambdaConstructor(
+                        scope,
+                        CLASS_NAME,
+                        1,
+                        (Context lcx, Scriptable lscope, Object[] args) ->
+                                jsConstructor(lcx, args, lengthKey));
         ctor.setPrototypeScriptable(proto);
 
         defineMethodOnConstructor(ctor, scope, "of", 0, NativeArray::js_of);
@@ -212,7 +223,7 @@ public class NativeArray extends ScriptableObject implements List {
         NativeArray.maximumInitialCapacity = maximumInitialCapacity;
     }
 
-    public NativeArray(long lengthArg) {
+    public NativeArray(long lengthArg, SlotMap.Key lengthKey) {
         denseOnly = lengthArg <= maximumInitialCapacity;
         if (denseOnly) {
             int intLength = (int) lengthArg;
@@ -221,14 +232,18 @@ public class NativeArray extends ScriptableObject implements List {
             Arrays.fill(dense, Scriptable.NOT_FOUND);
         }
         length = lengthArg;
-        createLengthProp();
+        createLengthProp(null);
+    }
+
+    public NativeArray(long lengthArg) {
+        this(lengthArg, null);
     }
 
     public NativeArray(Object[] array) {
         denseOnly = true;
         dense = array;
         length = array.length;
-        createLengthProp();
+        createLengthProp(null);
     }
 
     @Override
@@ -537,8 +552,8 @@ public class NativeArray extends ScriptableObject implements List {
     }
 
     /** See ECMA 15.4.1,2 */
-    static Scriptable jsConstructor(Context cx, Scriptable scope, Object[] args) {
-        if (args.length == 0) return new NativeArray(0);
+    static Scriptable jsConstructor(Context cx, Object[] args, SlotMap.Key lengthKey) {
+        if (args.length == 0) return new NativeArray(0, lengthKey);
 
         // Only use 1 arg as first element for version 1.2; for
         // any other version (including 1.3) follow ECMA and use it as
@@ -556,20 +571,19 @@ public class NativeArray extends ScriptableObject implements List {
                     String msg = ScriptRuntime.getMessageById("msg.arraylength.bad");
                     throw ScriptRuntime.rangeError(msg);
                 }
-                res = new NativeArray(len);
+                res = new NativeArray(len, lengthKey);
             }
         }
 
         return res;
     }
 
-    private void createLengthProp() {
-        // TODO create a better FastKey mechanism for this
-        // so that we can use the shape to avoid hash operations on this.
+    private void createLengthProp(SlotMap.Key lengthKey) {
         ScriptableObject.defineBuiltInProperty(
                 this,
                 "length",
                 DONTENUM | PERMANENT,
+                lengthKey,
                 NativeArray::lengthGetter,
                 NativeArray::lengthSetter,
                 NativeArray::lengthAttrSetter,

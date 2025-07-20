@@ -94,7 +94,7 @@ public interface SlotMap extends Iterable<Slot> {
     
     /**
      * If the slot map supports fast property keys, it should return a Key instance that may be used
-     * to fetch the specified property.
+     * with "queryFast" to retrieve the slot associated with the specified key.
      */
     default Key getFastQueryKey(Object key) {
         return null;
@@ -102,9 +102,17 @@ public interface SlotMap extends Iterable<Slot> {
 
     /**
      * If the slot map supports fast property keys, it should return a Key instance that may be used
-     * to modify the specified property.
+     * with "modifyFast" to modify the slot associated with the specified key.
      */
     default Key getFastModifyKey(Object key, int attributes, boolean isExtensible) {
+        return null;
+    }
+
+    /**
+     * If the slot map supports fast property keys, it should return a Key instance that may be used
+     * with "addFast" to add a new slot.
+     */
+    default Key getFastAddKey(Object key) {
         return null;
     }
 
@@ -125,11 +133,16 @@ public interface SlotMap extends Iterable<Slot> {
     }
 
     /**
-     * If the slot map supports fast property keys, if a valid key was returned and has the same
+     * If the slot map supports fast property keys, if a vz`alid key was returned and has the same
      * shape, then we must return the slot associated with the key.
      */
     default Slot modifyFast(Key key) {
         throw new UnsupportedOperationException("modifyFast");
+    }
+
+    /** If the slot map supports fast property keys, this method adds a new slot. */
+    default void addFast(Key key, Slot newSlot) {
+        throw new UnsupportedOperationException("addFast");
     }
 
     /**

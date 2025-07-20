@@ -3169,22 +3169,19 @@ public abstract class ScriptableObject extends SlotMapOwner
             T owner,
             String name,
             int attributes,
+            SlotMap.Key fastKey,
             BuiltInSlot.Getter<T> getter,
             BuiltInSlot.Setter<T> setter,
             BuiltInSlot.AttributeSetter<T> attrSetter,
             BuiltInSlot.PropDescriptionSetter<T> propDescSetter) {
-        owner.getMap()
-                .add(
-                        owner,
-                        new BuiltInSlot<T>(
-                                name,
-                                0,
-                                attributes,
-                                owner,
-                                getter,
-                                setter,
-                                attrSetter,
-                                propDescSetter));
+        var newSlot =
+                new BuiltInSlot<T>(
+                        name, 0, attributes, owner, getter, setter, attrSetter, propDescSetter);
+        if (fastKey != null && fastKey.isCompatible(owner.getMap())) {
+            owner.getMap().addFast(fastKey, newSlot);
+        } else {
+            owner.getMap().add(owner, newSlot);
+        }
     }
 
     @SuppressWarnings("unchecked")

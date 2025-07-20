@@ -50,7 +50,8 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             var fastKey = target.getFastKey(propertyName);
             if (fastKey != null) {
                 if (DefaultLinker.DEBUG) {
-                    System.out.println(op + "(" + target.getClass().getSimpleName() + "): fast property get");
+                    System.out.println(
+                            op + "(" + target.getClass().getSimpleName() + "): fast property get");
                 }
                 return makeInvocation(
                         propertyName, lookup, req, fastKey, "checkFastGet", "getFast", false);
@@ -62,7 +63,8 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             var fastKey = target.getFastKey(propertyName);
             if (fastKey != null) {
                 if (DefaultLinker.DEBUG) {
-                    System.out.println(op + "(" + target.getClass().getSimpleName() + "): fast property get");
+                    System.out.println(
+                            op + "(" + target.getClass().getSimpleName() + "): fast property get");
                 }
                 return makeInvocation(
                         propertyName,
@@ -80,7 +82,8 @@ class FastPropertyLinker implements TypeBasedGuardingDynamicLinker {
             var fastKey = target.getFastWriteKey(op.getName(), 0);
             if (fastKey != null) {
                 if (DefaultLinker.DEBUG) {
-                    System.out.println(op + "(" + target.getClass().getSimpleName() + "): fast property set");
+                    System.out.println(
+                            op + "(" + target.getClass().getSimpleName() + "): fast property set");
                 }
                 return makeInvocation(
                         propertyName, lookup, req, fastKey, "checkFastSet", "setFast", false);
