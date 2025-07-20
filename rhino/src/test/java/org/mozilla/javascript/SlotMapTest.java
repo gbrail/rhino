@@ -248,6 +248,24 @@ public class SlotMapTest {
         assertFalse(oneKey.isCompatible(obj.getMap()));
     }
 
+    @Test
+    public void testFastAdd() {
+        Slot slot = obj.getMap().modify(obj, "one", 0, 0);
+        slot.value = "foo";
+        SlotMap.Key oneKey = obj.getMap().getFastAddKey("two");
+        if (oneKey == null) {
+            // No fast keys supported, nothing to test
+            return;
+        }
+        // Fast modify should work
+        assertTrue(oneKey.isCompatible(obj.getMap()));
+        assertTrue(oneKey.isExtending());
+        slot = obj.getMap().modify(obj, "three", 0, 0);
+        slot.value = "three";
+        // Old key should be invalid
+        assertFalse(oneKey.isCompatible(obj.getMap()));
+    }
+
     private static final int NUM_INDICES = 67;
 
     @Test

@@ -194,6 +194,37 @@ public class ShapedSlotMap implements SlotMap {
     }
 
     @Override
+    public SlotMap.Key getFastAddKey(Object key) {
+        if (key == null) {
+            // We do not support indexed keys
+            return null;
+        }
+        var r = shape.putIfAbsent(key);
+        if (!r.isNewShape()) {
+            // This key only supports add operations
+            return null;
+        }
+        if (length == MAXIMUM_SIZE) {
+            // Support the edge case of a map that is about to be promoted
+            // to a non-shaped map.
+            return null;
+        }
+        // A key that represents a new property
+        return new ExtendKey(key, 0, shape, r.getShape(), r.getIndex());
+    }
+
+    @Override
+    public void addFast(SlotMap.Key key, Slot newSlot) {
+        assert key instanceof ExtendKey;
+        ExtendKey extendKey = (ExtendKey) key;
+        assert extendKey.index == length;
+        assert extendKey.index < MAXIMUM_SIZE;
+        ensureMoreCapacity();
+        slots[length++] = newSlot;
+        shape = extendKey.successorShape;
+    }
+
+    @Override
     public SlotMap.Key getFastWildcardKey() {
         return new QueryKey(shape, 0);
     }
