@@ -38,6 +38,9 @@ final class NativeString extends ScriptableObject {
     private final CharSequence string;
 
     static void init(Scriptable scope, boolean sealed) {
+        var protoObject = new NativeString("");
+        var lengthKey = protoObject.getMap().getFastAddKey("length");
+
         LambdaConstructor c =
                 new LambdaConstructor(
                         scope,
@@ -46,7 +49,7 @@ final class NativeString extends ScriptableObject {
                         NativeString::js_constructorFunc,
                         NativeString::js_constructor);
         c.setPrototypePropertyAttributes(DONTENUM | READONLY | PERMANENT);
-        c.setPrototypeScriptable(new NativeString(""));
+        c.setPrototypeScriptable(protoObject);
 
         defConsMethod(c, scope, "fromCharCode", 1, NativeString::js_fromCharCode);
         defConsMethod(c, scope, "fromCodePoint", 1, NativeString::js_fromCodePoint);
@@ -189,11 +192,22 @@ final class NativeString extends ScriptableObject {
         c.definePrototypeMethod(scope, name, length, target, DONTENUM, DONTENUM | READONLY, false);
     }
 
-    NativeString(CharSequence s) {
+    NativeString(CharSequence s, SlotMap.Key lengthKey) {
         string = s;
         // This needs to happen right here because ScriptRuntime sometimes
         // constructs strings directly without using the JS constructor.
-        defineProperty("length", s::length, null, DONTENUM | READONLY | PERMANENT);
+        createLengthProp(s, lengthKey);
+    }
+
+    private void createLengthProp(CharSequence s, SlotMap.Key lengthKey) {
+        ScriptableObject.defineBuiltInProperty(this, "length",
+                DONTENUM | READONLY | PERMANENT,
+                lengthKey,
+                s::length, null);
+    }
+
+    NativeString(CharSequence s) {
+        this(s, null);
     }
 
     @Override
@@ -219,14 +233,14 @@ final class NativeString extends ScriptableObject {
         };
     }
 
-    private static Scriptable js_constructor(Context cx, Scriptable scope, Object[] args) {
+    private static Scriptable js_constructor(SlotMap.Key lengthKey, Object[] args) {
         CharSequence s;
         if (args.length == 0) {
             s = "";
         } else {
             s = ScriptRuntime.toCharSequence(args[0]);
         }
-        return new NativeString(s);
+        return new NativeString(s, lengthKey);
     }
 
     private static Object js_constructorFunc(
