@@ -3144,22 +3144,7 @@ public abstract class ScriptableObject extends SlotMapOwner
             int attributes,
             BuiltInSlot.Getter<T> getter,
             BuiltInSlot.Setter<T> setter) {
-        defineBuiltInProperty(owner, name, attributes, null, getter, setter);
-    }
-
-    public static <T extends ScriptableObject> void defineBuiltInProperty(
-            T owner,
-            String name,
-            int attributes,
-            SlotMap.Key fastKey,
-            BuiltInSlot.Getter<T> getter,
-            BuiltInSlot.Setter<T> setter) {
-        var newSlot = new BuiltInSlot<>(name, 0, attributes, owner, getter, setter);
-        if (fastKey != null && fastKey.isCompatible(owner.getMap())) {
-            owner.getMap().addFast(fastKey, newSlot);
-        } else {
-            owner.getMap().add(owner, newSlot);
-        }
+        owner.getMap().add(owner, new BuiltInSlot<>(name, 0, attributes, owner, getter, setter));
     }
 
     public static <T extends ScriptableObject> void defineBuiltInProperty(
@@ -3184,19 +3169,22 @@ public abstract class ScriptableObject extends SlotMapOwner
             T owner,
             String name,
             int attributes,
-            SlotMap.Key fastKey,
             BuiltInSlot.Getter<T> getter,
             BuiltInSlot.Setter<T> setter,
             BuiltInSlot.AttributeSetter<T> attrSetter,
             BuiltInSlot.PropDescriptionSetter<T> propDescSetter) {
-        var newSlot =
-                new BuiltInSlot<T>(
-                        name, 0, attributes, owner, getter, setter, attrSetter, propDescSetter);
-        if (fastKey != null && fastKey.isCompatible(owner.getMap())) {
-            owner.getMap().addFast(fastKey, newSlot);
-        } else {
-            owner.getMap().add(owner, newSlot);
-        }
+        owner.getMap()
+                .add(
+                        owner,
+                        new BuiltInSlot<T>(
+                                name,
+                                0,
+                                attributes,
+                                owner,
+                                getter,
+                                setter,
+                                attrSetter,
+                                propDescSetter));
     }
 
     @SuppressWarnings("unchecked")
@@ -3249,6 +3237,16 @@ public abstract class ScriptableObject extends SlotMapOwner
     }
 
     /**
+     * Return a key that can be used to insert multiple properties into an object without going
+     * through the normal property lookup mechanism. This is used for setting up built-in classes
+     * and object literals when the object is brand-new, as it skips many of the additional checks
+     * needed for normal property operations.
+     */
+    public FastKey getFastAddKey(String[] properties) {
+        return FastPropertyOperations.getFastAddKey(this, properties);
+    }
+
+    /**
      * This method is used to retrieve a property from an object using a fast key. The key must have
      * been retrieved from this object, and "isSameShape" and "isPresent" must have returned true.
      */
@@ -3262,5 +3260,28 @@ public abstract class ScriptableObject extends SlotMapOwner
      */
     public boolean putPropertyFast(FastKey fk, Scriptable start, Object value, boolean isThrow) {
         return ((FastPropertyOperations.SetObjectProp) fk).putProperty(this, start, value, isThrow);
+    }
+
+    /**
+     * This method is used to add multiple properties to an object using a fast key. The key must
+     * have been retrieved from this object and validated, and the slots <em>must</em> be presented
+     * in the same order as the keys in "getFastAddKey".
+     */
+    public void addFast(FastKey fk, Slot[] newSlots) {
+        ((FastPropertyOperations.AddObjectProps) fk).addSlots(this, newSlots);
+    }
+
+    /**
+     * This is a convenience that uses "addFast" if adding a valid FastKey, and falls back to
+     * regular "add" operations if not.
+     */
+    public void addSlots(FastKey fk, Slot[] newSlots) {
+        if (fk != null && fk.isCompatible(this)) {
+            addFast(fk, newSlots);
+        } else {
+            for (Slot slot : newSlots) {
+                getMap().add(this, slot);
+            }
+        }
     }
 }

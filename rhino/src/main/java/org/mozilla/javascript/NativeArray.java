@@ -75,7 +75,7 @@ public class NativeArray extends ScriptableObject implements List {
         // Since we add properties in the same order every time, get a fast key
         // for the constructor to use so we can do this with no hash table
         // operation.
-        var lengthKey = proto.getMap().getFastAddKey("length");
+        var lengthKey = proto.getFastAddKey(new String[] {"length"});
 
         LambdaConstructor ctor =
                 new LambdaConstructor(
@@ -223,7 +223,7 @@ public class NativeArray extends ScriptableObject implements List {
         NativeArray.maximumInitialCapacity = maximumInitialCapacity;
     }
 
-    public NativeArray(long lengthArg, SlotMap.Key lengthKey) {
+    public NativeArray(long lengthArg, ScriptableObject.FastKey lengthKey) {
         denseOnly = lengthArg <= maximumInitialCapacity;
         if (denseOnly) {
             int intLength = (int) lengthArg;
@@ -232,7 +232,7 @@ public class NativeArray extends ScriptableObject implements List {
             Arrays.fill(dense, Scriptable.NOT_FOUND);
         }
         length = lengthArg;
-        createLengthProp(null);
+        createLengthProp(lengthKey);
     }
 
     public NativeArray(long lengthArg) {
@@ -552,7 +552,7 @@ public class NativeArray extends ScriptableObject implements List {
     }
 
     /** See ECMA 15.4.1,2 */
-    static Scriptable jsConstructor(Context cx, Object[] args, SlotMap.Key lengthKey) {
+    static Scriptable jsConstructor(Context cx, Object[] args, ScriptableObject.FastKey lengthKey) {
         if (args.length == 0) return new NativeArray(0, lengthKey);
 
         // Only use 1 arg as first element for version 1.2; for
@@ -578,16 +578,18 @@ public class NativeArray extends ScriptableObject implements List {
         return res;
     }
 
-    private void createLengthProp(SlotMap.Key lengthKey) {
-        ScriptableObject.defineBuiltInProperty(
-                this,
-                "length",
-                DONTENUM | PERMANENT,
-                lengthKey,
-                NativeArray::lengthGetter,
-                NativeArray::lengthSetter,
-                NativeArray::lengthAttrSetter,
-                NativeArray::arraySetLength);
+    private void createLengthProp(ScriptableObject.FastKey lengthKey) {
+        var slot =
+                new BuiltInSlot<>(
+                        "length",
+                        0,
+                        DONTENUM | PERMANENT,
+                        this,
+                        NativeArray::lengthGetter,
+                        NativeArray::lengthSetter,
+                        NativeArray::lengthAttrSetter,
+                        NativeArray::arraySetLength);
+        addSlots(lengthKey, new Slot[] {slot});
     }
 
     private static Object lengthGetter(NativeArray array, Scriptable start) {

@@ -110,9 +110,10 @@ public interface SlotMap extends Iterable<Slot> {
 
     /**
      * If the slot map supports fast property keys, it should return a Key instance that may be used
-     * with "addFast" to add a new slot.
+     * with "addFast" to add a new slot. This returns a key that may be used with "addFast" to add
+     * multiple slots at once as efficiently as possible.
      */
-    default Key getFastAddKey(Object key) {
+    default Key getFastAddKey(Object[] keys) {
         return null;
     }
 
@@ -140,8 +141,12 @@ public interface SlotMap extends Iterable<Slot> {
         throw new UnsupportedOperationException("modifyFast");
     }
 
-    /** If the slot map supports fast property keys, this method adds a new slot. */
-    default void addFast(Key key, Slot newSlot) {
+    /**
+     * If the slot map supports fast property keys, this method adds new slots. "isValidKey" must be
+     * called on the key before this method is called. The slots in "newSlots" must be presented in
+     * the exact same order as the keys in "getFastAddKey," or else the
+     */
+    default void addFast(Key fastKey, Slot[] newSlots) {
         throw new UnsupportedOperationException("addFast");
     }
 

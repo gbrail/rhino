@@ -252,7 +252,7 @@ public class SlotMapTest {
     public void testFastAdd() {
         Slot slot = obj.getMap().modify(obj, "one", 0, 0);
         slot.value = "foo";
-        SlotMap.Key oneKey = obj.getMap().getFastAddKey("two");
+        SlotMap.Key oneKey = obj.getMap().getFastAddKey(new String[] {"two"});
         if (oneKey == null) {
             // No fast keys supported, nothing to test
             return;
