@@ -194,33 +194,36 @@ public class ShapedSlotMap implements SlotMap {
     }
 
     @Override
-    public SlotMap.Key getFastAddKey(Object key) {
-        if (key == null) {
-            // We do not support indexed keys
+    public SlotMap.Key getFastAddKey(Object[] keys) {
+        Shape.PutResult r = null;
+        if (keys == null || keys.length == 0) {
             return null;
         }
-        var r = shape.putIfAbsent(key);
-        if (!r.isNewShape()) {
-            // This key only supports add operations
-            return null;
+        for (Object key : keys) {
+            r = shape.putIfAbsent(key);
+            if (!r.isNewShape()) {
+                // This key only supports add operations
+                return null;
+            }
+            if (length == MAXIMUM_SIZE) {
+                // Support the edge case of a map that is about to be promoted
+                // to a non-shaped map.
+                return null;
+            }
         }
-        if (length == MAXIMUM_SIZE) {
-            // Support the edge case of a map that is about to be promoted
-            // to a non-shaped map.
-            return null;
-        }
-        // A key that represents a new property
-        return new ExtendKey(key, 0, shape, r.getShape(), r.getIndex());
+
+        // A generic key that is enough for this operation
+        return new ExtendKey(null, 0, shape, r.getShape(), 0);
     }
 
     @Override
-    public void addFast(SlotMap.Key key, Slot newSlot) {
+    public void addFast(SlotMap.Key key, Slot[] newSlots) {
         assert key instanceof ExtendKey;
         ExtendKey extendKey = (ExtendKey) key;
-        assert extendKey.index == length;
-        assert extendKey.index < MAXIMUM_SIZE;
-        ensureMoreCapacity();
-        slots[length++] = newSlot;
+        for (Slot slot : newSlots) {
+            ensureMoreCapacity();
+            slots[length++] = slot;
+        }
         shape = extendKey.successorShape;
     }
 

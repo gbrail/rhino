@@ -52,6 +52,16 @@ class FastPropertyOperations {
         return null;
     }
 
+    static ScriptableObject.FastKey getFastAddKey(ScriptableObject target, String[] properties) {
+        var key = target.getMap().getFastAddKey(properties);
+        if (key != null) {
+            // If the key is not null, it means we can add the properties
+            // using the fast path.
+            return new AddObjectProps(key);
+        }
+        return null;
+    }
+
     abstract static class GetObjectProp implements ScriptableObject.FastKey {
         protected final SlotMap.Key objKey;
         protected final SlotMap.Key protoKey;
@@ -156,6 +166,24 @@ class FastPropertyOperations {
             Slot slot = target.getMap().modifyFast(objKey);
             assert slot != null;
             return slot.setValue(value, target, start, isThrow);
+        }
+    }
+
+    static final class AddObjectProps implements ScriptableObject.FastKey {
+        private final SlotMap.Key addKey;
+
+        AddObjectProps(SlotMap.Key addKey) {
+            // OK if the key is null, actually.
+            this.addKey = addKey;
+        }
+
+        @Override
+        public boolean isCompatible(ScriptableObject target) {
+            return addKey.isCompatible(target.getMap());
+        }
+
+        void addSlots(ScriptableObject target, Slot[] newSlots) {
+            target.getMap().addFast(addKey, newSlots);
         }
     }
 }
