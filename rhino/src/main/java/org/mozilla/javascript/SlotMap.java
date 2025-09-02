@@ -91,7 +91,7 @@ public interface SlotMap extends Iterable<Slot> {
     default CompoundOperationMap startCompoundOp(SlotMapOwner owner, boolean forWriting) {
         return new CompoundOperationMap(owner);
     }
-    
+
     /**
      * If the slot map supports fast property keys, it should return a Key instance that may be used
      * with "queryFast" to retrieve the slot associated with the specified key.
@@ -170,6 +170,5 @@ public interface SlotMap extends Iterable<Slot> {
         default boolean isExtending() {
             return false;
         }
-        ;
     }
 }

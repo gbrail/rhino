@@ -125,7 +125,11 @@ public class ShapedSlotMap implements SlotMap {
 
     @Override
     public <S extends Slot> S compute(
-            SlotMapOwner owner, Object key, int index, SlotComputer<S> compute) {
+            SlotMapOwner owner,
+            CompoundOperationMap mutableMap,
+            Object key,
+            int index,
+            SlotComputer<S> compute) {
         if (key == null) {
             // We do not support integer keys
             promoteMap(owner, null);
@@ -134,24 +138,26 @@ public class ShapedSlotMap implements SlotMap {
         var r = shape.putIfAbsent(key);
         if (r.isNewShape()) {
             assert r.getIndex() == length;
-            return computeNew(owner, key, index, r.getShape(), compute);
+            return computeNew(owner, mutableMap, key, index, r.getShape(), compute);
         } else {
-            return computeExisting(owner, key, index, slots[r.getIndex()], r.getIndex(), compute);
+            return computeExisting(
+                    owner, mutableMap, key, index, slots[r.getIndex()], r.getIndex(), compute);
         }
     }
 
     private <S extends Slot> S computeExisting(
             SlotMapOwner owner,
+            CompoundOperationMap mutableMap,
             Object key,
             int index,
             Slot slot,
             int slotIndex,
             SlotComputer<S> compute) {
-        S result = compute.compute(key, index, slot);
+        S result = compute.compute(key, index, slot, mutableMap, owner);
         if (result == null) {
             // We do not support delete, so promote to a slot map that can
             promoteMap(owner, null);
-            owner.getMap().compute(owner, key, index, (k, i, s) -> null);
+            owner.getMap().compute(owner, key, index, (k, i, s, m, o) -> null);
         } else {
             assert slotIndex < length;
             slots[slotIndex] = result;
@@ -160,8 +166,13 @@ public class ShapedSlotMap implements SlotMap {
     }
 
     private <S extends Slot> S computeNew(
-            SlotMapOwner owner, Object key, int index, Shape newShape, SlotComputer<S> compute) {
-        S newSlot = compute.compute(key, index, null);
+            SlotMapOwner owner,
+            CompoundOperationMap mutableMap,
+            Object key,
+            int index,
+            Shape newShape,
+            SlotComputer<S> compute) {
+        S newSlot = compute.compute(key, index, null, mutableMap, owner);
         if (newSlot != null) {
             if (length == MAXIMUM_SIZE) {
                 promoteMap(owner, newSlot);
