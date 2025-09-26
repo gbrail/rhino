@@ -37,6 +37,7 @@ import org.mozilla.javascript.typedarrays.NativeUint16Array;
 import org.mozilla.javascript.typedarrays.NativeUint32Array;
 import org.mozilla.javascript.typedarrays.NativeUint8Array;
 import org.mozilla.javascript.typedarrays.NativeUint8ClampedArray;
+import org.mozilla.javascript.v8dtoa.BigDecimalDtoA;
 import org.mozilla.javascript.v8dtoa.DoubleConversion;
 import org.mozilla.javascript.v8dtoa.FastDtoa;
 import org.mozilla.javascript.xml.XMLLib;
@@ -286,7 +287,8 @@ public class ScriptRuntime {
         NativeJavaObject.init(s, sealed);
         NativeJavaMap.init(s, sealed);
 
-        // These depend on the legacy initialization behavior of the lazy loading mechanism
+        // These depend on the legacy initialization behavior of the lazy loading
+        // mechanism
         new LazilyLoadedCtor(
                 s, "Packages", "org.mozilla.javascript.NativeJavaTopPackage", sealed, true);
         new LazilyLoadedCtor(
@@ -486,9 +488,10 @@ public class ScriptRuntime {
         }
         if (sum > NativeNumber.MAX_SAFE_INTEGER) {
             if (radix == 10) {
-                /* If we're accumulating a decimal number and the number
+                /*
+                 * If we're accumulating a decimal number and the number
                  * is >= 2^53, then the result from the repeated multiply-add
-                 * above may be inaccurate.  Call Java to get the correct
+                 * above may be inaccurate. Call Java to get the correct
                  * answer.
                  */
                 try {
@@ -497,13 +500,14 @@ public class ScriptRuntime {
                     return NaN;
                 }
             } else if (radix == 2 || radix == 4 || radix == 8 || radix == 16 || radix == 32) {
-                /* The number may also be inaccurate for one of these bases.
+                /*
+                 * The number may also be inaccurate for one of these bases.
                  * This happens if the addition in value*radix + digit causes
                  * a round-down to an even least significant mantissa bit
-                 * when the first dropped bit is a one.  If any of the
+                 * when the first dropped bit is a one. If any of the
                  * following digits in the number (which haven't been added
                  * in yet) are nonzero then the correct action would have
-                 * been to round up instead of down.  An example of this
+                 * been to round up instead of down. An example of this
                  * occurs when reading the number 0x1000000000000081, which
                  * rounds to 0x1000000000000000 instead of 0x1000000000000100.
                  */
@@ -628,13 +632,14 @@ public class ScriptRuntime {
 
         // Do not break scripts relying on old non-compliant conversion
         // (see bug #368)
-        // 1. makes ToNumber parse only a valid prefix in hex literals (similar to 'parseInt()')
-        //    ToNumber('0x10 something') => 16
+        // 1. makes ToNumber parse only a valid prefix in hex literals (similar to
+        // 'parseInt()')
+        // ToNumber('0x10 something') => 16
         // 2. allows plus and minus signs for hexadecimal numbers
-        //    ToNumber('-0x10') => -16
+        // ToNumber('-0x10') => -16
         // 3. disables support for binary ('0b10') and octal ('0o13') literals
-        //    ToNumber('0b1') => NaN
-        //    ToNumber('0o5') => NaN
+        // ToNumber('0b1') => NaN
+        // ToNumber('0o5') => NaN
         final Context cx = Context.getCurrentContext();
         final boolean oldParsingMode = cx == null || cx.getLanguageVersion() < Context.VERSION_ES6;
 
@@ -1031,7 +1036,8 @@ public class ScriptRuntime {
         if (Undefined.isUndefined(obj)) return "[object Undefined]";
 
         Object tagValue = ScriptableObject.getProperty(obj, SymbolKey.TO_STRING_TAG);
-        // Note: Scriptable.NOT_FOUND is not a CharSequence, so we don't need to explicitly check
+        // Note: Scriptable.NOT_FOUND is not a CharSequence, so we don't need to
+        // explicitly check
         // for it
         if (tagValue instanceof CharSequence) {
             return "[object " + tagValue + "]";
@@ -1068,9 +1074,13 @@ public class ScriptRuntime {
         if (result != null) {
             return result;
         }
-        StringBuilder buffer = new StringBuilder();
-        DToA.JS_dtostr(buffer, DToA.DTOSTR_STANDARD, 0, d);
-        return buffer.toString();
+
+        /*
+         * StringBuilder buffer = new StringBuilder();
+         * DToA.JS_dtostr(buffer, DToA.DTOSTR_STANDARD, 0, d);
+         * return buffer.toString();
+         */
+        return BigDecimalDtoA.dtoa(new BigDecimal(d, MathContext.DECIMAL64));
     }
 
     public static String bigIntToString(BigInteger n, int base) {
@@ -1543,7 +1553,7 @@ public class ScriptRuntime {
      */
     public static long indexFromString(String str) {
         // The length of the decimal string representation of
-        //  Integer.MAX_VALUE, 2147483647
+        // Integer.MAX_VALUE, 2147483647
         final int MAX_VALUE_LENGTH = 10;
 
         int len = str.length();
@@ -1594,7 +1604,7 @@ public class ScriptRuntime {
     /** If str is a decimal presentation of Uint32 value, return it as long. Othewise return -1L; */
     public static long testUint32String(String str) {
         // The length of the decimal string representation of
-        //  UINT32_MAX_VALUE, 4294967296
+        // UINT32_MAX_VALUE, 4294967296
         final int MAX_VALUE_LENGTH = 10;
 
         int len = str.length();
@@ -2465,7 +2475,7 @@ public class ScriptRuntime {
             Scriptable bound, Object value, Context cx, Scriptable scope, String id) {
         if (bound != null) {
             // TODO: we used to special-case XMLObject here, but putProperty
-            // seems to work for E4X and it's better to optimize  the common case
+            // seems to work for E4X and it's better to optimize the common case
             ScriptableObject.putProperty(bound, id, value);
         } else {
             // "newname = 7;", where 'newname' has not yet
@@ -2495,7 +2505,7 @@ public class ScriptRuntime {
             // object whose [[Extensible]] internal property has the value
             // false. In these cases a TypeError exception is thrown (11.13.1).
             // TODO: we used to special-case XMLObject here, but putProperty
-            // seems to work for E4X and we should optimize  the common case
+            // seems to work for E4X and we should optimize the common case
             ScriptableObject.putProperty(bound, id, value);
             return value;
         }
@@ -2532,8 +2542,10 @@ public class ScriptRuntime {
         HashSet<Object> used;
         Object currentId;
         int index;
-        int enumType; /* one of ENUM_INIT_KEYS, ENUM_INIT_VALUES,
-                         ENUM_INIT_ARRAY, ENUMERATE_VALUES_IN_ORDER */
+        int enumType; /*
+                       * one of ENUM_INIT_KEYS, ENUM_INIT_VALUES,
+                       * ENUM_INIT_ARRAY, ENUMERATE_VALUES_IN_ORDER
+                       */
 
         // if true, integer ids will be returned as numbers rather than strings
         boolean enumNumbers;
@@ -3670,7 +3682,7 @@ public class ScriptRuntime {
     }
 
     /**
-     * <a href="https://262.ecma-international.org/11.0/#sec-addition-operator-plus">12.8.3 The
+     * <a href= "https://262.ecma-international.org/11.0/#sec-addition-operator-plus">12.8.3 The
      * Addition Operator (+)</a> 5. Let lprim be ? ToPrimitive(lval). 7. If Type(lprim) is String or
      * Type(rprim) is String, then a. Let lstr be ? ToString(lprim).
      *
@@ -3684,7 +3696,7 @@ public class ScriptRuntime {
     }
 
     /**
-     * <a href="https://262.ecma-international.org/11.0/#sec-addition-operator-plus">12.8.3 The
+     * <a href= "https://262.ecma-international.org/11.0/#sec-addition-operator-plus">12.8.3 The
      * Addition Operator (+)</a> 6. Let rprim be ? ToPrimitive(rval). 7. If Type(lprim) is String or
      * Type(rprim) is String, then b. Let rstr be ? ToString(rprim).
      *
@@ -4155,24 +4167,24 @@ public class ScriptRuntime {
      * @param input
      * @param preferredType
      * @return
-     * @see <a href="https://262.ecma-international.org/15.0/index.html#sec-toprimitive"></a>
+     * @see <a href= "https://262.ecma-international.org/15.0/index.html#sec-toprimitive"></a>
      */
     public static Object toPrimitive(Object input, Class<?> preferredType) {
         // 1. If input is an Object, then
-        //    a. Let exoticToPrim be ? GetMethod(input, @@toPrimitive).
-        //    b. If exoticToPrim is not undefined, then
-        //        i. If preferredType is not present, then
-        //            1. Let hint be "default".
-        //        ii. Else if preferredType is string, then
-        //            1. Let hint be "string".
-        //        iii. Else,
-        //            1. Assert: preferredType is number.
-        //            2. Let hint be "number".
-        //        iv. Let result be ? Call(exoticToPrim, input, « hint »).
-        //        v.  If result is not an Object, return result.
-        //        vi. Throw a TypeError exception.
-        //    c. If preferredType is not present, let preferredType be number.
-        //    d. Return ? OrdinaryToPrimitive(input, preferredType).
+        // a. Let exoticToPrim be ? GetMethod(input, @@toPrimitive).
+        // b. If exoticToPrim is not undefined, then
+        // i. If preferredType is not present, then
+        // 1. Let hint be "default".
+        // ii. Else if preferredType is string, then
+        // 1. Let hint be "string".
+        // iii. Else,
+        // 1. Assert: preferredType is number.
+        // 2. Let hint be "number".
+        // iv. Let result be ? Call(exoticToPrim, input, « hint »).
+        // v. If result is not an Object, return result.
+        // vi. Throw a TypeError exception.
+        // c. If preferredType is not present, let preferredType be number.
+        // d. Return ? OrdinaryToPrimitive(input, preferredType).
         // 2. Return input.
 
         // do not return on Scriptable's here; we like to fall back to our
@@ -4329,7 +4341,8 @@ public class ScriptRuntime {
     }
 
     /*
-     * Implement "SameValue" as in ECMA 7.2.9. This is not the same as "eq" because it handles
+     * Implement "SameValue" as in ECMA 7.2.9. This is not the same as "eq" because
+     * it handles
      * signed zeroes and NaNs differently.
      */
     public static boolean same(Object x, Object y) {
@@ -5504,7 +5517,7 @@ public class ScriptRuntime {
         Context cx = Context.getContext();
         long longLen = NativeArray.getLengthProperty(cx, object);
         if (longLen > Integer.MAX_VALUE) {
-            // arrays beyond  MAX_INT is not in Java in any case
+            // arrays beyond MAX_INT is not in Java in any case
             throw new IllegalArgumentException();
         }
         int len = (int) longLen;
@@ -5605,7 +5618,8 @@ public class ScriptRuntime {
         return messageProvider.getMessage(messageId, args);
     }
 
-    /* OPT there's a noticable delay for the first error!  Maybe it'd
+    /*
+     * OPT there's a noticable delay for the first error! Maybe it'd
      * make sense to use a ListResourceBundle instead of a properties
      * file to avoid (synchronized) text parsing.
      */
