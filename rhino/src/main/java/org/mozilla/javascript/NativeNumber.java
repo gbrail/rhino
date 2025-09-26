@@ -17,8 +17,8 @@ final class NativeNumber extends ScriptableObject {
     private static final long serialVersionUID = 3504516769741512101L;
 
     /**
-     * @see <a
-     *     href="https://www.ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer">20.1.2.6
+     * @see <a href=
+     *     "https://www.ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer">20.1.2.6
      *     Number.MAX_SAFE_INTEGER</a>
      */
     public static final double MAX_SAFE_INTEGER = 9007199254740991.0; // Math.pow(2, 53) - 1
@@ -149,6 +149,8 @@ final class NativeNumber extends ScriptableObject {
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
         int precisionMin = cx.version < Context.VERSION_ES6 ? -20 : 0;
         double value = toSelf(thisObj).doubleValue;
+        // TODO use BigDecimal.setScale to set, add parameters to
+        // converter to add trailing zeros if too short
         return num_to(value, args, DToA.DTOSTR_FIXED, DToA.DTOSTR_FIXED, precisionMin, 0);
     }
 
@@ -166,6 +168,7 @@ final class NativeNumber extends ScriptableObject {
             return "-Infinity";
         }
         // General case
+        // TODO add flags to converter to force exponential output
         return num_to(value, args, DToA.DTOSTR_STANDARD_EXPONENTIAL, DToA.DTOSTR_EXPONENTIAL, 0, 1);
     }
 
@@ -186,6 +189,7 @@ final class NativeNumber extends ScriptableObject {
             }
             return "-Infinity";
         }
+        // TODO use BigDecimal.round to set precision, then output as usual
         return num_to(value, args, DToA.DTOSTR_STANDARD, DToA.DTOSTR_PRECISION, 1, 0);
     }
 
@@ -233,8 +237,10 @@ final class NativeNumber extends ScriptableObject {
             precision = 0;
             oneArgMode = zeroArgMode;
         } else {
-            /* We allow a larger range of precision than
-            ECMA requires; this is permitted by ECMA. */
+            /*
+             * We allow a larger range of precision than
+             * ECMA requires; this is permitted by ECMA.
+             */
             double p = ScriptRuntime.toInteger(args[0]);
             if (p < precisionMin || p > MAX_PRECISION) {
                 String msg =

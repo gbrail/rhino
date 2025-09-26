@@ -1075,11 +1075,6 @@ public class ScriptRuntime {
             return result;
         }
 
-        /*
-         * StringBuilder buffer = new StringBuilder();
-         * DToA.JS_dtostr(buffer, DToA.DTOSTR_STANDARD, 0, d);
-         * return buffer.toString();
-         */
         return BigDecimalDtoA.dtoa(new BigDecimal(d, MathContext.DECIMAL64));
     }
 
