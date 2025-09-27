@@ -6,6 +6,11 @@
 
 package org.mozilla.javascript;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
+import org.mozilla.javascript.v8dtoa.BigDecimalDtoA;
+
 /**
  * This class implements the Number native object.
  *
@@ -148,10 +153,10 @@ final class NativeNumber extends ScriptableObject {
     private static Object js_toFixed(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
         int precisionMin = cx.version < Context.VERSION_ES6 ? -20 : 0;
-        double value = toSelf(thisObj).doubleValue;
-        // TODO use BigDecimal.setScale to set, add parameters to
-        // converter to add trailing zeros if too short
-        return num_to(value, args, DToA.DTOSTR_FIXED, DToA.DTOSTR_FIXED, precisionMin, 0);
+        var value = new BigDecimal(toSelf(thisObj).doubleValue, MathContext.DECIMAL64);
+        value = value.setScale(precisionMin, RoundingMode.HALF_EVEN);
+        // TODO address needing padding zeroes
+        return BigDecimalDtoA.dtoa(value);
     }
 
     private static Object js_toExponential(
@@ -168,7 +173,7 @@ final class NativeNumber extends ScriptableObject {
             return "-Infinity";
         }
         // General case
-        // TODO add flags to converter to force exponential output
+        // TODO address forcing exponential output
         return num_to(value, args, DToA.DTOSTR_STANDARD_EXPONENTIAL, DToA.DTOSTR_EXPONENTIAL, 0, 1);
     }
 
@@ -189,8 +194,17 @@ final class NativeNumber extends ScriptableObject {
             }
             return "-Infinity";
         }
-        // TODO use BigDecimal.round to set precision, then output as usual
-        return num_to(value, args, DToA.DTOSTR_STANDARD, DToA.DTOSTR_PRECISION, 1, 0);
+        double p = ScriptRuntime.toInteger(args[0]);
+        if (p < 1 || p > MAX_PRECISION) {
+            String msg =
+                    ScriptRuntime.getMessageById(
+                            "msg.bad.precision", ScriptRuntime.toString(args[0]));
+            throw ScriptRuntime.rangeError(msg);
+        }
+        int precision = ScriptRuntime.toInt32(p);
+        var bd = new BigDecimal(value, MathContext.DECIMAL64);
+        bd = bd.round(new MathContext(precision, RoundingMode.HALF_EVEN));
+        return BigDecimalDtoA.dtoa(bd);
     }
 
     private static NativeNumber toSelf(Scriptable thisObj) {
