@@ -9,12 +9,12 @@ package org.mozilla.javascript;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import org.mozilla.javascript.v8dtoa.BigDecimalDtoA;
 
 /**
  * This class implements the Number native object.
  *
- * <p>See ECMA 15.7.
+ * <p>
+ * See ECMA 15.7.
  *
  * @author Norris Boyd
  */
@@ -23,8 +23,8 @@ final class NativeNumber extends ScriptableObject {
 
     /**
      * @see <a href=
-     *     "https://www.ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer">20.1.2.6
-     *     Number.MAX_SAFE_INTEGER</a>
+     *      "https://www.ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer">20.1.2.6
+     *      Number.MAX_SAFE_INTEGER</a>
      */
     public static final double MAX_SAFE_INTEGER = 9007199254740991.0; // Math.pow(2, 53) - 1
 
@@ -37,13 +37,12 @@ final class NativeNumber extends ScriptableObject {
     private final double doubleValue;
 
     static void init(Scriptable scope, boolean sealed) {
-        LambdaConstructor constructor =
-                new LambdaConstructor(
-                        scope,
-                        CLASS_NAME,
-                        1,
-                        NativeNumber::js_constructorFunc,
-                        NativeNumber::js_constructor);
+        LambdaConstructor constructor = new LambdaConstructor(
+                scope,
+                CLASS_NAME,
+                1,
+                NativeNumber::js_constructorFunc,
+                NativeNumber::js_constructor);
         constructor.setPrototypePropertyAttributes(DONTENUM | READONLY | PERMANENT);
         constructor.setPrototypeScriptable(new NativeNumber(0.0));
 
@@ -103,8 +102,7 @@ final class NativeNumber extends ScriptableObject {
                 scope,
                 "valueOf",
                 0,
-                (Context lcx, Scriptable lscope, Scriptable thisObj, Object[] args) ->
-                        toSelf(thisObj).doubleValue,
+                (Context lcx, Scriptable lscope, Scriptable thisObj, Object[] args) -> toSelf(thisObj).doubleValue,
                 DONTENUM,
                 DONTENUM | READONLY);
         constructor.definePrototypeMethod(
@@ -152,11 +150,10 @@ final class NativeNumber extends ScriptableObject {
 
     private static Object js_toFixed(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+        double d = toSelf(thisObj).doubleValue;
         int precisionMin = cx.version < Context.VERSION_ES6 ? -20 : 0;
-        var value = new BigDecimal(toSelf(thisObj).doubleValue, MathContext.DECIMAL64);
-        value = value.setScale(precisionMin, RoundingMode.HALF_EVEN);
-        // TODO address needing padding zeroes
-        return BigDecimalDtoA.dtoa(value);
+        int precision = getPrecision(args, precisionMin);
+        return BigDecimalDtoA.numberToStringFixed(d, precision);
     }
 
     private static Object js_toExponential(
@@ -196,15 +193,15 @@ final class NativeNumber extends ScriptableObject {
         }
         double p = ScriptRuntime.toInteger(args[0]);
         if (p < 1 || p > MAX_PRECISION) {
-            String msg =
-                    ScriptRuntime.getMessageById(
-                            "msg.bad.precision", ScriptRuntime.toString(args[0]));
+            String msg = ScriptRuntime.getMessageById(
+                    "msg.bad.precision", ScriptRuntime.toString(args[0]));
             throw ScriptRuntime.rangeError(msg);
         }
         int precision = ScriptRuntime.toInt32(p);
         var bd = new BigDecimal(value, MathContext.DECIMAL64);
         bd = bd.round(new MathContext(precision, RoundingMode.HALF_EVEN));
-        return BigDecimalDtoA.dtoa(bd);
+        // return BigDecimalDtoA.numberToString(bd);
+        throw new AssertionError("not implemented");
     }
 
     private static NativeNumber toSelf(Scriptable thisObj) {
@@ -213,10 +210,9 @@ final class NativeNumber extends ScriptableObject {
 
     private static Object js_toString(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-        int base =
-                (args.length == 0 || Undefined.isUndefined(args[0]))
-                        ? 10
-                        : ScriptRuntime.toInt32(args[0]);
+        int base = (args.length == 0 || Undefined.isUndefined(args[0]))
+                ? 10
+                : ScriptRuntime.toInt32(args[0]);
         return ScriptRuntime.numberToString(toSelf(thisObj).doubleValue, base);
     }
 
@@ -239,6 +235,23 @@ final class NativeNumber extends ScriptableObject {
         return ScriptRuntime.numberToString(doubleValue, 10);
     }
 
+    private static int getPrecision(Object[] args, int precisionMin) {
+        if (args.length == 0) {
+            return 0;
+        }
+        /*
+         * We allow a larger range of precision than
+         * ECMA requires; this is permitted by ECMA.
+         */
+        double p = ScriptRuntime.toInteger(args[0]);
+        if (p < precisionMin || p > MAX_PRECISION) {
+            String msg = ScriptRuntime.getMessageById(
+                    "msg.bad.precision", ScriptRuntime.toString(args[0]));
+            throw ScriptRuntime.rangeError(msg);
+        }
+        return ScriptRuntime.toInt32(p);
+    }
+
     private static String num_to(
             double val,
             Object[] args,
@@ -246,23 +259,9 @@ final class NativeNumber extends ScriptableObject {
             int oneArgMode,
             int precisionMin,
             int precisionOffset) {
-        int precision;
+        int precision = getPrecision(args, precisionMin);
         if (args.length == 0) {
-            precision = 0;
             oneArgMode = zeroArgMode;
-        } else {
-            /*
-             * We allow a larger range of precision than
-             * ECMA requires; this is permitted by ECMA.
-             */
-            double p = ScriptRuntime.toInteger(args[0]);
-            if (p < precisionMin || p > MAX_PRECISION) {
-                String msg =
-                        ScriptRuntime.getMessageById(
-                                "msg.bad.precision", ScriptRuntime.toString(args[0]));
-                throw ScriptRuntime.rangeError(msg);
-            }
-            precision = ScriptRuntime.toInt32(p);
         }
         StringBuilder sb = new StringBuilder();
         DToA.JS_dtostr(sb, oneArgMode, precision + precisionOffset, val);

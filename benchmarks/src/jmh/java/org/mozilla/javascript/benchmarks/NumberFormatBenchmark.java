@@ -1,12 +1,9 @@
 package org.mozilla.javascript.benchmarks;
 
-import java.math.BigDecimal;
-import java.math.MathContext;
-import java.text.DecimalFormat;
 import java.util.concurrent.TimeUnit;
 import org.mozilla.javascript.DToA;
 import org.mozilla.javascript.ScriptRuntime;
-import org.mozilla.javascript.v8dtoa.BigDecimalDtoA;
+import org.mozilla.javascript.BigDecimalDtoA;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 
@@ -14,11 +11,6 @@ import org.openjdk.jmh.annotations.OutputTimeUnit;
 public class NumberFormatBenchmark {
 
     private static final double DENORMAL = 4.47118444E-314;
-    private static final DecimalFormat formatter;
-
-    static {
-        formatter = new DecimalFormat();
-    }
 
     @Benchmark
     public Object scriptRuntimePi() {
@@ -34,7 +26,7 @@ public class NumberFormatBenchmark {
 
     @Benchmark
     public Object bigDecimalPi() {
-        return BigDecimalDtoA.dtoa(new BigDecimal(Math.PI, MathContext.DECIMAL64));
+        return BigDecimalDtoA.numberToString(Math.PI);
     }
 
     @Benchmark
@@ -51,6 +43,6 @@ public class NumberFormatBenchmark {
 
     @Benchmark
     public Object bigDecimalOne() {
-        return BigDecimalDtoA.dtoa(BigDecimal.ONE);
+        return BigDecimalDtoA.numberToString(1.0);
     }
 }
