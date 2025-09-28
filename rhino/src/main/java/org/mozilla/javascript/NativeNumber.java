@@ -158,50 +158,36 @@ final class NativeNumber extends ScriptableObject {
 
     private static Object js_toExponential(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-        double value = toSelf(thisObj).doubleValue;
-        // Handle special values before range check
-        if (Double.isNaN(value)) {
-            return "NaN";
+        double d = toSelf(thisObj).doubleValue;
+        if (!Double.isFinite(d)) {
+            return ScriptRuntime.toString(d);
         }
-        if (Double.isInfinite(value)) {
-            if (value >= 0) {
-                return "Infinity";
+        int fractionDigits;
+        if (args.length == 0 || Undefined.isUndefined(args[0])) {
+            fractionDigits = -1;
+        } else {
+            double p = ScriptRuntime.toInteger(args[0]);
+            if (p < 0 || p > MAX_PRECISION) {
+                String msg = ScriptRuntime.getMessageById(
+                        "msg.bad.precision", ScriptRuntime.toString(args[0]));
+                throw ScriptRuntime.rangeError(msg);
             }
-            return "-Infinity";
+            fractionDigits = ScriptRuntime.toInt32(p);
         }
-        // General case
-        // TODO address forcing exponential output
-        return num_to(value, args, DToA.DTOSTR_STANDARD_EXPONENTIAL, DToA.DTOSTR_EXPONENTIAL, 0, 1);
+        return BigDecimalDtoA.numberToStringExponential(d, fractionDigits);
     }
 
     private static Object js_toPrecision(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-        double value = toSelf(thisObj).doubleValue;
+        double d = toSelf(thisObj).doubleValue;
         // Undefined precision, fall back to ToString()
-        if (args.length == 0 || Undefined.isUndefined(args[0])) {
-            return ScriptRuntime.numberToString(value, 10);
+        if (args.length == 0 || Undefined.isUndefined(args[0]) || !Double.isFinite(d)) {
+            return ScriptRuntime.toString(d);
         }
-        // Handle special values before range check
-        if (Double.isNaN(value)) {
-            return "NaN";
-        }
-        if (Double.isInfinite(value)) {
-            if (value >= 0) {
-                return "Infinity";
-            }
-            return "-Infinity";
-        }
-        double p = ScriptRuntime.toInteger(args[0]);
-        if (p < 1 || p > MAX_PRECISION) {
-            String msg = ScriptRuntime.getMessageById(
-                    "msg.bad.precision", ScriptRuntime.toString(args[0]));
-            throw ScriptRuntime.rangeError(msg);
-        }
-        int precision = ScriptRuntime.toInt32(p);
-        var bd = new BigDecimal(value, MathContext.DECIMAL64);
-        bd = bd.round(new MathContext(precision, RoundingMode.HALF_EVEN));
-        // return BigDecimalDtoA.numberToString(bd);
-        throw new AssertionError("not implemented");
+        int precision = getPrecision(args, 1);
+        var bd = new BigDecimal(d, MathContext.DECIMAL64);
+        bd = bd.round(new MathContext(precision, RoundingMode.HALF_UP));
+        return BigDecimalDtoA.numberToString(bd);
     }
 
     private static NativeNumber toSelf(Scriptable thisObj) {
@@ -250,22 +236,6 @@ final class NativeNumber extends ScriptableObject {
             throw ScriptRuntime.rangeError(msg);
         }
         return ScriptRuntime.toInt32(p);
-    }
-
-    private static String num_to(
-            double val,
-            Object[] args,
-            int zeroArgMode,
-            int oneArgMode,
-            int precisionMin,
-            int precisionOffset) {
-        int precision = getPrecision(args, precisionMin);
-        if (args.length == 0) {
-            oneArgMode = zeroArgMode;
-        }
-        StringBuilder sb = new StringBuilder();
-        DToA.JS_dtostr(sb, oneArgMode, precision + precisionOffset, val);
-        return sb.toString();
     }
 
     private static Object js_isFinite(
