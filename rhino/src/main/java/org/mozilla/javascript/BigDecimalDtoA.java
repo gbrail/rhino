@@ -10,7 +10,8 @@ public class BigDecimalDtoA {
 
     /**
      * Implement Number::toString as specified in ECMAScript under "abstract
-     * operations." Currently only implemented for radix 10.
+     * operations." Currently
+     * only implemented for radix 10.
      */
     public static String numberToString(double v) {
         if (!Double.isFinite(v)) {
@@ -18,47 +19,44 @@ public class BigDecimalDtoA {
         }
         // ECMAScript section 6 says that numbers correspond to the "binary64"
         // standard, and that the "round ties to even" mode should be used.
-        return numberToString(new BigDecimal(v, MathContext.DECIMAL64));
-    }
+        BigDecimal d = new BigDecimal(v, MathContext.DECIMAL64);
+        // This function (and not the others) asks for the shortest possible
+        // representation.
+        d = d.stripTrailingZeros();
 
-    public static String numberToString(BigDecimal d) {
         // Save negativity for later to make formatting easier
         StringBuilder s = new StringBuilder();
-        if (d.compareTo(BigDecimal.ZERO) < 0) {
+        if (d.signum() < 0) {
             d = d.negate();
             s.append('-');
         }
 
-        d = d.stripTrailingZeros();
         int precision = d.precision();
         int scale = d.scale();
         // Subsequent operations are string manipulations on this
         String unscaled = d.unscaledValue().toString();
         int exponent = calculateExponent(d, precision, scale);
 
-        if ((exponent >= -5) && (exponent < 21)) {
+        // System.out.println(v + " u = " + unscaled + " p = " + precision + " s = " +
+        // scale + " e = " + exponent);
+
+        if ((exponent >= -6) && (exponent < 21)) {
             // Straight decimal notation
             if (scale < 0) {
                 // Very big number with no decimal point
                 assert exponent > 0;
                 s.append(unscaled);
-                for (int i = scale; i < 0; i++) {
-                    s.append('0');
-                }
+                addZeroes(s, -scale);
             } else if (precision <= scale) {
                 // Very small number less than zero
                 assert exponent < 0;
                 s.append("0.");
-                for (int i = exponent; i >= 0; i--) {
-                    s.append('0');
-                }
-                s.append(stripTrailingZeroes(unscaled));
+                addZeroes(s, scale - precision);
+                s.append(unscaled);
             } else {
                 // A fairly normal number
                 assert precision > scale;
                 s.append(unscaled.substring(0, precision - scale));
-                // String remaining = stripTrailingZeroes(unscaled.substring(precision -
-                // scale));
                 String remaining = unscaled.substring(precision - scale);
                 if (!remaining.isEmpty()) {
                     s.append('.');
@@ -68,7 +66,6 @@ public class BigDecimalDtoA {
         } else {
             // Exponential notation
             s.append(unscaled.substring(0, 1));
-            // String remaining = stripTrailingZeroes(unscaled.substring(1));
             String remaining = unscaled.substring(1);
             if (!remaining.isEmpty()) {
                 s.append('.');
@@ -95,30 +92,48 @@ public class BigDecimalDtoA {
         // The spec mentions in a note that toFixed prints more significant
         // digits than toString, hence "unlimited" here.
         BigDecimal d = new BigDecimal(v, MathContext.UNLIMITED);
-        boolean negative = d.compareTo(BigDecimal.ZERO) < 0;
-        if (negative) {
+        StringBuilder s = new StringBuilder();
+        if (d.signum() < 0) {
             d = d.negate();
+            s.append('-');
         }
 
         int scale = fractionDigits;
         // This can round and reduce precision, or increase scale and add zeroes.
-        d = d.setScale(scale, RoundingMode.HALF_EVEN);
+        d = d.setScale(scale, RoundingMode.HALF_UP);
         int precision = d.precision();
         String unscaled = d.unscaledValue().toString();
+        int exponent = calculateExponent(d, precision, scale);
 
-        if (scale >= 0) {
-            if (precision <= scale) {
-                return smallDecimal(d, unscaled, negative, precision, scale);
-            }
-            return normalDecimal(d, unscaled, negative, precision, scale, false);
+        if (scale < 0) {
+            // Very big number with no decimal point
+            assert exponent > 0;
+            s.append(unscaled);
+            addZeroes(s, -scale);
+        } else if (precision <= scale) {
+            // Very small number less than zero
+            assert exponent < 0;
+            s.append("0.");
+            addZeroes(s, scale - precision);
+            s.append(unscaled);
         } else {
-            return largeDecimal(d, unscaled, negative, scale);
+            // A fairly normal number
+            assert precision > scale;
+            s.append(unscaled.substring(0, precision - scale));
+            String remaining = unscaled.substring(precision - scale);
+            if (!remaining.isEmpty()) {
+                s.append('.');
+                s.append(remaining);
+            }
         }
+
+        return s.toString();
     }
 
     /**
      * Implement Number.prototype.toExponential as specified in ECMAScript for the
-     * Number prototype. If fraction digits was undefined then pass -1.
+     * Number prototype.
+     * If fraction digits was undefined then pass -1.
      */
     public static String numberToStringExponential(double v, int fractionDigits) {
         if (!Double.isFinite(v) || fractionDigits < 0) {
@@ -127,12 +142,11 @@ public class BigDecimalDtoA {
         // This is one of the functions that expects to work with
         // more precision than toString()
         BigDecimal d = new BigDecimal(v, MathContext.UNLIMITED);
-        boolean negative = d.compareTo(BigDecimal.ZERO) < 0;
-        if (negative) {
-            d = d.negate();
-        }
-        if (d.equals(BigDecimal.ZERO)) {
+        int sig = d.signum();
+        if (sig == 0) {
             return exponentialZero(fractionDigits);
+        } else if (sig < 0) {
+            d = d.negate();
         }
 
         // Reduce precision if necessary. Test262 tests round "half up" which
@@ -145,7 +159,7 @@ public class BigDecimalDtoA {
         int exponent = calculateExponent(d, precision, scale);
 
         StringBuilder s = new StringBuilder();
-        if (negative) {
+        if (sig < 0) {
             s.append('-');
         }
 
@@ -155,9 +169,7 @@ public class BigDecimalDtoA {
         if (!remaining.isEmpty() || extraZeroes > 0) {
             s.append('.');
             s.append(remaining);
-            for (int i = 0; i < extraZeroes; i++) {
-                s.append('0');
-            }
+            addZeroes(s, extraZeroes);
         }
         s.append('e');
         if (exponent >= 0) {
@@ -168,131 +180,94 @@ public class BigDecimalDtoA {
         return s.toString();
     }
 
-    /**
-     * Special handling for zero as shown in the spec for toExponential.
-     */
+    public static String numberToStringPrecision(double v, int desiredPrecision) {
+        if (!Double.isFinite(v)) {
+            return ScriptRuntime.toString(v);
+        }
+        // This is one of the functions that expects to work with
+        // more precision than toString()
+        BigDecimal d = new BigDecimal(v, MathContext.UNLIMITED);
+        StringBuilder s = new StringBuilder();
+        int sig = d.signum();
+        if (sig == 0) {
+            return precisionZero(desiredPrecision);
+        } else if (sig < 0) {
+            d = d.negate();
+            s.append('-');
+        }
+
+        d = d.round(new MathContext(desiredPrecision, RoundingMode.HALF_UP));
+
+        int precision = d.precision();
+        int scale = d.scale();
+        // Subsequent operations are string manipulations on this
+        String unscaled = d.unscaledValue().toString();
+        int exponent = calculateExponent(d, precision, scale);
+
+        if (exponent >= -6 && exponent < desiredPrecision) {
+            // Straight decimal notation
+            if (scale < 0) {
+                // Very big number with no decimal point
+                assert exponent > 0;
+                s.append(unscaled);
+                addZeroes(s, -scale);
+            } else if (precision <= scale) {
+                // Very small number less than zero
+                assert exponent < 0;
+                s.append("0.");
+                addZeroes(s, scale - precision);
+                s.append(unscaled);
+            } else {
+                // A fairly normal number
+                assert precision > scale;
+                s.append(unscaled.substring(0, precision - scale));
+                String remaining = unscaled.substring(precision - scale);
+                int extraZeroes = desiredPrecision - unscaled.length();
+                if (!remaining.isEmpty() || extraZeroes > 0) {
+                    s.append('.');
+                    s.append(remaining);
+                    addZeroes(s, extraZeroes);
+                }
+            }
+        } else {
+            // Exponential notation
+            s.append(unscaled.substring(0, 1));
+            String remaining = unscaled.substring(1);
+            int extraZeroes = desiredPrecision - unscaled.length();
+            if (!remaining.isEmpty() || extraZeroes > 0) {
+                s.append('.');
+                s.append(remaining);
+                addZeroes(s, extraZeroes);
+            }
+            s.append('e');
+            if (exponent > 0) {
+                s.append('+');
+            }
+            s.append(exponent);
+        }
+        return s.toString();
+    }
+
+    /** Special handling for zero as shown in the spec. */
     private static String exponentialZero(int fractionDigits) {
         StringBuilder s = new StringBuilder();
         s.append('0');
         if (fractionDigits > 0) {
             s.append('.');
         }
-        for (int i = 0; i < fractionDigits; i++) {
-            s.append('0');
-        }
+        addZeroes(s, fractionDigits);
         s.append("e+0");
         return s.toString();
     }
 
-    /**
-     * A decimal number that is >= 1 in magnitude, and does not require exponents
-     * or extra padding to represent the unscaled value.
-     */
-    private static String normalDecimal(
-            BigDecimal d, String unscaled, boolean negative, int precision, int scale, boolean strip) {
-        assert scale >= 0;
-        var buf = new StringBuilder();
-        if (negative) {
-            buf.append('-');
+    private static String precisionZero(int precision) {
+        StringBuilder s = new StringBuilder();
+        s.append('0');
+        if (precision > 1) {
+            s.append('.');
         }
-        int wholePart = precision - scale;
-        buf.append(unscaled.substring(0, wholePart));
-        String decimalPart = unscaled.substring(wholePart);
-        if (strip) {
-            decimalPart = stripTrailingZeroes(decimalPart);
-        }
-        if (!decimalPart.isEmpty()) {
-            buf.append('.');
-            buf.append(decimalPart);
-        }
-        return buf.toString();
-    }
-
-    /**
-     * A decimal with many fraction digits that is smaller than zero.
-     */
-    private static String smallDecimal(
-            BigDecimal d, String unscaled, boolean negative, int precision, int scale) {
-        assert scale >= precision;
-        var buf = new StringBuilder();
-        if (negative) {
-            buf.append('-');
-        }
-        int zeroes = scale - precision;
-        buf.append("0.");
-        for (int i = 0; i < zeroes; i++) {
-            buf.append('0');
-        }
-        buf.append(unscaled);
-        return buf.toString();
-    }
-
-    /**
-     * A decimal with an absolute value smaller than one, represented in
-     * exponential notation.
-     */
-    private static String smallDecimalExponential(
-            BigDecimal d, String unscaled, boolean negative, int precision, int scale, boolean strip) {
-        var buf = new StringBuilder();
-        if (negative) {
-            buf.append('-');
-        }
-        int zeroes = scale - precision;
-        buf.append(unscaled.substring(0, 1));
-        String decimalPart = unscaled.substring(1);
-        if (strip) {
-            decimalPart = stripTrailingZeroes(decimalPart);
-        }
-        if (!decimalPart.isEmpty()) {
-            buf.append('.');
-            buf.append(decimalPart);
-        }
-        buf.append("e-");
-        buf.append(zeroes + 1);
-        return buf.toString();
-    }
-
-    /**
-     * A decimal with no fraction digits that is larger than just the
-     * unscaled value.
-     */
-    private static String largeDecimal(
-            BigDecimal d, String unscaled, boolean negative, int scale) {
-        assert scale < 0;
-        var buf = new StringBuilder();
-        if (negative) {
-            buf.append('-');
-        }
-        int zeroes = -scale;
-        buf.append(unscaled);
-        for (int i = 0; i < zeroes; i++) {
-            buf.append('0');
-        }
-        return buf.toString();
-    }
-
-    /**
-     * A decimal that is larger than one, represented in exponential notation.
-     */
-    private static String largeDecimalExponential(
-            BigDecimal d, String unscaled, boolean negative, int precision, int scale, boolean strip) {
-        var buf = new StringBuilder();
-        if (negative) {
-            buf.append('-');
-        }
-        int zeroes = -scale;
-        buf.append(unscaled.substring(0, 1));
-        String decimalPart = unscaled.substring(1);
-        if (strip) {
-            decimalPart = stripTrailingZeroes(decimalPart);
-        }
-        if (!decimalPart.isEmpty()) {
-            buf.append('.');
-            buf.append(decimalPart);
-        }
-        buf.append("e+");
-        buf.append(zeroes + precision - 1);
-        return buf.toString();
+        addZeroes(s, precision - 1);
+        return s.toString();
     }
 
     private static int calculateExponent(BigDecimal d, int precision, int scale) {
@@ -308,14 +283,9 @@ public class BigDecimalDtoA {
         return precision - scale - 1;
     }
 
-    private static String stripTrailingZeroes(String s) {
-        int lastZero = s.length();
-        while (lastZero >= 1 && s.charAt(lastZero - 1) == '0') {
-            lastZero--;
+    private static void addZeroes(StringBuilder b, int n) {
+        for (int i = 0; i < n; i++) {
+            b.append('0');
         }
-        if (lastZero < s.length()) {
-            return s.substring(0, lastZero);
-        }
-        return s;
     }
 }
