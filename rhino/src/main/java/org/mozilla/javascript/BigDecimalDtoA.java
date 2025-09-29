@@ -9,8 +9,7 @@ public class BigDecimalDtoA {
     private static final double TEN_TO_21 = Math.pow(10.0, 21.0);
 
     /**
-     * Implement Number::toString as specified in ECMAScript under "abstract
-     * operations." Currently
+     * Implement Number::toString as specified in ECMAScript under "abstract operations." Currently
      * only implemented for radix 10.
      */
     public static String numberToString(double v) {
@@ -80,10 +79,7 @@ public class BigDecimalDtoA {
         return s.toString();
     }
 
-    /**
-     * Implement Number.prototype.toFixed as specified in ECMAScript for the Number
-     * prototype.
-     */
+    /** Implement Number.prototype.toFixed as specified in ECMAScript for the Number prototype. */
     public static String numberToStringFixed(double v, int fractionDigits) {
         if (!Double.isFinite(v) || v >= TEN_TO_21) {
             return numberToString(v);
@@ -131,8 +127,7 @@ public class BigDecimalDtoA {
     }
 
     /**
-     * Implement Number.prototype.toExponential as specified in ECMAScript for the
-     * Number prototype.
+     * Implement Number.prototype.toExponential as specified in ECMAScript for the Number prototype.
      * If fraction digits was undefined then pass -1.
      */
     public static String numberToStringExponential(double v, int fractionDigits) {
