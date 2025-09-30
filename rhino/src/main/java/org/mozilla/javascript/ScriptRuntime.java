@@ -23,6 +23,7 @@ import java.util.ServiceLoader;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.mozilla.javascript.ast.FunctionNode;
+import org.mozilla.javascript.dtoa.DoubleToDecimal;
 import org.mozilla.javascript.lc.type.impl.factory.ConcurrentFactory;
 import org.mozilla.javascript.typedarrays.NativeArrayBuffer;
 import org.mozilla.javascript.typedarrays.NativeBigInt64Array;
@@ -1068,9 +1069,9 @@ public class ScriptRuntime {
         if (result != null) {
             return result;
         }
-        StringBuilder buffer = new StringBuilder();
-        DToA.JS_dtostr(buffer, DToA.DTOSTR_STANDARD, 0, d);
-        return buffer.toString();
+
+        var decimal = DoubleToDecimal.toDecimal(d);
+        return decimal.toString();
     }
 
     public static String bigIntToString(BigInteger n, int base) {
