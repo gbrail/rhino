@@ -6,6 +6,8 @@
 
 package org.mozilla.javascript;
 
+import org.mozilla.javascript.dtoa.BigDecimalDtoA;
+
 /**
  * This class implements the Number native object.
  *
@@ -17,8 +19,8 @@ final class NativeNumber extends ScriptableObject {
     private static final long serialVersionUID = 3504516769741512101L;
 
     /**
-     * @see <a
-     *     href="https://www.ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer">20.1.2.6
+     * @see <a href=
+     *     "https://www.ecma-international.org/ecma-262/6.0/#sec-number.max_safe_integer">20.1.2.6
      *     Number.MAX_SAFE_INTEGER</a>
      */
     public static final double MAX_SAFE_INTEGER = 9007199254740991.0; // Math.pow(2, 53) - 1
@@ -147,46 +149,32 @@ final class NativeNumber extends ScriptableObject {
 
     private static Object js_toFixed(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+        double d = toSelf(thisObj).doubleValue;
         int precisionMin = cx.version < Context.VERSION_ES6 ? -20 : 0;
-        double value = toSelf(thisObj).doubleValue;
-        return num_to(value, args, DToA.DTOSTR_FIXED, DToA.DTOSTR_FIXED, precisionMin, 0);
+        int precision = getPrecision(args, precisionMin);
+        return BigDecimalDtoA.numberToStringFixed(d, precision);
     }
 
     private static Object js_toExponential(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-        double value = toSelf(thisObj).doubleValue;
-        // Handle special values before range check
-        if (Double.isNaN(value)) {
-            return "NaN";
+        double d = toSelf(thisObj).doubleValue;
+        if (!Double.isFinite(d)) {
+            // Spec wants this check before the other checks
+            return ScriptRuntime.toString(d);
         }
-        if (Double.isInfinite(value)) {
-            if (value >= 0) {
-                return "Infinity";
-            }
-            return "-Infinity";
-        }
-        // General case
-        return num_to(value, args, DToA.DTOSTR_STANDARD_EXPONENTIAL, DToA.DTOSTR_EXPONENTIAL, 0, 1);
+        int fractionDigits = getPrecision(args, 0);
+        return BigDecimalDtoA.numberToStringExponential(d, fractionDigits);
     }
 
     private static Object js_toPrecision(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
-        double value = toSelf(thisObj).doubleValue;
+        double d = toSelf(thisObj).doubleValue;
         // Undefined precision, fall back to ToString()
-        if (args.length == 0 || Undefined.isUndefined(args[0])) {
-            return ScriptRuntime.numberToString(value, 10);
+        if (args.length == 0 || Undefined.isUndefined(args[0]) || !Double.isFinite(d)) {
+            return ScriptRuntime.toString(d);
         }
-        // Handle special values before range check
-        if (Double.isNaN(value)) {
-            return "NaN";
-        }
-        if (Double.isInfinite(value)) {
-            if (value >= 0) {
-                return "Infinity";
-            }
-            return "-Infinity";
-        }
-        return num_to(value, args, DToA.DTOSTR_STANDARD, DToA.DTOSTR_PRECISION, 1, 0);
+        int precision = getPrecision(args, 1);
+        return BigDecimalDtoA.numberToStringPrecision(d, precision);
     }
 
     private static NativeNumber toSelf(Scriptable thisObj) {
@@ -221,32 +209,22 @@ final class NativeNumber extends ScriptableObject {
         return ScriptRuntime.numberToString(doubleValue, 10);
     }
 
-    private static String num_to(
-            double val,
-            Object[] args,
-            int zeroArgMode,
-            int oneArgMode,
-            int precisionMin,
-            int precisionOffset) {
-        int precision;
-        if (args.length == 0) {
-            precision = 0;
-            oneArgMode = zeroArgMode;
-        } else {
-            /* We allow a larger range of precision than
-            ECMA requires; this is permitted by ECMA. */
-            double p = ScriptRuntime.toInteger(args[0]);
-            if (p < precisionMin || p > MAX_PRECISION) {
-                String msg =
-                        ScriptRuntime.getMessageById(
-                                "msg.bad.precision", ScriptRuntime.toString(args[0]));
-                throw ScriptRuntime.rangeError(msg);
-            }
-            precision = ScriptRuntime.toInt32(p);
+    private static int getPrecision(Object[] args, int precisionMin) {
+        if (args.length == 0 || Undefined.isUndefined(args[0])) {
+            return 0;
         }
-        StringBuilder sb = new StringBuilder();
-        DToA.JS_dtostr(sb, oneArgMode, precision + precisionOffset, val);
-        return sb.toString();
+        /*
+         * Older releases allowed a larger range of precision than
+         * ECMA requires.
+         */
+        double p = ScriptRuntime.toInteger(args[0]);
+        if (p < precisionMin || p > MAX_PRECISION) {
+            String msg =
+                    ScriptRuntime.getMessageById(
+                            "msg.bad.precision", ScriptRuntime.toString(args[0]));
+            throw ScriptRuntime.rangeError(msg);
+        }
+        return ScriptRuntime.toInt32(p);
     }
 
     private static Object js_isFinite(

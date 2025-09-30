@@ -1,7 +1,6 @@
 package org.mozilla.javascript.benchmarks;
 
 import java.util.concurrent.TimeUnit;
-
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.dtoa.DoubleToDecimal;
 import org.openjdk.jmh.annotations.Benchmark;
