@@ -1,6 +1,6 @@
 package org.mozilla.javascript.tests;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -18,7 +18,7 @@ public class NumberToStringTest {
         {"123.456", 123.456},
         {"-123.456", -123.456},
         {"1e+23", 1E23},
-        {"1e+23", 100000000000000000000001.0},
+        {"1.0000000000000001e+23", 100000000000000000000001.0},
         {"3.14", 3.14},
         {"1000000000", 1E9},
         {"1e+31", 1E31},
@@ -32,7 +32,7 @@ public class NumberToStringTest {
         {"1e+21", 1E21},
         // Denormals
         {"5.88e-39", 5.88E-39},
-        { "4.47118444e-314", 4.47118444E-314 }
+        {"4.47118444e-314", 4.47118444E-314}
     };
 
     private static Object[][] getToStringParams() {
@@ -48,11 +48,13 @@ public class NumberToStringTest {
 
     @ParameterizedTest
     @MethodSource("getToStringParams")
-    public void testToStringDecimal(String expected, double d) {
-        String s = DoubleToDecimal.toString(d);
-        assertEquals(expected, s);
+    public void testToStringDecimal(String expected, double v) {
+        var d = DoubleToDecimal.toDecimal(v);
+        System.out.println(
+                "neg = " + d.negative() + " sig = " + d.significand() + " exp = " + d.exponent());
+        System.out.println(d.toString());
+        assertEquals(expected, d.toString());
     }
-
 
     private static final Object[][] CONVERT_TESTS = {
         // order: source, argument, to exponential, to fixed, to precision
@@ -100,7 +102,7 @@ public class NumberToStringTest {
         return CONVERT_TESTS;
     }
 
-    /* 
+    /*
     @ParameterizedTest
     @MethodSource("getConvertParams")
     public void testToExponential(
