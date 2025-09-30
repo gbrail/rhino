@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mozilla.javascript.ScriptRuntime;
+import org.mozilla.javascript.dtoa.BigDecimalDtoA;
 import org.mozilla.javascript.dtoa.DoubleToDecimal;
 
 public class NumberToStringTest {
@@ -50,9 +51,6 @@ public class NumberToStringTest {
     @MethodSource("getToStringParams")
     public void testToStringDecimal(String expected, double v) {
         var d = DoubleToDecimal.toDecimal(v);
-        System.out.println(
-                "neg = " + d.negative() + " sig = " + d.significand() + " exp = " + d.exponent());
-        System.out.println(d.toString());
         assertEquals(expected, d.toString());
     }
 
@@ -102,11 +100,11 @@ public class NumberToStringTest {
         return CONVERT_TESTS;
     }
 
-    /*
     @ParameterizedTest
     @MethodSource("getConvertParams")
     public void testToExponential(
             double v, int fractionDigits, String expected, String ignore1, String ignore2) {
+        var d = DoubleToDecimal.toDecimal(v);
         assertEquals(expected, BigDecimalDtoA.numberToStringExponential(v, fractionDigits));
     }
 
@@ -125,5 +123,4 @@ public class NumberToStringTest {
             assertEquals(expected, BigDecimalDtoA.numberToStringPrecision(v, precision));
         }
     }
-        */
 }

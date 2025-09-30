@@ -210,7 +210,6 @@ public class DoubleToDecimal {
                 if (0 < mq && mq < P) {
                     long f = c >> mq;
                     if (f << mq == c) {
-                        // TODO length
                         return new Decimal(f, 0, negative);
                     }
                 }
