@@ -152,6 +152,9 @@ final class NativeNumber extends ScriptableObject {
         double d = toSelf(thisObj).doubleValue;
         int precisionMin = cx.version < Context.VERSION_ES6 ? -20 : 0;
         int precision = getPrecision(args, precisionMin);
+        if (!Double.isFinite(d)) {
+            return ScriptRuntime.toString(d);
+        }
         return BigDecimalDtoA.numberToStringFixed(d, precision);
     }
 
