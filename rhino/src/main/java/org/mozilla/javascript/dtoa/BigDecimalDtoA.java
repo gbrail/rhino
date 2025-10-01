@@ -131,9 +131,6 @@ public class BigDecimalDtoA {
      */
     public static String numberToStringExponential(double v, int fractionDigits) {
         assert Double.isFinite(v);
-        if (fractionDigits < 0) {
-            return DoubleToDecimal.toDecimal(v).toString();
-        }
 
         // This is one of the functions that expects to work with
         // more precision than toString()
@@ -145,9 +142,15 @@ public class BigDecimalDtoA {
             d = d.negate();
         }
 
-        // Reduce precision if necessary. Test262 tests round "half up" which
-        // is different from the rounding mode used in toString()
-        d = d.round(new MathContext(fractionDigits + 1, RoundingMode.HALF_UP));
+        if (fractionDigits < 0) {
+            // Get back to same precision as we'd have for a typical number
+            // TODO actually need to trim trailing zeroes in this mode too.
+            d = d.round(MathContext.DECIMAL64);
+        } else {
+            // Reduce precision if necessary. Test262 tests round "half up" which
+            // is different from the rounding mode used in toString()
+            d = d.round(new MathContext(fractionDigits + 1, RoundingMode.HALF_UP));
+        }
 
         int precision = d.precision();
         int scale = d.scale();
