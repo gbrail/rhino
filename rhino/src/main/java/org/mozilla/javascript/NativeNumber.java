@@ -3,7 +3,6 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
 package org.mozilla.javascript;
 
 import org.mozilla.javascript.dtoa.BigDecimalDtoA;
@@ -16,6 +15,7 @@ import org.mozilla.javascript.dtoa.BigDecimalDtoA;
  * @author Norris Boyd
  */
 final class NativeNumber extends ScriptableObject {
+
     private static final long serialVersionUID = 3504516769741512101L;
 
     /**
@@ -150,8 +150,8 @@ final class NativeNumber extends ScriptableObject {
     private static Object js_toFixed(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
         double d = toSelf(thisObj).doubleValue;
-        int precisionMin = cx.version < Context.VERSION_ES6 ? -20 : 0;
-        int precision = getPrecision(args, precisionMin);
+        double p = getPrecision(args, 0.0);
+        int precision = checkPrecision(p, cx.version < Context.VERSION_ES6 ? -20 : 0);
         if (!Double.isFinite(d)) {
             return ScriptRuntime.toString(d);
         }
@@ -161,22 +161,26 @@ final class NativeNumber extends ScriptableObject {
     private static Object js_toExponential(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
         double d = toSelf(thisObj).doubleValue;
+        double p = getPrecision(args, -1.0);
         if (!Double.isFinite(d)) {
-            // Spec wants this check before the other checks
             return ScriptRuntime.toString(d);
         }
-        int fractionDigits = getPrecision(args, 0);
-        return BigDecimalDtoA.numberToStringExponential(d, fractionDigits);
+        // Use -1 as special handling if precision was undefined
+        int precision = p < 0.0 ? -1 : checkPrecision(p, 0);
+        return BigDecimalDtoA.numberToStringExponential(d, precision);
     }
 
     private static Object js_toPrecision(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
         double d = toSelf(thisObj).doubleValue;
-        // Undefined precision, fall back to ToString()
         if (args.length == 0 || Undefined.isUndefined(args[0]) || !Double.isFinite(d)) {
             return ScriptRuntime.toString(d);
         }
-        int precision = getPrecision(args, 1);
+        double p = getPrecision(args, 0.0);
+        if (!Double.isFinite(d)) {
+            return ScriptRuntime.toString(d);
+        }
+        int precision = checkPrecision(p, 1);
         return BigDecimalDtoA.numberToStringPrecision(d, precision);
     }
 
@@ -186,11 +190,12 @@ final class NativeNumber extends ScriptableObject {
 
     private static Object js_toString(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
+        double d = toSelf(thisObj).doubleValue;
         int base =
                 (args.length == 0 || Undefined.isUndefined(args[0]))
                         ? 10
                         : ScriptRuntime.toInt32(args[0]);
-        return ScriptRuntime.numberToString(toSelf(thisObj).doubleValue, base);
+        return ScriptRuntime.numberToString(d, base);
     }
 
     private static Object js_toSource(
@@ -212,19 +217,21 @@ final class NativeNumber extends ScriptableObject {
         return ScriptRuntime.numberToString(doubleValue, 10);
     }
 
-    private static int getPrecision(Object[] args, int precisionMin) {
+    private static double getPrecision(Object[] args, double dflt) {
         if (args.length == 0 || Undefined.isUndefined(args[0])) {
-            return 0;
+            return dflt;
         }
+        return ScriptRuntime.toInteger(args[0]);
+    }
+
+    private static int checkPrecision(double p, int precisionMin) {
         /*
          * Older releases allowed a larger range of precision than
          * ECMA requires.
          */
-        double p = ScriptRuntime.toInteger(args[0]);
         if (p < precisionMin || p > MAX_PRECISION) {
             String msg =
-                    ScriptRuntime.getMessageById(
-                            "msg.bad.precision", ScriptRuntime.toString(args[0]));
+                    ScriptRuntime.getMessageById("msg.bad.precision", ScriptRuntime.toString(p));
             throw ScriptRuntime.rangeError(msg);
         }
         return ScriptRuntime.toInt32(p);

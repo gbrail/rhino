@@ -103,7 +103,7 @@ class MathUtils {
      * @return &lfloor;log<sub>10</sub>2<sup>{@code e}</sup>&rfloor;.
      */
     static int flog10pow2(int e) {
-        return (int) (e * C_10 >> Q_10);
+        return (int) ((e * C_10) >> Q_10);
     }
 
     /**
@@ -118,7 +118,7 @@ class MathUtils {
      * @return &lfloor;log<sub>10</sub>(3/4 &middot; 2<sup>{@code e}</sup>)&rfloor;.
      */
     static int flog10threeQuartersPow2(int e) {
-        return (int) (e * C_10 + A_10 >> Q_10);
+        return (int) ((e * C_10 + A_10) >> Q_10);
     }
 
     /**
@@ -131,7 +131,7 @@ class MathUtils {
      * @return &lfloor;log<sub>2</sub>10<sup>{@code e}</sup>&rfloor;.
      */
     static int flog2pow10(int e) {
-        return (int) (e * C_2 >> Q_2);
+        return (int) ((e * C_2) >> Q_2);
     }
 
     /**
@@ -153,7 +153,7 @@ class MathUtils {
      * @return <i>g</i><sub>1</sub> as described above.
      */
     static long g1(int k) {
-        return g[k - K_MIN << 1];
+        return g[(k - K_MIN) << 1];
     }
 
     /**
@@ -164,7 +164,7 @@ class MathUtils {
      * @return <i>g</i><sub>0</sub> as described in {@link #g1(int)}.
      */
     static long g0(int k) {
-        return g[k - K_MIN << 1 | 1];
+        return g[(k - K_MIN) << 1 | 1];
     }
 
     // a Java port of
