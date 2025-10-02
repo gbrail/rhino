@@ -4,8 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.NumberConversions;
 import org.mozilla.javascript.ScriptRuntime;
-import org.mozilla.javascript.dtoa.BigDecimalDtoA;
+import org.mozilla.javascript.Undefined;
 import org.mozilla.javascript.dtoa.DoubleToDecimal;
 
 public class NumberToStringTest {
@@ -69,6 +71,7 @@ public class NumberToStringTest {
         {1.0, 0, "1e+0", "1", ""},
         {1.0, 1, "1.0e+0", "1.0", "1"},
         {1.0, 10, "1.0000000000e+0", "1.0000000000", "1.000000000"},
+        {0.9999, 3, "9.999e-1", "1.000", "1.00"},
         {0.000001, 1, "1.0e-6", "0.0", "0.000001"},
         {123.456, 0, "1e+2", "123", ""},
         {123.456, 1, "1.2e+2", "123.5", "1e+2"},
@@ -103,16 +106,17 @@ public class NumberToStringTest {
     @ParameterizedTest
     @MethodSource("getConvertParams")
     public void testToExponential(
-            double v, int fractionDigits, String expected, String ignore1, String ignore2) {
-        var d = DoubleToDecimal.toDecimal(v);
-        assertEquals(expected, BigDecimalDtoA.numberToStringExponential(v, fractionDigits));
+            double v, int arg, String expected, String ignore1, String ignore2) {
+        assertEquals(expected, NumberConversions.toExponential(v, arg));
     }
 
     @ParameterizedTest
     @MethodSource("getConvertParams")
     public void testToFixed(
             double v, int fractionDigits, String ignore1, String expected, String ignore2) {
-        assertEquals(expected, BigDecimalDtoA.numberToStringFixed(v, fractionDigits));
+        try (Context cx = Context.enter()) {
+            assertEquals(expected, NumberConversions.toFixed(cx, v, fractionDigits));
+        }
     }
 
     @ParameterizedTest
@@ -120,7 +124,39 @@ public class NumberToStringTest {
     public void testToPrecision(
             double v, int precision, String ignore1, String ignore2, String expected) {
         if (precision >= 1) {
-            assertEquals(expected, BigDecimalDtoA.numberToStringPrecision(v, precision));
+            assertEquals(expected, NumberConversions.toPrecision(v, precision));
         }
+    }
+
+    private static final Object[][] UNDEF_TESTS = {
+        // order: source, to exponential, to fixed, to precision
+        {0.0, "0e+0", "0", "0"},
+        {-123.456, "-1.23456e+2", "-123", "-123.456"},
+        {3.141592653589793, "3.141592653589793e+0", "3", "3.141592653589793"},
+        {1.234567E3, "1.234567e+3", "1235", "1234.567"}
+    };
+
+    private static Object[][] getUndefParams() {
+        return UNDEF_TESTS;
+    }
+
+    @ParameterizedTest
+    @MethodSource("getUndefParams")
+    public void testToExponentialUndef(double v, String expected, String ignore1, String ignore2) {
+        assertEquals(expected, NumberConversions.toExponential(v, Undefined.instance));
+    }
+
+    @ParameterizedTest
+    @MethodSource("getUndefParams")
+    public void testToFixedUndef(double v, String ignore1, String expected, String ignore2) {
+        try (Context cx = Context.enter()) {
+            assertEquals(expected, NumberConversions.toFixed(cx, v, Undefined.instance));
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("getUndefParams")
+    public void testToPrecisionUndef(double v, String ignore1, String ignore2, String expected) {
+        assertEquals(expected, NumberConversions.toPrecision(v, Undefined.instance));
     }
 }

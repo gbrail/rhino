@@ -5,8 +5,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 package org.mozilla.javascript;
 
-import org.mozilla.javascript.dtoa.BigDecimalDtoA;
-
 /**
  * This class implements the Number native object.
  *
@@ -27,7 +25,6 @@ final class NativeNumber extends ScriptableObject {
 
     private static final String CLASS_NAME = "Number";
 
-    private static final int MAX_PRECISION = 100;
     private static final double MIN_SAFE_INTEGER = -MAX_SAFE_INTEGER;
     private static final double EPSILON = 2.220446049250313e-16;
 
@@ -150,38 +147,19 @@ final class NativeNumber extends ScriptableObject {
     private static Object js_toFixed(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
         double d = toSelf(thisObj).doubleValue;
-        double p = getPrecision(args, 0.0);
-        int precision = checkPrecision(p, cx.version < Context.VERSION_ES6 ? -20 : 0);
-        if (!Double.isFinite(d)) {
-            return ScriptRuntime.toString(d);
-        }
-        return BigDecimalDtoA.numberToStringFixed(d, precision);
+        return NumberConversions.toFixed(cx, d, args.length > 0 ? args[0] : Undefined.instance);
     }
 
     private static Object js_toExponential(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
         double d = toSelf(thisObj).doubleValue;
-        double p = getPrecision(args, -1.0);
-        if (!Double.isFinite(d)) {
-            return ScriptRuntime.toString(d);
-        }
-        // Use -1 as special handling if precision was undefined
-        int precision = p < 0.0 ? -1 : checkPrecision(p, 0);
-        return BigDecimalDtoA.numberToStringExponential(d, precision);
+        return NumberConversions.toExponential(d, args.length > 0 ? args[0] : Undefined.instance);
     }
 
     private static Object js_toPrecision(
             Context cx, Scriptable scope, Scriptable thisObj, Object[] args) {
         double d = toSelf(thisObj).doubleValue;
-        if (args.length == 0 || Undefined.isUndefined(args[0]) || !Double.isFinite(d)) {
-            return ScriptRuntime.toString(d);
-        }
-        double p = getPrecision(args, 0.0);
-        if (!Double.isFinite(d)) {
-            return ScriptRuntime.toString(d);
-        }
-        int precision = checkPrecision(p, 1);
-        return BigDecimalDtoA.numberToStringPrecision(d, precision);
+        return NumberConversions.toPrecision(d, args.length > 0 ? args[0] : Undefined.instance);
     }
 
     private static NativeNumber toSelf(Scriptable thisObj) {
@@ -215,26 +193,6 @@ final class NativeNumber extends ScriptableObject {
     @Override
     public String toString() {
         return ScriptRuntime.numberToString(doubleValue, 10);
-    }
-
-    private static double getPrecision(Object[] args, double dflt) {
-        if (args.length == 0 || Undefined.isUndefined(args[0])) {
-            return dflt;
-        }
-        return ScriptRuntime.toInteger(args[0]);
-    }
-
-    private static int checkPrecision(double p, int precisionMin) {
-        /*
-         * Older releases allowed a larger range of precision than
-         * ECMA requires.
-         */
-        if (p < precisionMin || p > MAX_PRECISION) {
-            String msg =
-                    ScriptRuntime.getMessageById("msg.bad.precision", ScriptRuntime.toString(p));
-            throw ScriptRuntime.rangeError(msg);
-        }
-        return ScriptRuntime.toInt32(p);
     }
 
     private static Object js_isFinite(
