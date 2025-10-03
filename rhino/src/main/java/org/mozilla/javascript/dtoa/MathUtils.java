@@ -164,7 +164,7 @@ class MathUtils {
      * @return <i>g</i><sub>0</sub> as described in {@link #g1(int)}.
      */
     static long g0(int k) {
-        return g[(k - K_MIN) << 1 | 1];
+        return g[(k - K_MIN << 1) | 1];
     }
 
     // a Java port of

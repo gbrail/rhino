@@ -1,7 +1,6 @@
 package org.mozilla.javascript;
 
 import org.mozilla.javascript.dtoa.BigDecimalToDecimal;
-import org.mozilla.javascript.dtoa.Decimal;
 import org.mozilla.javascript.dtoa.DoubleToDecimal;
 
 public class NumberConversions {
@@ -14,17 +13,14 @@ public class NumberConversions {
         if (!Double.isFinite(v)) {
             return ScriptRuntime.toString(v);
         }
-        Decimal decimal;
-        int fractionDigits;
         if (Undefined.isUndefined(fracArgs)) {
             // If undefined, use same precision as standard toString()
-            decimal = DoubleToDecimal.toDecimal(v);
-            fractionDigits = -1;
-        } else {
-            fractionDigits = checkPrecision(p, 0);
-            // Arg is literally fraction digits, precision always one higher
-            decimal = BigDecimalToDecimal.toPreciseDecimal(v, fractionDigits + 1);
+            // TODO force exponential output
+            return DoubleToDecimal.toString(v);
         }
+        int fractionDigits = checkPrecision(p, 0);
+        // Arg is literally fraction digits, precision always one higher
+        var decimal = BigDecimalToDecimal.toPreciseDecimal(v, fractionDigits + 1);
         return decimal.toExponentialString(fractionDigits);
     }
 

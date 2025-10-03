@@ -84,8 +84,11 @@ public class Decimal {
         } else if (exponent > 0) {
             // Decimal point in the middle
             s.append(digits.substring(0, exponent));
-            s.append('.');
-            s.append(trimTrailingZeroes(digits.substring(exponent)));
+            String remaining = trimTrailingZeroes(digits.substring(exponent));
+            if (!remaining.isEmpty()) {
+                s.append('.');
+                s.append(remaining);
+            }
         } else {
             // A very small number that starts with zero
             s.append("0.");
