@@ -1,13 +1,14 @@
 package org.mozilla.javascript.tests;
 
+import org.junit.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.NumberConversions;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Undefined;
+import org.mozilla.javascript.dtoa.BigDecimalToDecimal;
 import org.mozilla.javascript.dtoa.DoubleToDecimal;
 
 public class NumberToStringTest {
@@ -17,6 +18,7 @@ public class NumberToStringTest {
         {"0", 0.0},
         {"1", 1.0},
         {"-1", -1.0},
+        {"100", 100,0},
         {"0.000001", 0.000001},
         {"123.456", 123.456},
         {"-123.456", -123.456},
@@ -71,6 +73,7 @@ public class NumberToStringTest {
         {1.0, 0, "1e+0", "1", ""},
         {1.0, 1, "1.0e+0", "1.0", "1"},
         {1.0, 10, "1.0000000000e+0", "1.0000000000", "1.000000000"},
+        {100.0, 2, "1.00e+2", "100.00", "1.0e+2"},
         {0.9999, 3, "9.999e-1", "1.000", "1.00"},
         {0.000001, 1, "1.0e-6", "0.0", "0.000001"},
         {123.456, 0, "1e+2", "123", ""},
@@ -131,6 +134,7 @@ public class NumberToStringTest {
     private static final Object[][] UNDEF_TESTS = {
         // order: source, to exponential, to fixed, to precision
         {0.0, "0e+0", "0", "0"},
+        {100.0, "1e+2", "100", "100"},
         {-123.456, "-1.23456e+2", "-123", "-123.456"},
         {3.141592653589793, "3.141592653589793e+0", "3", "3.141592653589793"},
         {1.234567E3, "1.234567e+3", "1235", "1234.567"}
@@ -158,5 +162,24 @@ public class NumberToStringTest {
     @MethodSource("getUndefParams")
     public void testToPrecisionUndef(double v, String ignore1, String ignore2, String expected) {
         assertEquals(expected, NumberConversions.toPrecision(v, Undefined.instance));
+    }
+
+    private void checkDecimal(double v, String s) {
+        System.out.println(v);
+        var d = DoubleToDecimal.toDecimal(v);
+        System.out.println("  " + d.digits() + " e = " + d.exponent());
+        assertEquals(s, d.toString());
+        d = BigDecimalToDecimal.toDecimal(v);
+        System.out.println("  " + d.digits() + " e = " + d.exponent());
+        assertEquals(s, d.toString());
+    }
+
+    @Test
+    public void decimalTest() {
+        checkDecimal(1.0, "1");
+        checkDecimal(100.0, "100");
+        checkDecimal(3.14, "3.14");
+        checkDecimal(0.0001, "0.0001");
+        checkDecimal(0.9999, "0.9999");
     }
 }

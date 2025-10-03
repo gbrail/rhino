@@ -5,6 +5,13 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 
 public class BigDecimalToDecimal {
+    public static Decimal toDecimal(double d) {
+        assert Double.isFinite(d);
+        BigDecimal bd =
+                new BigDecimal(d, MathContext.DECIMAL64);
+        return toDecimal(bd);
+    }
+
     public static Decimal toFixedDecimal(double d, int fractionDigits) {
         assert Double.isFinite(d);
         BigDecimal bd =
