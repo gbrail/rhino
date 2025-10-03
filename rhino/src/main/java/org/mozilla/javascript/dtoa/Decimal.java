@@ -143,6 +143,20 @@ public class Decimal {
             return s.toString();
         }
 
+        int de;
+        if (exponent == 0) {
+            de = digits.length() - 1;
+        } else if (exponent >= digits.length()) {
+            // Very big number with zeroes after the digits value
+            de = exponent - 1;
+        } else if (exponent > 0) {
+            // Decimal point in the middle
+            de = exponent - 1;
+        } else {
+            // A very small number that starts with zero
+            de = exponent - 1;
+        }
+
         s.append(digits.substring(0, 1));
         String remaining;
         int pad = 0;
@@ -161,11 +175,11 @@ public class Decimal {
             padZeroes(s, pad);
         }
         s.append('e');
-        if (exponent > 0) {
+        if (de >= 0) {
             s.append('+');
-            s.append(exponent - 1);
+            s.append(de);
         } else {
-            s.append(exponent - 1);
+            s.append(de);
         }
         return s.toString();
     }
