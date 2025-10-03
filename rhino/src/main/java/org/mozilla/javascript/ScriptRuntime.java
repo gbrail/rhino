@@ -22,6 +22,7 @@ import java.util.ResourceBundle;
 import java.util.ServiceLoader;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+
 import org.mozilla.javascript.ast.FunctionNode;
 import org.mozilla.javascript.dtoa.DoubleToDecimal;
 import org.mozilla.javascript.lc.type.impl.factory.ConcurrentFactory;
@@ -1070,8 +1071,11 @@ public class ScriptRuntime {
             return result;
         }
 
-        var decimal = DoubleToDecimal.toDecimal(d);
-        return decimal.toString();
+        StringBuilder buffer = new StringBuilder();
+        DToA.JS_dtostr(buffer, DToA.DTOSTR_STANDARD, 0, d);
+        return buffer.toString();
+
+        //return DoubleToDecimal.toString(d);
     }
 
     public static String bigIntToString(BigInteger n, int base) {

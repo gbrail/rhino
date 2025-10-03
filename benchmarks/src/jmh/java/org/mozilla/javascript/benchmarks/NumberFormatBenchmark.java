@@ -20,8 +20,7 @@ public class NumberFormatBenchmark {
 
     @Benchmark
     public Object decimalPi() {
-        var decimal = DoubleToDecimal.toDecimal(Math.PI);
-        return decimal.toString();
+        return DoubleToDecimal.toString(Math.PI);
     }
 
     @Benchmark
@@ -42,8 +41,7 @@ public class NumberFormatBenchmark {
 
     @Benchmark
     public Object decimalOne() {
-        var decimal = DoubleToDecimal.toDecimal(1.0);
-        return decimal.toString();
+        return DoubleToDecimal.toString(1.0);
     }
 
     @Benchmark
@@ -64,8 +62,7 @@ public class NumberFormatBenchmark {
 
     @Benchmark
     public Object decimalDenormal() {
-        var decimal = DoubleToDecimal.toDecimal(DENORMAL);
-        return decimal.toString();
+        return DoubleToDecimal.toString(DENORMAL);
     }
 
     @Benchmark
