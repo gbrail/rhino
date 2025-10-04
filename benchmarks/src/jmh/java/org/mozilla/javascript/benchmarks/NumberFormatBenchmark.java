@@ -1,7 +1,9 @@
 package org.mozilla.javascript.benchmarks;
 
 import java.util.concurrent.TimeUnit;
+
 import org.mozilla.javascript.ScriptRuntime;
+import org.mozilla.javascript.dtoa.BigDecimalToDecimal;
 import org.mozilla.javascript.dtoa.DoubleToDecimal;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
@@ -23,6 +25,17 @@ public class NumberFormatBenchmark {
     }
 
     @Benchmark
+    public Object bigDecimalPi() {
+        var decimal = BigDecimalToDecimal.toStandardDecimal(Math.PI);
+        return decimal.toString();
+    }
+
+    @Benchmark
+    public Object javaPi() {
+        return Double.toString(Math.PI);
+    }
+
+    @Benchmark
     public Object scriptRuntimeOne() {
         return ScriptRuntime.toString(1.0);
     }
@@ -34,6 +47,17 @@ public class NumberFormatBenchmark {
     }
 
     @Benchmark
+    public Object bigDecimalOne() {
+        var decimal =  BigDecimalToDecimal.toStandardDecimal(1.0);
+        return decimal.toString();
+    }
+
+    @Benchmark
+    public Object javaOne() {
+        return Double.toString(1.0);
+    }
+
+    @Benchmark
     public Object scriptRuntimeDenormal() {
         return ScriptRuntime.toString(DENORMAL);
     }
@@ -42,5 +66,16 @@ public class NumberFormatBenchmark {
     public Object decimalDecnormal() {
         var decimal = DoubleToDecimal.toDecimal(DENORMAL);
         return decimal.toString();
+    }
+
+    @Benchmark
+    public Object bigDecimalDecnormal() {
+        var decimal = BigDecimalToDecimal.toStandardDecimal(DENORMAL);
+        return decimal.toString();
+    }
+
+    @Benchmark
+    public Object javaDenormal() {
+        return Double.toString(DENORMAL);
     }
 }
