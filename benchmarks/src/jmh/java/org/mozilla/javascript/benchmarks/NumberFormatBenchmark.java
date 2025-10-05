@@ -63,13 +63,13 @@ public class NumberFormatBenchmark {
     }
 
     @Benchmark
-    public Object decimalDecnormal() {
+    public Object decimalDenormal() {
         var decimal = DoubleToDecimal.toDecimal(DENORMAL);
         return decimal.toString();
     }
 
     @Benchmark
-    public Object bigDecimalDecnormal() {
+    public Object bigDecimalDenormal() {
         var decimal = BigDecimalToDecimal.toStandardDecimal(DENORMAL);
         return decimal.toString();
     }
