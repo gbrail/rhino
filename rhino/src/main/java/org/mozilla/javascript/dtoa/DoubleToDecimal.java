@@ -24,6 +24,7 @@ package org.mozilla.javascript.dtoa;
 
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Long.numberOfLeadingZeros;
+import java.nio.charset.StandardCharsets;
 
 import static org.mozilla.javascript.dtoa.MathUtils.flog10pow2;
 import static org.mozilla.javascript.dtoa.MathUtils.flog10threeQuartersPow2;
@@ -63,10 +64,10 @@ final public class DoubleToDecimal {
     private static final int W = (Double.SIZE - 1) - (P - 1);
 
     // Minimum value of the exponent: -(2^(W-1)) - P + 3.
-    static final int Q_MIN = (-1 << W - 1) - P + 3;
+    static final int Q_MIN = (-1 << (W - 1)) - P + 3;
 
     // Maximum value of the exponent: 2^(W-1) - P.
-    static final int Q_MAX = (1 << W - 1) - P;
+    static final int Q_MAX = (1 << (W - 1)) - P;
 
     // 10^(E_MIN - 1) <= MIN_VALUE < 10^E_MIN
     static final int E_MIN = -323;
@@ -85,13 +86,13 @@ final public class DoubleToDecimal {
     static final int H = 17;
 
     // Minimum value of the significand of a normal value: 2^(P-1).
-    private static final long C_MIN = 1L << P - 1;
+    private static final long C_MIN = 1L << (P - 1);
 
     // Mask to extract the biased exponent.
     private static final int BQ_MASK = (1 << W) - 1;
 
     // Mask to extract the fraction bits.
-    private static final long T_MASK = (1L << P - 1) - 1;
+    private static final long T_MASK = (1L << (P - 1)) - 1;
 
     // Used in rop().
     private static final long MASK_63 = (1L << 63) - 1;
@@ -272,7 +273,7 @@ final public class DoubleToDecimal {
          */
         long bits = doubleToRawLongBits(v);
         long t = bits & T_MASK;
-        int bq = (int) (bits >>> P - 1) & BQ_MASK;
+        int bq = (int) (bits >>> (P - 1)) & BQ_MASK;
         if (bq < BQ_MASK) {
             index = -1;
             if (bits < 0) {
@@ -283,7 +284,7 @@ final public class DoubleToDecimal {
                 int mq = -Q_MIN + 1 - bq;
                 long c = C_MIN | t;
                 // The fast path discussed in section 8.2 of [1].
-                if (0 < mq & mq < P) {
+                if (0 < mq && mq < P) {
                     long f = c >> mq;
                     if (f << mq == c) {
                         return toChars(f, 0);
@@ -333,7 +334,7 @@ final public class DoubleToDecimal {
         flog10threeQuartersPow2(e) = floor(log_10(3/4 2^e))
         flog2pow10(e) = floor(log_2(10^e))
          */
-        if (c != C_MIN | q == Q_MIN) {
+        if (c != C_MIN || q == Q_MIN) {
             // regular spacing
             cbl = cb - 2;
             k = flog10pow2(q);
@@ -391,8 +392,8 @@ final public class DoubleToDecimal {
         Both u and w lie in Rv: determine the one closest to v.
         See section 9.4 of [1].
          */
-        long cmp = vb - (s + t << 1);
-        return toChars(cmp < 0 || cmp == 0 && (s & 0x1) == 0 ? s : t, k + dk);
+        long cmp = vb - ((s + t) << 1);
+        return toChars(cmp < 0 || (cmp == 0 && (s & 0x1) == 0) ? s : t, k + dk);
     }
 
     /*
@@ -405,7 +406,7 @@ final public class DoubleToDecimal {
         long y1 = multiplyHigh(g1, cp);
         long z = (y0 >>> 1) + x1;
         long vbp = y1 + (z >>> 63);
-        return vbp | (z & MASK_63) + MASK_63 >>> 63;
+        return vbp | ((z & MASK_63) + MASK_63) >>> 63;
     }
 
     /*
@@ -448,8 +449,8 @@ final public class DoubleToDecimal {
          */
         long hm = multiplyHigh(f, 193_428_131_138_340_668L) >>> 20;
         int l = (int) (f - 100_000_000L * hm);
-        int h = (int) (hm * 1_441_151_881L >>> 57);
-        int m = (int) (hm - 100_000_000 * h);
+        int h = (int) ((hm * 1_441_151_881L) >>> 57);
+        int m = (int) (hm - 100_000_000L * h);
 
         if (0 < e && e < 21) {
             return toChars1(h, m, l, e);
@@ -570,7 +571,7 @@ final public class DoubleToDecimal {
             For n = 3, m = 2 the table in section 10 of [1] shows
                 floor(e / 100) = floor(1_311 e / 2^17)
              */
-            d = e * 1_311 >>> 17;
+            d = (e * 1_311) >>> 17;
             appendDigit(d);
             e -= 100 * d;
         }
@@ -578,7 +579,7 @@ final public class DoubleToDecimal {
         For n = 2, m = 1 the table in section 10 of [1] shows
             floor(e / 10) = floor(103 e / 2^10)
          */
-        d = e * 103 >>> 10;
+        d = (e * 103) >>> 10;
         appendDigit(d);
         appendDigit(e - 10 * d);
     }
@@ -594,6 +595,6 @@ final public class DoubleToDecimal {
     // Using the deprecated constructor enhances performance.
     @SuppressWarnings("deprecation")
     private String charsToString() {
-        return new String(bytes, 0, 0, index + 1);
+        return new String(bytes, 0, 0, StandardCharsets.US_ASCII);
     }
 }
