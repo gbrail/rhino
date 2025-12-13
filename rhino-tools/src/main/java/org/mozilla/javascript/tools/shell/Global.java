@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.mozilla.javascript.Context;
@@ -52,6 +53,8 @@ import org.mozilla.javascript.commonjs.module.provider.SoftCachingModuleScriptPr
 import org.mozilla.javascript.commonjs.module.provider.UrlModuleSourceProvider;
 import org.mozilla.javascript.serialize.ScriptableInputStream;
 import org.mozilla.javascript.serialize.ScriptableOutputStream;
+import org.mozilla.javascript.tools.Console;
+import org.mozilla.javascript.tools.ConsoleProvider;
 import org.mozilla.javascript.tools.ToolErrorReporter;
 
 /**
@@ -704,13 +707,31 @@ public class Global extends ImporterTopLevel {
     /** Return the best console that we have for interactive work. */
     public Console getConsole(Charset cs) {
         if (console == null) {
-            console = new BasicConsole();
+            console = loadNewConsole();
         }
         return console;
     }
 
     public Console getConsole() {
         return getConsole(StandardCharsets.UTF_8);
+    }
+
+    private Console loadNewConsole() {
+        var loader = ServiceLoader.load(ConsoleProvider.class);
+        // Find the first interactive, command-line editing console
+        for (var p : loader) {
+            if (p.isSupported() && p.isInteractive() && p.supportsEditing()) {
+                return p.newConsole();
+            }
+        }
+        // Find the first one that at least works
+        for (var p : loader) {
+            if (p.isSupported() && p.isInteractive()) {
+                return p.newConsole();
+            }
+        }
+        // Fall back
+        throw new AssertionError("No consoles available");
     }
 
     /**

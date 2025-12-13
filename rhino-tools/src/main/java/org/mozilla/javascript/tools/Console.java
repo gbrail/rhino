@@ -1,4 +1,4 @@
-package org.mozilla.javascript.tools.shell;
+package org.mozilla.javascript.tools;
 
 import java.io.IOException;
 import java.io.PrintStream;
