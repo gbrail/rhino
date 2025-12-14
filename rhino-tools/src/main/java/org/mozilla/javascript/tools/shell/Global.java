@@ -721,17 +721,17 @@ public class Global extends ImporterTopLevel {
         // Find the first interactive, command-line editing console
         for (var p : loader) {
             if (p.isSupported() && p.isInteractive() && p.supportsEditing()) {
-                return p.newConsole();
+                return p.newConsole(this);
             }
         }
         // Find the first one that at least works
         for (var p : loader) {
-            if (p.isSupported() && p.isInteractive()) {
-                return p.newConsole();
+            if (p.isSupported()) {
+                return p.newConsole(this);
             }
         }
         // Fall back
-        throw new AssertionError("No consoles available");
+        throw new AssertionError("Configuration error: no consoles available");
     }
 
     /**

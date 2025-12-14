@@ -1,11 +1,12 @@
 package org.mozilla.javascript.tools.shell;
 
+import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.tools.Console;
 import org.mozilla.javascript.tools.ConsoleProvider;
 
 public class BasicConsoleProvider implements ConsoleProvider {
     @Override
-    public Console newConsole() {
+    public Console newConsole(Scriptable scope) {
         return new BasicConsole();
     }
 
