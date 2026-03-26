@@ -1,0 +1,49 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
+java_library(
+    name = "rhino",
+    srcs = glob(["src/main/java/**/*.java"]),
+    resources = glob(["src/main/resources/**"]),
+    visibility = ["//visibility:public"],
+)
+
+java_library(
+    name = "rhino_tests_lib",
+    srcs = glob(["src/test/java/**/*.java"]),
+    resources = glob(["src/test/resources/**"]),
+    resource_strip_prefix = "rhino/src/test/resources",
+    visibility = ["//visibility:public"],
+    #javacopts = [
+     #   "-Xep:JUnit4TestNotRun:OFF",
+     #   "-Xep:ReturnValueIgnored:OFF",
+     #   "-Xep:IdentityBinaryExpression:OFF",
+    #],
+    deps = [
+        ":rhino",
+        "//testutils",
+        "@maven//:junit_junit",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_engine",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+        "@maven//:org_junit_platform_junit_platform_console",
+        "@maven//:org_hamcrest_hamcrest",
+    ],
+)
+
+[java_test(
+    name = f.replace("src/test/java/", "").replace(".java", "").replace("/", "_"
+),
+    srcs = [],
+    use_testrunner = False,
+    main_class = "org.junit.platform.console.ConsoleLauncher",
+    args = [
+        "execute",
+        "--select-class",
+        f.replace("src/test/java/", "").replace(".java", "").replace("/", "."),
+    ],
+    data = glob(["*.config", "src/test/resources/**"]),
+    runtime_deps = [
+        ":rhino_tests_lib",
+        "@maven//:org_junit_platform_junit_platform_console",
+    ],
+) for f in glob(["src/test/java/**/*Test.java"])]
