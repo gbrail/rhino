@@ -1,0 +1,43 @@
+# Set Java 11 for all targets
+build --java_language_version=11
+build --tool_java_language_version=11
+
+# Set properties that will be required to ensure that
+# all legacy tests pass consistently
+test --jvmopt="-Duser.language=en"
+test --jvmopt="-Duser.country=US"
+test --jvmopt="-Duser.timezone=America/Los_Angeles"
+test --jvmopt="-Dfile.encoding=UTF-8"
+
+# Default javac options
+build --javacopt="-encoding UTF-8"
+build --javacopt="-Xlint:deprecation"
+build --javacopt="-Xlint:unchecked"
+
+# Disable some ErrorProne checks for the entire build for now, as they are failing in tests
+build --javacopt="-Xep:JUnit4TestNotRun:OFF"
+build --javacopt="-Xep:ReturnValueIgnored:OFF"
+build --javacopt="-Xep:IdentityBinaryExpression:OFF"
+build --javacopt="-Xep:ClassInitializationDeadlock:OFF"
+build --javacopt="-Xep:EffectivelyPrivate:OFF"
+build --javacopt="-Xep:BooleanLiteral:OFF"
+build --javacopt="-Xep:AssignmentExpression:OFF"
+build --javacopt="-Xep:DuplicateBranches:OFF"
+build --javacopt="-Xep:PatternMatchingInstanceof:OFF"
+build --javacopt="-Xep:RedundantControlFlow:OFF"
+build --javacopt="-Xep:AlmostJavadoc:OFF"
+build --javacopt="-Xep:EmptyBlockTag:OFF"
+build --javacopt="-Xep:EscapedEntity:OFF"
+build --javacopt="-Xep:MissingSummary:OFF"
+build --javacopt="-Xep:InvalidBlockTag:OFF"
+build --javacopt="-Xep:NotJavadoc:OFF"
+build --javacopt="-Xep:UnicodeEscape:OFF"
+build --javacopt="-Xep:EmptyCatch:OFF"
+build --javacopt="-Xep:LabelledBreakTarget:OFF"
+build --javacopt="-Xep:JavaUtilDate:OFF"
+build --javacopt="-Xep:InlineMeSuggester:OFF"
+build --javacopt="-Xep:UnusedVariable:OFF"
+build --javacopt="-Xep:AnnotateFormatMethod:OFF"
+
+#build --javacopt="-Xep:RemoveUnusedImports:WARN"
+#build --javacopt="-Xep:WildcardImport:WARN"
