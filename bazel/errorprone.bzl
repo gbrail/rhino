@@ -1,8 +1,8 @@
-DEFAULT_OPTS = [
+_DEFAULT_OPTS = [
     "-XepAllErrorsAsWarnings",
 ]
 
-LIBRARY_OPTS = DEFAULT_OPTS + [
+LIBRARY_OPTS = _DEFAULT_OPTS + [
     "-XepAllSuggestionsAsWarnings",
     "-Xlint:deprecation",
     "-Xlint:unchecked",
@@ -35,7 +35,7 @@ LIBRARY_OPTS = DEFAULT_OPTS + [
     "-Xep:RedundantControlFlow:WARN",
 ]
 
-TEST_OPTS = DEFAULT_OPTS + [
+TEST_OPTS = _DEFAULT_OPTS + [
     "-Xlint:-deprecation",
     "-XepDisableAllChecks",
 ]

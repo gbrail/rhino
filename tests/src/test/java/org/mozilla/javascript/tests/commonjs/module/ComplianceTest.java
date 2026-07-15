@@ -47,7 +47,7 @@ public class ComplianceTest {
 
     private static Require createRequire(File dir, Context cx, TopLevel scope)
             throws URISyntaxException {
-        var base = Path.of(TestSource.resolve("testsrc/commonjs")).toUri();
+        var base = Path.of(TestSource.resolveDirectory("testsrc/commonjs/README.md")).toUri();
         return new Require(
                 cx,
                 scope,

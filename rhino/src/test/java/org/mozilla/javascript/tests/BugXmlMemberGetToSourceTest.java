@@ -20,7 +20,7 @@ import org.mozilla.javascript.ast.XmlMemberGet;
  * IllegalArgumentException}, as {@code DOT} and {@code DOTDOT} are not treated as operators in
  * {@code AstNode}.
  */
-public class BugXmlMemberGetToSource {
+public class BugXmlMemberGetToSourceTest {
     private CompilerEnvirons environment;
 
     @BeforeEach

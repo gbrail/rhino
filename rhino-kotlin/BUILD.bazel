@@ -1,7 +1,6 @@
-load("@contrib_rules_jvm//java:defs.bzl", "JUNIT5_DEPS", "java_junit5_test")
 load("@rules_java//java:defs.bzl", "java_library")
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
-load("//bazel:errorprone.bzl", "LIBRARY_OPTS", "TEST_OPTS")
+load("//bazel:defs.bzl", "JUNIT5_DEPS", "LIBRARY_OPTS", "TEST_OPTS", "junit5_test")
 
 java_library(
     name = "rhino-kotlin",
@@ -26,7 +25,7 @@ kt_jvm_library(
     srcs = glob(["src/test/java/**/*.kt"]),
 )
 
-java_junit5_test(
+junit5_test(
     name = "rhino-kotlin_test",
     size = "small",
     srcs = ["src/test/java/org/mozilla/kotlin/tests/KotlinNullabilityDetectorTest.java"],

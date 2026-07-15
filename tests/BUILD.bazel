@@ -1,7 +1,5 @@
-load("@contrib_rules_jvm//java:defs.bzl", "JUNIT5_DEPS", "java_junit5_test", "java_test_suite")
 load("@rules_java//java:defs.bzl", "java_library")
-load("//bazel:errorprone.bzl", "TEST_OPTS")
-load("//bazel:sharded_test.bzl", "sharded_parameterized_test")
+load("//bazel:defs.bzl", "JUNIT5_DEPS", "TEST_OPTS", "java_test_suite", "junit5_test", "sharded_parameterized_test")
 
 filegroup(
     name = "testsrc",
@@ -14,11 +12,14 @@ filegroup(
 # "Test.java", plus a few other files, so that the java_test_suite rule
 # below can actually work.
 java_library(
-    name = "rhino-tests-lib",
+    name = "tests-lib",
     srcs = [
         "src/test/java/org/mozilla/javascript/testing/TestErrorReporter.java",
         "src/test/java/org/mozilla/javascript/tests/DoctestsTest.java",
+        "src/test/java/org/mozilla/javascript/tests/Evaluator.java",
         "src/test/java/org/mozilla/javascript/tests/ParserTest.java",
+        "src/test/java/org/mozilla/javascript/tests/PrivateAccessClass.java",
+        "src/test/java/org/mozilla/javascript/tests/commentspr465/CommentsTestUtils.java",
     ] + glob([
         "src/test/java/org/mozilla/javascript/tests/type_info/**/*.java",
         "src/test/java/org/mozilla/javascript/tests/commonjs/**/*.java",
@@ -41,10 +42,10 @@ java_library(
 # so that they may be shared by the other tests.
 # Exclude our two big multi-test tests for special treatment...
 java_test_suite(
-    name = "rhino-tests",
+    name = "tests",
     size = "small",
     srcs = glob(
-        ["src/test/java/**/*.java"],
+        ["src/test/java/**/*Test.java"],
         exclude = [
             "src/test/java/org/mozilla/javascript/tests/MozillaSuiteTest.java",
             "src/test/java/org/mozilla/javascript/tests/Test262SuiteTest.java",
@@ -64,10 +65,8 @@ java_test_suite(
         "java.base/java.lang=ALL-UNNAMED",
     ],
     resources = glob(["src/test/resources/**"]),
-    runner = "junit5",
-    test_suffixes = ["Test.java"],
     deps = [
-        ":rhino-tests-lib",
+        ":tests-lib",
         "//examples",
         "//rhino",
         "//rhino-tools",
@@ -100,7 +99,7 @@ sharded_parameterized_test(
     shard_count = 16,
     test_class = "org.mozilla.javascript.tests.MozillaSuiteTest",
     deps = [
-        ":rhino-tests-lib",
+        ":tests-lib",
         "//rhino",
         "//rhino-tools",
         "//rhino-xml",
@@ -110,7 +109,7 @@ sharded_parameterized_test(
     ] + JUNIT5_DEPS,
 )
 
-java_junit5_test(
+junit5_test(
     name = "SourceMapSpecSuiteTest",
     size = "small",
     srcs = ["src/test/java/org/mozilla/javascript/sourcemap/SourceMapSpecSuiteTest.java"],
@@ -139,7 +138,7 @@ sharded_parameterized_test(
     shard_count = 32,
     test_class = "org.mozilla.javascript.tests.Test262SuiteTest",
     deps = [
-        ":rhino-tests-lib",
+        ":tests-lib",
         "//rhino",
         "//rhino-tools",
         "//testutils",

@@ -1,6 +1,5 @@
-load("@contrib_rules_jvm//java:defs.bzl", "JUNIT5_DEPS", "java_test_suite")
 load("@rules_java//java:defs.bzl", "java_binary", "java_library")
-load("//bazel:errorprone.bzl", "LIBRARY_OPTS", "TEST_OPTS")
+load("//bazel:defs.bzl", "JUNIT5_DEPS", "LIBRARY_OPTS", "TEST_OPTS", "java_test_suite")
 
 java_library(
     name = "rhino-tools",
@@ -62,8 +61,6 @@ java_test_suite(
         exclude = ["**/module-info.java"],
     ),
     javacopts = TEST_OPTS,
-    runner = "junit5",
-    test_suffixes = ["Test.java"],
     deps = [
         ":rhino-tools",
         "//rhino",

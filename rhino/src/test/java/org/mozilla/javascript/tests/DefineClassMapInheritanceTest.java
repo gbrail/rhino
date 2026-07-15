@@ -14,7 +14,7 @@ import org.mozilla.javascript.TopLevel;
 import org.mozilla.javascript.VarScope;
 
 @SuppressWarnings("serial")
-public class DefineClassMapInheritance {
+public class DefineClassMapInheritanceTest {
 
     public static class Food extends ScriptableObject {
         @Override

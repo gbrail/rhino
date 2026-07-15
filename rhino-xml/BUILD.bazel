@@ -1,6 +1,5 @@
-load("@contrib_rules_jvm//java:defs.bzl", "JUNIT5_DEPS", "java_junit5_test")
 load("@rules_java//java:defs.bzl", "java_library")
-load("//bazel:errorprone.bzl", "LIBRARY_OPTS", "TEST_OPTS")
+load("//bazel:defs.bzl", "JUNIT5_DEPS", "LIBRARY_OPTS", "TEST_OPTS", "junit5_test")
 
 java_library(
     name = "rhino-xml",
@@ -29,7 +28,7 @@ java_library(
 # just define the rules for the three test files it has, which are also
 # unlikely to grow!
 
-java_junit5_test(
+junit5_test(
     name = "XMLSecureParserTest",
     size = "small",
     srcs = glob(["**/XMLSecureParserTest.java"]),
@@ -46,7 +45,7 @@ java_junit5_test(
     ] + JUNIT5_DEPS,
 )
 
-java_junit5_test(
+junit5_test(
     name = "E4XBasicTest",
     size = "small",
     srcs = glob(["**/E4XBasicTest.java"]),
@@ -62,7 +61,7 @@ java_junit5_test(
     ] + JUNIT5_DEPS,
 )
 
-java_junit5_test(
+junit5_test(
     name = "XmlNonResettableDocumentBuilderTest",
     size = "small",
     srcs = glob(["**/XmlNonResettableDocumentBuilderTest.java"]),

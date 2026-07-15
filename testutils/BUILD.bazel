@@ -1,6 +1,5 @@
-load("@contrib_rules_jvm//java:defs.bzl", "JUNIT5_DEPS", "java_junit5_test")
 load("@rules_java//java:defs.bzl", "java_library")
-load("//bazel:errorprone.bzl", "LIBRARY_OPTS", "TEST_OPTS")
+load("//bazel:defs.bzl", "JUNIT5_DEPS", "LIBRARY_OPTS", "TEST_OPTS", "junit5_test")
 
 java_library(
     name = "testutils",
@@ -13,7 +12,7 @@ java_library(
     ],
 )
 
-java_junit5_test(
+junit5_test(
     name = "TestSourceTest",
     size = "small",
     srcs = glob(["**/TestSourceTest.java"]),

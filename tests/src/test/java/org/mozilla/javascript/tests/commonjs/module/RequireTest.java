@@ -215,6 +215,6 @@ public class RequireTest {
     }
 
     private URI getDirectory() throws URISyntaxException {
-        return Path.of(TestSource.resolveDirectory("testsrc/commonjs/module/foo.js")).toUri();
+        return Path.of(TestSource.resolveDirectory("testsrc/commonjs/module/assert.js")).toUri();
     }
 }

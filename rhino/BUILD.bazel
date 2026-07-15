@@ -1,6 +1,5 @@
-load("@contrib_rules_jvm//java:defs.bzl", "JUNIT5_DEPS", "java_test_suite")
 load("@rules_java//java:defs.bzl", "java_library")
-load("//bazel:errorprone.bzl", "LIBRARY_OPTS", "TEST_OPTS")
+load("//bazel:defs.bzl", "JUNIT5_DEPS", "LIBRARY_OPTS", "TEST_OPTS", "java_test_suite")
 
 java_library(
     name = "rhino",
@@ -10,20 +9,34 @@ java_library(
     visibility = ["//visibility:public"],
 )
 
+java_library(
+    name = "rhino-test-lib",
+    #srcs = [
+    #    "src/test/java/org/mozilla/javascript/InterpreterIcodeCapture.java",
+    #    "src/test/java/org/mozilla/javascript/NullabilityDetectorTestClass.java",
+    #    "src/test/java/org/mozilla/javascript/debug/NoOpDebugger.java",
+    #],
+    srcs = glob(
+        ["src/test/java/**/*.java"],
+        exclude = ["src/test/java/**/*Test.java"],
+    ),
+    javacopts = LIBRARY_OPTS,
+    deps = [":rhino"],
+)
+
 java_test_suite(
     name = "rhino-tests",
     size = "small",
-    srcs = glob(["src/test/java/**/*.java"]),
+    srcs = glob(["src/test/java/**/*Test.java"]),
     data = [
         "//:rhino-test.config",
         "//tests:testsrc",
     ],
     javacopts = TEST_OPTS,
     resources = glob(["src/test/resources/**"]),
-    runner = "junit5",
-    test_suffixes = ["Test.java"],
     deps = [
         ":rhino",
+        ":rhino-test-lib",
         "//testutils",
         "@maven//:org_junit_jupiter_junit_jupiter_api",
         "@maven//:org_junit_jupiter_junit_jupiter_params",

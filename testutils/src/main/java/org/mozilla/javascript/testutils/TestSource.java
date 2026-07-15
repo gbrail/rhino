@@ -132,7 +132,7 @@ public class TestSource {
                 p = manifest.get(workspace + "/tests/" + path);
             }
             if (p == null) {
-                throw new AssertionError("Can't find test file " + path);
+                throw new AssertionError("Can't find test file " + path + " in " + workspace);
             }
             return p;
         }
