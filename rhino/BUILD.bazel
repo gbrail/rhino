@@ -33,6 +33,10 @@ java_test_suite(
         "//tests:testsrc",
     ],
     javacopts = TEST_OPTS,
+    jvm_flags = [
+        "-Dtest.file.rhino-test-config.loaded=true",
+        "-Dtest.config.bar=value4-mod",
+    ],
     resources = glob(["src/test/resources/**"]),
     deps = [
         ":rhino",

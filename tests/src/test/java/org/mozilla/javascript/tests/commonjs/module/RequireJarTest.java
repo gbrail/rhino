@@ -136,7 +136,7 @@ public class RequireJarTest extends RequireTest {
 
     private URI getDirectory() throws URISyntaxException {
         String jarFileLoc = TestSource.resolve("testsrc/commonjs/module/modules.jar");
-        String jarParent = "jar:file:./" + jarFileLoc + "!/";
+        String jarParent = "jar:file:" + jarFileLoc + "!/";
         return new URI(jarParent);
     }
 }

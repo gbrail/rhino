@@ -76,11 +76,12 @@ public class RhinoProperties {
     public void loadDefaults() {
         ClassLoader classLoader = RhinoProperties.class.getClassLoader();
         ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+        String configDir = System.getProperty("rhino.config.dir", ".");
 
         for (String configFile : CONFIG_FILES) {
             loadFromClasspath(classLoader, configFile);
             loadFromClasspath(contextClassLoader, configFile);
-            loadFromFile(new File(configFile));
+            loadFromFile(new File(configDir, configFile));
         }
         logDebug("loading configuration from System.getEnv()");
         addConfig(System.getenv());
