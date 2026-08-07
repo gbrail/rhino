@@ -109,11 +109,8 @@ public class NodeJsFloat16ReferenceTest {
     @Test
     public void testAgainstReferenceValues() {
         for (TestCase tc : REFERENCE_CASES) {
-            byte[] buf = new byte[2];
-            ByteIo.writeFloat16(buf, 0, tc.input, true);
+            int actualBits = Conversions.float16ToShortBits(tc.input) & 0xffff;
 
-            // Check bit pattern
-            int actualBits = (buf[0] & 0xff) | ((buf[1] & 0xff) << 8);
             assertEquals(
                     tc.expectedBitsLE,
                     actualBits,
@@ -121,7 +118,7 @@ public class NodeJsFloat16ReferenceTest {
                             "Bit pattern mismatch for input %.15e (%.10f)", tc.input, tc.input));
 
             // Check read-back value
-            float result = ByteIo.readFloat16(buf, 0, true);
+            float result = Conversions.shortBitsToFloat16((short) actualBits);
 
             if (tc.expectNaN) {
                 assertTrue(Float.isNaN(result), "Expected NaN for input " + tc.input);
@@ -143,67 +140,32 @@ public class NodeJsFloat16ReferenceTest {
     }
 
     @Test
-    public void testBigEndianReferenceValues() {
-        for (TestCase tc : REFERENCE_CASES) {
-            byte[] buf = new byte[2];
-            ByteIo.writeFloat16(buf, 0, tc.input, false);
-
-            // Check bit pattern (big-endian)
-            int actualBits = ((buf[0] & 0xff) << 8) | (buf[1] & 0xff);
-            assertEquals(
-                    tc.expectedBitsLE,
-                    actualBits,
-                    String.format("Big-endian bit pattern mismatch for input %.15e", tc.input));
-
-            // Check read-back value
-            float result = ByteIo.readFloat16(buf, 0, false);
-
-            if (tc.expectNaN) {
-                assertTrue(Float.isNaN(result));
-            } else if (tc.expectInfinite) {
-                assertTrue(Float.isInfinite(result));
-                assertEquals(Math.signum(tc.expectedOutput), Math.signum(result), 0.0f);
-            } else {
-                assertEquals(tc.expectedOutput, result, Math.abs(tc.expectedOutput) * 1e-6f);
-            }
-        }
-    }
-
-    @Test
     public void testSpecificBitPatterns() {
         // Test some known bit patterns directly
 
         // 0x3C00 = 0011110000000000 (binary)
         // sign=0, exp=01111=15, mant=0000000000 => 1.0 * 2^(15-15) = 1.0
-        assertBitPatternEquals(0x3C00, 1.0, true);
+        assertBitPatternEquals(0x3C00, 1.0);
 
         // 0x4000 = 0100000000000000 (binary)
         // sign=0, exp=10000=16, mant=0000000000 => 1.0 * 2^(16-15) = 2.0
-        assertBitPatternEquals(0x4000, 2.0, true);
+        assertBitPatternEquals(0x4000, 2.0);
 
         // 0x3800 = 0011100000000000 (binary)
         // sign=0, exp=01110=14, mant=0000000000 => 1.0 * 2^(14-15) = 0.5
-        assertBitPatternEquals(0x3800, 0.5, true);
+        assertBitPatternEquals(0x3800, 0.5);
 
         // 0x7C00 = 0111110000000000 (binary)
         // sign=0, exp=11111=31, mant=0000000000 => +Infinity
-        assertBitPatternEquals(0x7C00, Float.POSITIVE_INFINITY, true);
+        assertBitPatternEquals(0x7C00, Float.POSITIVE_INFINITY);
 
         // 0xFC00 = 1111110000000000 (binary)
         // sign=1, exp=11111=31, mant=0000000000 => -Infinity
-        assertBitPatternEquals(0xFC00, Float.NEGATIVE_INFINITY, true);
+        assertBitPatternEquals(0xFC00, Float.NEGATIVE_INFINITY);
     }
 
-    private void assertBitPatternEquals(int expectedBits, double input, boolean littleEndian) {
-        byte[] buf = new byte[2];
-        ByteIo.writeFloat16(buf, 0, input, littleEndian);
-
-        int actualBits;
-        if (littleEndian) {
-            actualBits = (buf[0] & 0xff) | ((buf[1] & 0xff) << 8);
-        } else {
-            actualBits = ((buf[0] & 0xff) << 8) | (buf[1] & 0xff);
-        }
+    private void assertBitPatternEquals(int expectedBits, double input) {
+        int actualBits = Conversions.float16ToShortBits(input) & 0xffff;
 
         assertEquals(
                 expectedBits,
@@ -218,22 +180,15 @@ public class NodeJsFloat16ReferenceTest {
         // Denormalized numbers have exponent = 0
 
         // 0x0001: smallest positive denormalized (2^-24)
-        byte[] buf = new byte[2];
-        buf[0] = 0x01;
-        buf[1] = 0x00;
-        float result = ByteIo.readFloat16(buf, 0, true);
+        float result = Conversions.shortBitsToFloat16((short) 0x0001);
         assertEquals(5.960464477539063e-8f, result, 1e-15f);
 
         // 0x0002: 2 * 2^-24
-        buf[0] = 0x02;
-        buf[1] = 0x00;
-        result = ByteIo.readFloat16(buf, 0, true);
+        result = Conversions.shortBitsToFloat16((short) 0x0002);
         assertEquals(1.1920928955078125e-7f, result, 1e-15f);
 
         // 0x03FF: largest denormalized
-        buf[0] = (byte) 0xFF;
-        buf[1] = 0x03;
-        result = ByteIo.readFloat16(buf, 0, true);
+        result = Conversions.shortBitsToFloat16((short) 0x03FF);
         // This is (1023 / 1024) * 2^-14
         assertTrue(result > 0);
         assertTrue(result < 0.00006103515625); // Less than min normal
@@ -268,8 +223,7 @@ public class NodeJsFloat16ReferenceTest {
     }
 
     private float roundTrip(double value) {
-        byte[] buf = new byte[2];
-        ByteIo.writeFloat16(buf, 0, value, true);
-        return ByteIo.readFloat16(buf, 0, true);
+        short bits = Conversions.float16ToShortBits(value);
+        return Conversions.shortBitsToFloat16(bits);
     }
 }

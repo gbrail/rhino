@@ -300,8 +300,7 @@ function SubarrayTestCase(constructor, item, expectedResultLen, expectedStartInd
                           initialLen, start, end) {
   var a = new constructor(initialLen);
   var s = a.subarray(start, end);
-  // TODO Rhino constructor doesn't seem to be "==="
-  //assertSame(constructor, s.constructor);
+  assertSame(constructor, s.constructor);
   assertSame(expectedResultLen, s.length);
   if (s.length > 0) {
     s[0] = item;
@@ -695,8 +694,6 @@ function TestDataViewToStringTag() {
 
 // General tests for properties
 
-/*
- * Rhino: No Enumerable yet
 // Test property attribute [[Enumerable]]
 function TestEnumerable(func, obj) {
   function props(x) {
@@ -714,7 +711,6 @@ for(i = 0; i < typedArrayConstructors.length; i++) {
   TestEnumerable(typedArrayConstructors[i]);
 }
 TestEnumerable(DataView, new DataView(new ArrayBuffer()));
-*/
 
 // Test arbitrary properties on ArrayBuffer
 function TestArbitrary(m) {
@@ -735,10 +731,7 @@ TestArbitrary(new DataView(new ArrayBuffer(256)));
 
 
 // Test direct constructor call
-/*
- * Rhino: Not making this check yet
 assertThrows(function() { ArrayBuffer(); }, TypeError);
 assertThrows(function() { DataView(new ArrayBuffer()); }, TypeError);
-*/
 
 "success";

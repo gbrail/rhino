@@ -90,11 +90,7 @@ public class NativeBigUint64Array extends NativeBigIntArrayView {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        long base =
-                ByteIo.readUint64Primitive(
-                        arrayBuffer.buffer,
-                        (index * BYTES_PER_ELEMENT) + offset,
-                        useLittleEndian());
+        long base = arrayBuffer.buffer.getLong((index * BYTES_PER_ELEMENT) + offset);
         if ((base & 0x8000000000000000l) == 0) {
             return BigInteger.valueOf(base);
         } else {
@@ -113,9 +109,7 @@ public class NativeBigUint64Array extends NativeBigIntArrayView {
         }
 
         long base = val.longValue();
-
-        ByteIo.writeUint64(
-                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, base, useLittleEndian());
+        arrayBuffer.buffer.putLong((index * BYTES_PER_ELEMENT) + offset, base);
         return null;
     }
 
