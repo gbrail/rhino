@@ -46,10 +46,12 @@ public class NativeFloat16Array extends NativeTypedArrayView<Float> {
                         .build();
     }
 
-    public NativeFloat16Array() {}
+    public NativeFloat16Array() {
+        super(Short.TYPE);
+    }
 
     public NativeFloat16Array(NativeArrayBuffer ab, int off, int len) {
-        super(ab, off, len, len * BYTES_PER_ELEMENT);
+        super(Short.TYPE, ab, off, len, len * BYTES_PER_ELEMENT);
     }
 
     private static Object js_constructor(
@@ -89,7 +91,8 @@ public class NativeFloat16Array extends NativeTypedArrayView<Float> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        short shortBits = arrayBuffer.buffer.getShort((index * BYTES_PER_ELEMENT) + offset);
+        short shortBits =
+                (short) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
         return Conversions.shortBitsToFloat16(shortBits);
     }
 
@@ -100,7 +103,7 @@ public class NativeFloat16Array extends NativeTypedArrayView<Float> {
             return Undefined.instance;
         }
         short shortBits = Conversions.float16ToShortBits(val);
-        arrayBuffer.buffer.putShort((index * BYTES_PER_ELEMENT) + offset, shortBits);
+        accessor.set(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, shortBits);
         return null;
     }
 

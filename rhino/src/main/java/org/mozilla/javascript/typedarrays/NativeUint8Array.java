@@ -44,10 +44,12 @@ public class NativeUint8Array extends NativeTypedArrayView<Integer> {
                         .build();
     }
 
-    public NativeUint8Array() {}
+    public NativeUint8Array() {
+        super(Integer.TYPE);
+    }
 
     public NativeUint8Array(NativeArrayBuffer ab, int off, int len) {
-        super(ab, off, len, len);
+        super(Integer.TYPE, ab, off, len, len);
     }
 
     public NativeUint8Array(int len) {

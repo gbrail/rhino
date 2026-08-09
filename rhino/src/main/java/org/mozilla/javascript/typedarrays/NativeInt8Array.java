@@ -44,10 +44,13 @@ public class NativeInt8Array extends NativeTypedArrayView<Byte> {
                         .build();
     }
 
-    public NativeInt8Array() {}
+    public NativeInt8Array() {
+        // Not going to actually use the accessor so this doesn't matter
+        super(Integer.TYPE);
+    }
 
     public NativeInt8Array(NativeArrayBuffer ab, int off, int len) {
-        super(ab, off, len, len);
+        super(Integer.TYPE, ab, off, len, len);
     }
 
     public NativeInt8Array(int len) {

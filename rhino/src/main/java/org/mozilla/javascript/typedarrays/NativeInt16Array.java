@@ -45,10 +45,12 @@ public class NativeInt16Array extends NativeTypedArrayView<Short> {
                         .build();
     }
 
-    public NativeInt16Array() {}
+    public NativeInt16Array() {
+        super(Short.TYPE);
+    }
 
     public NativeInt16Array(NativeArrayBuffer ab, int off, int len) {
-        super(ab, off, len, len * BYTES_PER_ELEMENT);
+        super(Short.TYPE, ab, off, len, len * BYTES_PER_ELEMENT);
     }
 
     public NativeInt16Array(int len) {
@@ -88,7 +90,9 @@ public class NativeInt16Array extends NativeTypedArrayView<Short> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        return arrayBuffer.buffer.getShort((index * BYTES_PER_ELEMENT) + offset);
+        // Can't consolidate for performance
+        short s = (short) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+        return s;
     }
 
     @Override
@@ -97,7 +101,7 @@ public class NativeInt16Array extends NativeTypedArrayView<Short> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        arrayBuffer.buffer.putShort((index * BYTES_PER_ELEMENT) + offset, val);
+        accessor.set(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
         return null;
     }
 

@@ -1,17 +1,16 @@
 package org.mozilla.javascript.benchmarks;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.concurrent.TimeUnit;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.concurrent.TimeUnit;
 
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 public class ByteBufferBenchmark {
@@ -26,7 +25,7 @@ public class ByteBufferBenchmark {
         @Setup(Level.Trial)
         public void setup() {
             array = ByteBuffer.allocate(ARRAY_SIZE);
-            array.put(BYTE_LOC,  (byte) 123);
+            array.put(BYTE_LOC, (byte) 123);
             array.putInt(INT_LOC, 12345);
         }
     }
@@ -41,7 +40,7 @@ public class ByteBufferBenchmark {
 
     @Benchmark
     public Object setByteBuffer(ByteBufferState state) {
-        state.array.put(BYTE_LOC, (byte)123);
+        state.array.put(BYTE_LOC, (byte) 123);
         return 456;
     }
 
@@ -62,12 +61,13 @@ public class ByteBufferBenchmark {
     @State(Scope.Thread)
     public static class ByteBufferHandleState {
         private ByteBuffer array;
-        private static final VarHandle intVh = MethodHandles.byteBufferViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN);
+        private static final VarHandle intVh =
+                MethodHandles.byteBufferViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN);
 
         @Setup(Level.Trial)
         public void setup() {
             array = ByteBuffer.allocate(ARRAY_SIZE);
-            array.put(BYTE_LOC,  (byte) 123);
+            array.put(BYTE_LOC, (byte) 123);
             array.putInt(INT_LOC, 12345);
         }
     }
@@ -83,13 +83,13 @@ public class ByteBufferBenchmark {
 
     @Benchmark
     public Object setByteBufferHandle(ByteBufferHandleState state) {
-        state.array.put(BYTE_LOC, (byte)123);
+        state.array.put(BYTE_LOC, (byte) 123);
         return 123;
     }
 
     @Benchmark
     public Object getIntBufferHandle(ByteBufferHandleState state) {
-        int i = (int)state.intVh.get(state.array, INT_LOC);
+        int i = (int) state.intVh.get(state.array, INT_LOC);
         if (i != 12345) {
             throw new AssertionError();
         }
@@ -105,12 +105,13 @@ public class ByteBufferBenchmark {
     @State(Scope.Thread)
     public static class DirectByteBufferHandleState {
         private ByteBuffer array;
-        private static final VarHandle intVh = MethodHandles.byteBufferViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN);
+        private static final VarHandle intVh =
+                MethodHandles.byteBufferViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN);
 
         @Setup(Level.Trial)
         public void setup() {
             array = ByteBuffer.allocateDirect(ARRAY_SIZE);
-            array.put(BYTE_LOC,  (byte) 123);
+            array.put(BYTE_LOC, (byte) 123);
             array.putInt(INT_LOC, 12345);
         }
     }
@@ -126,13 +127,13 @@ public class ByteBufferBenchmark {
 
     @Benchmark
     public Object setByteDirect(DirectByteBufferHandleState state) {
-        state.array.put(BYTE_LOC, (byte)123);
+        state.array.put(BYTE_LOC, (byte) 123);
         return 123;
     }
 
     @Benchmark
     public Object getIntDirectHandle(DirectByteBufferHandleState state) {
-        int i = (int)state.intVh.get(state.array, INT_LOC);
+        int i = (int) state.intVh.get(state.array, INT_LOC);
         if (i != 12345) {
             throw new AssertionError();
         }
@@ -147,7 +148,7 @@ public class ByteBufferBenchmark {
 
     @Benchmark
     public Object getIntDirectHandleVolatile(DirectByteBufferHandleState state) {
-        int i = (int)state.intVh.getVolatile(state.array, INT_LOC);
+        int i = (int) state.intVh.getVolatile(state.array, INT_LOC);
         if (i != 12345) {
             throw new AssertionError();
         }

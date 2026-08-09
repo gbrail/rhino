@@ -46,10 +46,12 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer> {
                         .build();
     }
 
-    public NativeInt32Array() {}
+    public NativeInt32Array() {
+        super(Integer.TYPE);
+    }
 
     public NativeInt32Array(NativeArrayBuffer ab, int off, int len) {
-        super(ab, off, len, len * BYTES_PER_ELEMENT);
+        super(Integer.TYPE, ab, off, len, len * BYTES_PER_ELEMENT);
     }
 
     public NativeInt32Array(int len) {
@@ -89,7 +91,9 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        return arrayBuffer.buffer.getInt((index * BYTES_PER_ELEMENT) + offset);
+        // Can't consolidate for performance
+        int i = (int) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+        return i;
     }
 
     @Override
@@ -98,7 +102,7 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        arrayBuffer.buffer.putInt((index * BYTES_PER_ELEMENT) + offset, val);
+        accessor.set(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
         return null;
     }
 

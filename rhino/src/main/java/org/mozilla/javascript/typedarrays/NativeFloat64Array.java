@@ -46,10 +46,12 @@ public class NativeFloat64Array extends NativeTypedArrayView<Double> {
                         .build();
     }
 
-    public NativeFloat64Array() {}
+    public NativeFloat64Array() {
+        super(Double.TYPE);
+    }
 
     public NativeFloat64Array(NativeArrayBuffer ab, int off, int len) {
-        super(ab, off, len, len * BYTES_PER_ELEMENT);
+        super(Double.TYPE, ab, off, len, len * BYTES_PER_ELEMENT);
     }
 
     public NativeFloat64Array(int len) {
@@ -89,8 +91,9 @@ public class NativeFloat64Array extends NativeTypedArrayView<Double> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        long base = arrayBuffer.buffer.getLong((index * BYTES_PER_ELEMENT) + offset);
-        return Double.longBitsToDouble(base);
+        // Can't consolidate for performance
+        double d = (double) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+        return d;
     }
 
     @Override
@@ -99,8 +102,7 @@ public class NativeFloat64Array extends NativeTypedArrayView<Double> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        long base = Double.doubleToLongBits(val);
-        arrayBuffer.buffer.putLong((index * BYTES_PER_ELEMENT) + offset, base);
+        accessor.set(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
         return null;
     }
 

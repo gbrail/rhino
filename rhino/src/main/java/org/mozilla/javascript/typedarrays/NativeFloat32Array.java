@@ -46,10 +46,12 @@ public class NativeFloat32Array extends NativeTypedArrayView<Float> {
                         .build();
     }
 
-    public NativeFloat32Array() {}
+    public NativeFloat32Array() {
+        super(Float.TYPE);
+    }
 
     public NativeFloat32Array(NativeArrayBuffer ab, int off, int len) {
-        super(ab, off, len, len * BYTES_PER_ELEMENT);
+        super(Float.TYPE, ab, off, len, len * BYTES_PER_ELEMENT);
     }
 
     public NativeFloat32Array(int len) {
@@ -89,8 +91,9 @@ public class NativeFloat32Array extends NativeTypedArrayView<Float> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        int intBits = arrayBuffer.buffer.getInt((index * BYTES_PER_ELEMENT) + offset);
-        return Float.intBitsToFloat(intBits);
+        // Cannot consolidate so Java will compile to a single instruction
+        float f = (float) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+        return f;
     }
 
     @Override
@@ -99,8 +102,7 @@ public class NativeFloat32Array extends NativeTypedArrayView<Float> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        int intBits = Float.floatToIntBits(val);
-        arrayBuffer.buffer.putInt((index * BYTES_PER_ELEMENT) + offset, intBits);
+        accessor.set(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
         return null;
     }
 

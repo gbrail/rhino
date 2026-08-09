@@ -7,10 +7,12 @@ import org.mozilla.javascript.ScriptRuntime;
 public abstract class NativeBigIntArrayView extends NativeTypedArrayView<BigInteger> {
     @Serial private static final long serialVersionUID = -3349222145964894609L;
 
-    protected NativeBigIntArrayView() {}
+    protected NativeBigIntArrayView() {
+        super(Long.TYPE);
+    }
 
     protected NativeBigIntArrayView(NativeArrayBuffer ab, int off, int len, int byteLen) {
-        super(ab, off, len, byteLen);
+        super(Long.TYPE, ab, off, len, byteLen);
     }
 
     @Override

@@ -46,10 +46,12 @@ public class NativeUint8ClampedArray extends NativeTypedArrayView<Integer> {
                         .build();
     }
 
-    public NativeUint8ClampedArray() {}
+    public NativeUint8ClampedArray() {
+        super(Integer.TYPE);
+    }
 
     public NativeUint8ClampedArray(NativeArrayBuffer ab, int off, int len) {
-        super(ab, off, len, len);
+        super(Integer.TYPE, ab, off, len, len);
     }
 
     public NativeUint8ClampedArray(int len) {
