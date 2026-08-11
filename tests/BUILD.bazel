@@ -212,3 +212,26 @@ java_junit5_test(
         "@maven//:org_yaml_snakeyaml",
     ] + JUNIT5_DEPS,
 )
+
+java_junit5_test(
+    name = "UpdateTest262Properties",
+    size = "large",
+    srcs = ["src/test/java/org/mozilla/javascript/tests/Test262SuiteTest.java"],
+    data = ["testsrc/test262.properties"] + glob(["test262/**"]),
+    javacopts = TEST_OPTS,
+    jvm_flags = [
+        "-DupdateTest262properties",
+        "-Xmx2g",
+    ],
+    tags = ["manual"],
+    test_class = "org.mozilla.javascript.tests.Test262SuiteTest",
+    deps = [
+        ":rhino-tests-lib",
+        "//rhino",
+        "//rhino-tools",
+        "//testutils",
+        "@maven//:org_junit_jupiter_junit_jupiter_api",
+        "@maven//:org_junit_jupiter_junit_jupiter_params",
+        "@maven//:org_yaml_snakeyaml",
+    ] + JUNIT5_DEPS,
+)
