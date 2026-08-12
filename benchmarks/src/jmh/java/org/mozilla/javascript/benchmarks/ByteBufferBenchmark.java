@@ -5,6 +5,7 @@ import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
@@ -16,7 +17,33 @@ import org.openjdk.jmh.annotations.State;
 public class ByteBufferBenchmark {
     private static final int ARRAY_SIZE = 100;
     private static final int BYTE_LOC = 10;
-    private static final int INT_LOC = 16;
+    private static final int INT_LOC = 2;
+
+    @Benchmark
+    public Object add() {
+        int val = 2 + 2;
+        return val;
+    }
+
+    private static int add(int a, int b) {
+        return a + b;
+    }
+
+    private static int mathOp(int a, int b, BiFunction<Integer, Integer, Integer> f) {
+        return f.apply(a, b);
+    }
+
+    @Benchmark
+    public Object addCallout() {
+        int val = mathOp(2, 2, ByteBufferBenchmark::add);
+        return val;
+    }
+
+    @Benchmark
+    public Object addCallout2() {
+        int val = mathOp(2, 2, Integer::sum);
+        return val;
+    }
 
     @State(Scope.Thread)
     public static class ByteBufferState {
@@ -93,7 +120,7 @@ public class ByteBufferBenchmark {
         if (i != 12345) {
             throw new AssertionError();
         }
-        return 12345;
+        return i;
     }
 
     @Benchmark

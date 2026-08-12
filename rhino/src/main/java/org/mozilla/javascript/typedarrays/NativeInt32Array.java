@@ -91,9 +91,8 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        // Can't consolidate for performance
-        int i = (int) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
-        return i;
+        // Must explicitly coerce for performance
+        return (int) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
     }
 
     @Override
@@ -116,5 +115,84 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer> {
     public Integer set(int i, Integer aByte) {
         ensureIndex(i);
         return (Integer) js_set(i, aByte);
+    }
+
+    @Override
+    public Object atomicLoad(int index) {
+        checkAtomicIndex(index);
+        return accessor.getVolatile(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+    }
+
+    @Override
+    public Object atomicStore(int index, Object v) {
+        double num = coerceNumber(v);
+        int val = ScriptRuntime.toInt32(num);
+        checkAtomicIndex(index);
+        accessor.setVolatile(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        return num;
+    }
+
+    @Override
+    public Object atomicAdd(int index, Object v) {
+        int val = ScriptRuntime.toInt32(v);
+        checkAtomicIndex(index);
+        return (int)
+                accessor.getAndAdd(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+    }
+
+    @Override
+    public Object atomicSub(int index, Object v) {
+        int val = ScriptRuntime.toInt32(v);
+        checkAtomicIndex(index);
+        return (int)
+                accessor.getAndAdd(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, -val);
+    }
+
+    @Override
+    public Object atomicAnd(int index, Object v) {
+        int val = ScriptRuntime.toInt32(v);
+        checkAtomicIndex(index);
+        return (int)
+                accessor.getAndBitwiseAnd(
+                        arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+    }
+
+    @Override
+    public Object atomicOr(int index, Object v) {
+        int val = ScriptRuntime.toInt32(v);
+        checkAtomicIndex(index);
+        return (int)
+                accessor.getAndBitwiseOr(
+                        arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+    }
+
+    @Override
+    public Object atomicXor(int index, Object v) {
+        int val = ScriptRuntime.toInt32(v);
+        checkAtomicIndex(index);
+        return (int)
+                accessor.getAndBitwiseXor(
+                        arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+    }
+
+    @Override
+    public Object atomicExchange(int index, Object v) {
+        int val = ScriptRuntime.toInt32(v);
+        checkAtomicIndex(index);
+        return (int)
+                accessor.getAndSet(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+    }
+
+    @Override
+    public Object atomicCompareAndExchange(int index, Object e, Object r) {
+        int expected = ScriptRuntime.toInt32(e);
+        int replacement = ScriptRuntime.toInt32(r);
+        checkAtomicIndex(index);
+        return (int)
+                accessor.compareAndExchange(
+                        arrayBuffer.buffer,
+                        (index * BYTES_PER_ELEMENT) + offset,
+                        expected,
+                        replacement);
     }
 }

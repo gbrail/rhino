@@ -6,6 +6,7 @@
 
 package org.mozilla.javascript.typedarrays;
 
+import java.math.BigInteger;
 import org.mozilla.javascript.ScriptRuntime;
 
 /** Numeric conversions from section 7 of the ECMAScript 6 standard. */
@@ -19,7 +20,11 @@ public class Conversions {
     }
 
     public static int toUint8(Object arg) {
-        return ScriptRuntime.toInt32(arg) & 0xff;
+        return toUint8(ScriptRuntime.toInt32(arg));
+    }
+
+    public static int toUint8(int arg) {
+        return arg & 0xff;
     }
 
     public static int toUint8Clamp(Object arg) {
@@ -233,5 +238,16 @@ public class Conversions {
         }
 
         return (short) ((sign << 15) | (exponent << 10) | mantissa);
+    }
+
+    public static BigInteger longBitsToBigUint(long base) {
+        if ((base & 0x8000000000000000L) == 0) {
+            return BigInteger.valueOf(base);
+        }
+
+        // Do it in two parts
+        var lsw = BigInteger.valueOf(base & 0xffffffffL);
+        var msw = BigInteger.valueOf((base >> 32L) & 0xffffffffL).shiftLeft(32);
+        return msw.add(lsw);
     }
 }

@@ -91,14 +91,7 @@ public class NativeBigUint64Array extends NativeBigIntArrayView {
             return Undefined.instance;
         }
         long base = (long) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
-        if ((base & 0x8000000000000000l) == 0) {
-            return BigInteger.valueOf(base);
-        } else {
-            // Do it in two parts
-            var lsw = BigInteger.valueOf(base & 0xffffffff);
-            var msw = BigInteger.valueOf((base >> 32) & 0xffffffff).shiftLeft(32);
-            return msw.add(lsw);
-        }
+        return Conversions.longBitsToBigUint(base);
     }
 
     @Override
@@ -127,5 +120,105 @@ public class NativeBigUint64Array extends NativeBigIntArrayView {
             throw new IndexOutOfBoundsException();
         }
         return (BigInteger) js_set(i, aByte);
+    }
+
+    @Override
+    public Object atomicLoad(int index) {
+        checkAtomicIndex(index);
+        long base =
+                (long)
+                        accessor.getVolatile(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+        return Conversions.longBitsToBigUint(base);
+    }
+
+    @Override
+    public Object atomicStore(int index, Object v) {
+        var val = ScriptRuntime.toBigInt(v);
+        long base = val.longValue();
+        checkAtomicIndex(index);
+        accessor.setVolatile(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, base);
+        return val;
+    }
+
+    @Override
+    public Object atomicAdd(int index, Object v) {
+        long val = ScriptRuntime.toBigInt(v).longValue();
+        checkAtomicIndex(index);
+        long base =
+                (long)
+                        accessor.getAndAdd(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        return Conversions.longBitsToBigUint(base);
+    }
+
+    @Override
+    public Object atomicSub(int index, Object v) {
+        long val = ScriptRuntime.toBigInt(v).longValue();
+        checkAtomicIndex(index);
+        long base =
+                (long)
+                        accessor.getAndAdd(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, -val);
+        return Conversions.longBitsToBigUint(base);
+    }
+
+    @Override
+    public Object atomicAnd(int index, Object v) {
+        long val = ScriptRuntime.toBigInt(v).longValue();
+        checkAtomicIndex(index);
+        long base =
+                (long)
+                        accessor.getAndBitwiseAnd(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        return Conversions.longBitsToBigUint(base);
+    }
+
+    @Override
+    public Object atomicOr(int index, Object v) {
+        long val = ScriptRuntime.toBigInt(v).longValue();
+        checkAtomicIndex(index);
+        long base =
+                (long)
+                        accessor.getAndBitwiseOr(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        return Conversions.longBitsToBigUint(base);
+    }
+
+    @Override
+    public Object atomicXor(int index, Object v) {
+        long val = ScriptRuntime.toBigInt(v).longValue();
+        checkAtomicIndex(index);
+        long base =
+                (long)
+                        accessor.getAndBitwiseXor(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        return Conversions.longBitsToBigUint(base);
+    }
+
+    @Override
+    public Object atomicExchange(int index, Object v) {
+        long val = ScriptRuntime.toBigInt(v).longValue();
+        checkAtomicIndex(index);
+        long base =
+                (long)
+                        accessor.getAndSet(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        return Conversions.longBitsToBigUint(base);
+    }
+
+    @Override
+    public Object atomicCompareAndExchange(int index, Object e, Object r) {
+        long expected = ScriptRuntime.toBigInt(e).longValue();
+        long replacement = ScriptRuntime.toBigInt(r).longValue();
+        checkAtomicIndex(index);
+        long base =
+                (long)
+                        accessor.compareAndExchange(
+                                arrayBuffer.buffer,
+                                (index * BYTES_PER_ELEMENT) + offset,
+                                expected,
+                                replacement);
+        return Conversions.longBitsToBigUint(base);
     }
 }

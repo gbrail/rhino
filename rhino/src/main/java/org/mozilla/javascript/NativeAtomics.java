@@ -1,0 +1,137 @@
+package org.mozilla.javascript;
+
+import static org.mozilla.javascript.ClassDescriptor.Builder.value;
+import static org.mozilla.javascript.ClassDescriptor.Destination.CTOR;
+
+import org.mozilla.javascript.typedarrays.NativeTypedArrayView;
+
+public class NativeAtomics extends ScriptableObject {
+    private static final String ATOMICS_TAG = "Atomics";
+
+    private static final ClassDescriptor DESCRIPTOR;
+
+    static {
+        DESCRIPTOR =
+                new ClassDescriptor.Builder(ATOMICS_TAG)
+                        .withMethod(CTOR, "isLockFree", 1, NativeAtomics::isLockFree)
+                        .withMethod(CTOR, "load", 2, NativeAtomics::load)
+                        .withMethod(CTOR, "store", 3, NativeAtomics::store)
+                        .withMethod(CTOR, "add", 3, NativeAtomics::add)
+                        .withMethod(CTOR, "sub", 3, NativeAtomics::sub)
+                        .withMethod(CTOR, "and", 3, NativeAtomics::and)
+                        .withMethod(CTOR, "or", 3, NativeAtomics::or)
+                        .withMethod(CTOR, "xor", 3, NativeAtomics::xor)
+                        .withMethod(CTOR, "exchange", 3, NativeAtomics::exchange)
+                        .withMethod(CTOR, "compareExchange", 4, NativeAtomics::compareAndExchange)
+                        .withProp(
+                                CTOR,
+                                SymbolKey.TO_STRING_TAG,
+                                value(ATOMICS_TAG, DONTENUM | READONLY))
+                        .build();
+    }
+
+    static Object init(Context cx, VarScope s, boolean sealed) {
+        return DESCRIPTOR.populateGlobal(cx, s, new NativeAtomics(), sealed);
+    }
+
+    private static int indexArg(Object[] args, int i) {
+        return args.length > i ? ScriptRuntime.toIndex(args[i]) : 0;
+    }
+
+    private static Object objectArg(Object[] args, int i) {
+        return args.length > i ? args[i] : Undefined.instance;
+    }
+
+    private NativeAtomics() {}
+
+    @Override
+    public String getClassName() {
+        return ATOMICS_TAG;
+    }
+
+    private static NativeTypedArrayView<?> getArray(Object to) {
+        if (to instanceof NativeTypedArrayView<?> ta) {
+            return ta;
+        }
+        throw ScriptRuntime.typeErrorById("msg.atomics.not.array");
+    }
+
+    private static Object isLockFree(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        var size = args.length > 0 ? ScriptRuntime.toIntegerOrInfinity(args[0]) : 0;
+        // This needs to be kept in sync with the various implementations of NativeTypedArrayView
+        return (size == 4);
+    }
+
+    private static Object load(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        Object t = objectArg(args, 0);
+        int index = indexArg(args, 1);
+        return getArray(t).atomicLoad(index);
+    }
+
+    private static Object store(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        Object t = objectArg(args, 0);
+        int index = indexArg(args, 1);
+        Object val = objectArg(args, 2);
+        return getArray(t).atomicStore(index, val);
+    }
+
+    private static Object add(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        Object t = objectArg(args, 0);
+        int index = indexArg(args, 1);
+        Object val = objectArg(args, 2);
+        return getArray(t).atomicAdd(index, val);
+    }
+
+    private static Object sub(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        Object t = objectArg(args, 0);
+        int index = indexArg(args, 1);
+        Object val = objectArg(args, 2);
+        return getArray(t).atomicSub(index, val);
+    }
+
+    private static Object and(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        Object t = objectArg(args, 0);
+        int index = indexArg(args, 1);
+        Object val = objectArg(args, 2);
+        return getArray(t).atomicAnd(index, val);
+    }
+
+    private static Object or(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        Object t = objectArg(args, 0);
+        int index = indexArg(args, 1);
+        Object val = objectArg(args, 2);
+        return getArray(t).atomicOr(index, val);
+    }
+
+    private static Object xor(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        Object t = objectArg(args, 0);
+        int index = indexArg(args, 1);
+        Object val = objectArg(args, 2);
+        return getArray(t).atomicXor(index, val);
+    }
+
+    private static Object exchange(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        Object t = objectArg(args, 0);
+        int index = indexArg(args, 1);
+        Object val = objectArg(args, 2);
+        return getArray(t).atomicExchange(index, val);
+    }
+
+    private static Object compareAndExchange(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        Object t = objectArg(args, 0);
+        int index = indexArg(args, 1);
+        Object expected = objectArg(args, 2);
+        Object replacement = objectArg(args, 3);
+        return getArray(t).atomicCompareAndExchange(index, expected, replacement);
+    }
+}

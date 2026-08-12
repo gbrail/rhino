@@ -115,4 +115,104 @@ public class NativeUint32Array extends NativeTypedArrayView<Long> {
         ensureIndex(i);
         return (Long) js_set(i, aByte);
     }
+
+    @Override
+    public Object atomicLoad(int index) {
+        checkAtomicIndex(index);
+        int base =
+                (int)
+                        accessor.getVolatile(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+        return Conversions.intBitsToUint(base);
+    }
+
+    @Override
+    public Object atomicStore(int index, Object v) {
+        double num = coerceNumber(v);
+        int val = Conversions.toUint32(num);
+        checkAtomicIndex(index);
+        accessor.setVolatile(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        return num;
+    }
+
+    @Override
+    public Object atomicAdd(int index, Object v) {
+        int val = Conversions.toUint32(v);
+        checkAtomicIndex(index);
+        int base =
+                (int)
+                        accessor.getAndAdd(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        return Conversions.intBitsToUint(base);
+    }
+
+    @Override
+    public Object atomicSub(int index, Object v) {
+        int val = Conversions.toUint32(v);
+        checkAtomicIndex(index);
+        int base =
+                (int)
+                        accessor.getAndAdd(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, -val);
+        return Conversions.intBitsToUint(base);
+    }
+
+    @Override
+    public Object atomicAnd(int index, Object v) {
+        int val = Conversions.toUint32(v);
+        checkAtomicIndex(index);
+        int base =
+                (int)
+                        accessor.getAndBitwiseAnd(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        return Conversions.intBitsToUint(base);
+    }
+
+    @Override
+    public Object atomicOr(int index, Object v) {
+        int val = Conversions.toUint32(v);
+        checkAtomicIndex(index);
+        int base =
+                (int)
+                        accessor.getAndBitwiseOr(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        return Conversions.intBitsToUint(base);
+    }
+
+    @Override
+    public Object atomicXor(int index, Object v) {
+        int val = Conversions.toUint32(v);
+        checkAtomicIndex(index);
+        int base =
+                (int)
+                        accessor.getAndBitwiseXor(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        return Conversions.intBitsToUint(base);
+    }
+
+    @Override
+    public Object atomicExchange(int index, Object v) {
+        int val = Conversions.toUint32(v);
+        checkAtomicIndex(index);
+        int base =
+                (int)
+                        accessor.getAndSet(
+                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        return Conversions.intBitsToUint(base);
+    }
+
+    @Override
+    public Object atomicCompareAndExchange(int index, Object e, Object r) {
+        int expected = Conversions.toUint32(e);
+        int replacement = Conversions.toUint32(r);
+        checkAtomicIndex(index);
+        int base =
+                (int)
+                        accessor.compareAndExchange(
+                                arrayBuffer.buffer,
+                                (index * BYTES_PER_ELEMENT) + offset,
+                                expected,
+                                replacement);
+        return Conversions.intBitsToUint(base);
+    }
 }

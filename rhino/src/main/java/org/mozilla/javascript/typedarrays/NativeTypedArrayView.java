@@ -47,6 +47,7 @@ import org.mozilla.javascript.TopLevel;
 import org.mozilla.javascript.Undefined;
 import org.mozilla.javascript.VarScope;
 import org.mozilla.javascript.Wrapper;
+import org.mozilla.javascript.v8dtoa.DoubleConversion;
 
 /**
  * This class is the abstract parent for all of the various typed arrays. Each one shows a view of a
@@ -371,6 +372,28 @@ public abstract class NativeTypedArrayView<T> extends NativeArrayBufferView
     /** Returns {@code true}, if the index is wrong. */
     protected boolean checkIndex(int index) {
         return isTypedArrayOutOfBounds() || ((index < 0) || (index >= getLength()));
+    }
+
+    /** Throws RangeError if out of spec, as required for atomic operations */
+    protected void checkAtomicIndex(int index) {
+        if (checkIndex(index)) {
+            throw ScriptRuntime.rangeErrorById("msg.out.of.range.index", index);
+        }
+        if (arrayBuffer.isDetached()) {
+            throw ScriptRuntime.typeErrorById("msg.arraybuf.detached");
+        }
+    }
+
+    /** Used by atomic operations to coerce "toIntegerToInfinity" in a particular way */
+    protected double coerceNumber(Object o) {
+        double val = ScriptRuntime.toNumber(o);
+        if (Double.isNaN(val) || val == -0.0) {
+            return 0.0;
+        }
+        if (!Double.isFinite(val)) {
+            return val;
+        }
+        return DoubleConversion.truncate(val);
     }
 
     /**
@@ -1536,6 +1559,44 @@ public abstract class NativeTypedArrayView<T> extends NativeArrayBufferView
         }
 
         return result;
+    }
+
+    // Methods for atomic access
+
+    public Object atomicLoad(int index) {
+        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "load");
+    }
+
+    public Object atomicStore(int index, Object val) {
+        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "store");
+    }
+
+    public Object atomicAdd(int index, Object val) {
+        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "add");
+    }
+
+    public Object atomicSub(int index, Object val) {
+        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "sub");
+    }
+
+    public Object atomicAnd(int index, Object val) {
+        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "and");
+    }
+
+    public Object atomicOr(int index, Object val) {
+        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "or");
+    }
+
+    public Object atomicXor(int index, Object val) {
+        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "xor");
+    }
+
+    public Object atomicExchange(int index, Object val) {
+        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "exchange");
+    }
+
+    public Object atomicCompareAndExchange(int index, Object expected, Object replacement) {
+        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "compareAndExchange");
     }
 
     // External Array implementation

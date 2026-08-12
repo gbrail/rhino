@@ -11,9 +11,11 @@ import static org.mozilla.javascript.ClassDescriptor.Destination.CTOR;
 import static org.mozilla.javascript.ClassDescriptor.Destination.PROTO;
 
 import java.io.Serial;
+import java.util.function.BiFunction;
 import org.mozilla.javascript.ClassDescriptor;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.JSFunction;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.ScriptRuntimeES6;
 import org.mozilla.javascript.SymbolKey;
 import org.mozilla.javascript.TopLevel;
@@ -115,5 +117,87 @@ public class NativeInt16Array extends NativeTypedArrayView<Short> {
     public Short set(int i, Short aByte) {
         ensureIndex(i);
         return (Short) js_set(i, aByte);
+    }
+
+    // In Java 17, only load and store can be atomic.
+    // Others are going to require explicit locking.
+
+    @Override
+    public Object atomicLoad(int index) {
+        checkAtomicIndex(index);
+        return accessor.getVolatile(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+    }
+
+    @Override
+    public Object atomicStore(int index, Object v) {
+        double num = coerceNumber(v);
+        short val = (short) ScriptRuntime.toInt32(num);
+        checkAtomicIndex(index);
+        accessor.setVolatile(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        return num;
+    }
+
+    private Object mathOp(int index, Object v, BiFunction<Short, Short, Short> f) {
+        short val = Conversions.toInt16(v);
+        checkAtomicIndex(index);
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        synchronized (arrayBuffer) {
+            short old = (short) accessor.get(arrayBuffer.buffer, addr);
+            short r = f.apply(old, val);
+            accessor.set(arrayBuffer.buffer, addr, r);
+            return old;
+        }
+    }
+
+    @Override
+    public Object atomicAdd(int index, Object v) {
+        return mathOp(index, v, (a, b) -> (short) (a + b));
+    }
+
+    @Override
+    public Object atomicSub(int index, Object v) {
+        return mathOp(index, v, (a, b) -> (short) (a - b));
+    }
+
+    @Override
+    public Object atomicAnd(int index, Object v) {
+        return mathOp(index, v, (a, b) -> (short) (a & b));
+    }
+
+    @Override
+    public Object atomicOr(int index, Object v) {
+        return mathOp(index, v, (a, b) -> (short) (a | b));
+    }
+
+    @Override
+    public Object atomicXor(int index, Object v) {
+        return mathOp(index, v, (a, b) -> (short) (a ^ b));
+    }
+
+    @Override
+    public Object atomicExchange(int index, Object v) {
+        short val = Conversions.toInt16(v);
+        checkAtomicIndex(index);
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        synchronized (arrayBuffer) {
+            short old = (short) accessor.get(arrayBuffer.buffer, addr);
+            accessor.set(arrayBuffer.buffer, addr, val);
+            return old;
+        }
+    }
+
+    @Override
+    public Object atomicCompareAndExchange(int index, Object e, Object r) {
+        short expected = Conversions.toInt16(e);
+        short replacement = Conversions.toInt16(r);
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        checkAtomicIndex(index);
+        synchronized (arrayBuffer) {
+            short old = (short) accessor.get(arrayBuffer.buffer, addr);
+            if (old == expected) {
+                accessor.set(arrayBuffer.buffer, addr, replacement);
+            }
+            return old;
+        }
     }
 }

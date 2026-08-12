@@ -295,6 +295,7 @@ public class ScriptRuntime {
             new LazilyLoadedCtor<>(scope, "Float32Array", sealed, true, NativeFloat32Array::init);
             new LazilyLoadedCtor<>(scope, "Float64Array", sealed, true, NativeFloat64Array::init);
             new LazilyLoadedCtor<>(scope, "DataView", sealed, true, NativeDataView::init);
+            new LazilyLoadedCtor<>(scope, "Atomics", sealed, true, NativeAtomics::init);
         }
 
         if (cx.getLanguageVersion() >= Context.VERSION_ES6) {

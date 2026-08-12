@@ -11,9 +11,11 @@ import static org.mozilla.javascript.ClassDescriptor.Destination.CTOR;
 import static org.mozilla.javascript.ClassDescriptor.Destination.PROTO;
 
 import java.io.Serial;
+import java.util.function.BiFunction;
 import org.mozilla.javascript.ClassDescriptor;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.JSFunction;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.ScriptRuntimeES6;
 import org.mozilla.javascript.SymbolKey;
 import org.mozilla.javascript.TopLevel;
@@ -107,5 +109,91 @@ public class NativeInt8Array extends NativeTypedArrayView<Byte> {
     public Byte set(int i, Byte aByte) {
         ensureIndex(i);
         return (Byte) js_set(i, aByte);
+    }
+
+    // VarHandle does not support any operations on bytes, so we have to do
+    // everything with an explicit lock
+
+    @Override
+    public Object atomicLoad(int index) {
+        checkAtomicIndex(index);
+        synchronized (arrayBuffer) {
+            return arrayBuffer.buffer.get(index + offset);
+        }
+    }
+
+    @Override
+    public Object atomicStore(int index, Object v) {
+        double num = coerceNumber(v);
+        int val = ScriptRuntime.toInt32(num);
+        checkAtomicIndex(index);
+        synchronized (arrayBuffer) {
+            arrayBuffer.buffer.put(index + offset, (byte) val);
+        }
+        return num;
+    }
+
+    private Object mathOp(int index, Object v, BiFunction<Integer, Integer, Integer> f) {
+        int val = Conversions.toInt8(v);
+        checkAtomicIndex(index);
+        synchronized (arrayBuffer) {
+            int addr = index + offset;
+            int old = arrayBuffer.buffer.get(addr);
+            int r = f.apply(old, val);
+            arrayBuffer.buffer.put(addr, (byte) r);
+            return (byte) old;
+        }
+    }
+
+    @Override
+    public Object atomicAdd(int index, Object v) {
+        return mathOp(index, v, Integer::sum);
+    }
+
+    @Override
+    public Object atomicSub(int index, Object v) {
+        return mathOp(index, v, (a, b) -> a - b);
+    }
+
+    @Override
+    public Object atomicAnd(int index, Object v) {
+        return mathOp(index, v, (a, b) -> a & b);
+    }
+
+    @Override
+    public Object atomicOr(int index, Object v) {
+        return mathOp(index, v, (a, b) -> a | b);
+    }
+
+    @Override
+    public Object atomicXor(int index, Object v) {
+        return mathOp(index, v, (a, b) -> a ^ b);
+    }
+
+    @Override
+    public Object atomicExchange(int index, Object v) {
+        int val = Conversions.toInt8(v);
+        checkAtomicIndex(index);
+        int addr = index + offset;
+        synchronized (arrayBuffer) {
+            int old = arrayBuffer.buffer.get(addr);
+            arrayBuffer.buffer.put(addr, (byte) val);
+            return (byte) old;
+        }
+    }
+
+    @Override
+    public Object atomicCompareAndExchange(int index, Object e, Object r) {
+        int expected = Conversions.toInt8(e);
+        int replacement = Conversions.toInt8(r);
+        int addr = index + offset;
+        checkAtomicIndex(index);
+        synchronized (arrayBuffer) {
+            int old = arrayBuffer.buffer.get(addr);
+            if (old == expected) {
+                arrayBuffer.buffer.put(addr, (byte) replacement);
+            }
+            return (byte) old;
+        }
     }
 }
