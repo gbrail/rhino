@@ -123,6 +123,9 @@ public class NativeUint16Array extends NativeTypedArrayView<Integer> {
     // Others are going to require explicit locking.
 
     @Override
+    public void checkAtomicSupport() {}
+
+    @Override
     public Object atomicLoad(int index) {
         checkAtomicIndex(index);
         short bits =

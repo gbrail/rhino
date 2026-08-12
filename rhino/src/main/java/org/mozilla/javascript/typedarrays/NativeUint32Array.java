@@ -117,6 +117,9 @@ public class NativeUint32Array extends NativeTypedArrayView<Long> {
     }
 
     @Override
+    public void checkAtomicSupport() {}
+
+    @Override
     public Object atomicLoad(int index) {
         checkAtomicIndex(index);
         int base =

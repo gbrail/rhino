@@ -66,72 +66,90 @@ public class NativeAtomics extends ScriptableObject {
     private static Object load(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
+        var arr = getArray(t);
+        arr.checkAtomicSupport();
         int index = indexArg(args, 1);
-        return getArray(t).atomicLoad(index);
+        return arr.atomicLoad(index);
     }
 
     private static Object store(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
+        var arr = getArray(t);
+        arr.checkAtomicSupport();
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
-        return getArray(t).atomicStore(index, val);
+        return arr.atomicStore(index, val);
     }
 
     private static Object add(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
+        var arr = getArray(t);
+        arr.checkAtomicSupport();
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
-        return getArray(t).atomicAdd(index, val);
+        return arr.atomicAdd(index, val);
     }
 
     private static Object sub(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
+        var arr = getArray(t);
+        arr.checkAtomicSupport();
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
-        return getArray(t).atomicSub(index, val);
+        return arr.atomicSub(index, val);
     }
 
     private static Object and(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
+        var arr = getArray(t);
+        arr.checkAtomicSupport();
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
-        return getArray(t).atomicAnd(index, val);
+        return arr.atomicAnd(index, val);
     }
 
     private static Object or(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
+        var arr = getArray(t);
+        arr.checkAtomicSupport();
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
-        return getArray(t).atomicOr(index, val);
+        return arr.atomicOr(index, val);
     }
 
     private static Object xor(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
+        var arr = getArray(t);
+        arr.checkAtomicSupport();
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
-        return getArray(t).atomicXor(index, val);
+        return arr.atomicXor(index, val);
     }
 
     private static Object exchange(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
+        var arr = getArray(t);
+        arr.checkAtomicSupport();
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
-        return getArray(t).atomicExchange(index, val);
+        return arr.atomicExchange(index, val);
     }
 
     private static Object compareAndExchange(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
+        var arr = getArray(t);
+        arr.checkAtomicSupport();
         int index = indexArg(args, 1);
         Object expected = objectArg(args, 2);
         Object replacement = objectArg(args, 3);
-        return getArray(t).atomicCompareAndExchange(index, expected, replacement);
+        return arr.atomicCompareAndExchange(index, expected, replacement);
     }
 }

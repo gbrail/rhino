@@ -1561,7 +1561,17 @@ public abstract class NativeTypedArrayView<T> extends NativeArrayBufferView
         return result;
     }
 
-    // Methods for atomic access
+    // Methods for atomic access. These are overridden for each class when
+    // the operations are supported.
+
+    /**
+     * Override to not throw if atomics are supported. We need do do this separately so that we can
+     * check the array type before converting the arguments without over-complicating the absract
+     * interface.
+     */
+    public void checkAtomicSupport() {
+        throw ScriptRuntime.typeErrorById("msg.atomics.not.array");
+    }
 
     public Object atomicLoad(int index) {
         throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "load");

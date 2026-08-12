@@ -123,6 +123,9 @@ public class NativeBigUint64Array extends NativeBigIntArrayView {
     }
 
     @Override
+    public void checkAtomicSupport() {}
+
+    @Override
     public Object atomicLoad(int index) {
         checkAtomicIndex(index);
         long base =

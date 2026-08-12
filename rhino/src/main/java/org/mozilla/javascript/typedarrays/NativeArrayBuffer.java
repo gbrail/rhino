@@ -169,10 +169,14 @@ public class NativeArrayBuffer extends ScriptableObject {
     /**
      * Return the actual bytes that back the buffer. This is a reference to the real buffer, so
      * changes to bytes here will be reflected in the actual object and all its views.
+     *
+     * @deprecated this method will return null for shared array buffers. Callers
+     * should use {@link #buffer} to get the underlying ByteBuffer instead.
      */
     @Deprecated
+    @SuppressWarnings("ByteBufferBackingArray")
     public byte[] getBuffer() {
-        return buffer.array();
+        return buffer.hasArray() ? buffer.array() : null;
     }
 
     public ByteBuffer buffer() {

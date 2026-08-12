@@ -115,6 +115,9 @@ public class NativeInt8Array extends NativeTypedArrayView<Byte> {
     // everything with an explicit lock
 
     @Override
+    public void checkAtomicSupport() {}
+
+    @Override
     public Object atomicLoad(int index) {
         checkAtomicIndex(index);
         synchronized (arrayBuffer) {

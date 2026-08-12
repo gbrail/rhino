@@ -123,6 +123,9 @@ public class NativeInt16Array extends NativeTypedArrayView<Short> {
     // Others are going to require explicit locking.
 
     @Override
+    public void checkAtomicSupport() {}
+
+    @Override
     public Object atomicLoad(int index) {
         checkAtomicIndex(index);
         return accessor.getVolatile(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);

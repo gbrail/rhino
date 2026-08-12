@@ -121,6 +121,9 @@ public class NativeUint8Array extends NativeTypedArrayView<Integer> {
     // everything with an explicit lock
 
     @Override
+    public void checkAtomicSupport() {}
+
+    @Override
     public Object atomicLoad(int index) {
         checkAtomicIndex(index);
         synchronized (arrayBuffer) {
@@ -185,7 +188,7 @@ public class NativeUint8Array extends NativeTypedArrayView<Integer> {
         synchronized (arrayBuffer) {
             int old = Conversions.byteBitsToUint(arrayBuffer.buffer.get(addr));
             arrayBuffer.buffer.put(addr, (byte) val);
-            return (byte) old;
+            return old;
         }
     }
 
@@ -200,7 +203,7 @@ public class NativeUint8Array extends NativeTypedArrayView<Integer> {
             if (old == expected) {
                 arrayBuffer.buffer.put(addr, (byte) replacement);
             }
-            return (byte) old;
+            return old;
         }
     }
 }

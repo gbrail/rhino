@@ -7,6 +7,8 @@
 package org.mozilla.javascript.typedarrays;
 
 import java.io.Serial;
+import java.nio.ByteBuffer;
+
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Undefined;
 
@@ -60,6 +62,14 @@ public abstract class NativeArrayBufferView extends ScriptableObject {
     /** Return the length, in bytes, of the part of the buffer that this view represents. */
     public int getByteLength() {
         return byteLength;
+    }
+
+    /**
+     * Return a ByteBuffer referencing the bytes of this buffer that
+     * is guaranteed to start at index 0 and be "length" bytes long.
+     */
+    public ByteBuffer slice() {
+        return arrayBuffer.buffer.slice(offset, byteLength);
     }
 
     protected static boolean isArg(Object[] args, int i) {
