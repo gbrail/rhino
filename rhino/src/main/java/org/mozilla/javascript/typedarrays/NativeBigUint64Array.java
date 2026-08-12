@@ -26,7 +26,7 @@ import org.mozilla.javascript.VarScope;
  * An array view that stores 64-bit quantities and implements the JavaScript "Float64Array"
  * interface. It also implements List&lt;Double&gt; for direct manipulation in Java.
  */
-public class NativeBigUint64Array extends NativeBigIntArrayView {
+public class NativeBigUint64Array extends NativeBigIntArrayView implements AtomicSupport {
     @Serial private static final long serialVersionUID = 6278562787625694949L;
 
     private static final String CLASS_NAME = "BigUint64Array";
@@ -121,9 +121,6 @@ public class NativeBigUint64Array extends NativeBigIntArrayView {
         }
         return (BigInteger) js_set(i, aByte);
     }
-
-    @Override
-    public void checkAtomicSupport() {}
 
     @Override
     public Object atomicLoad(int index) {

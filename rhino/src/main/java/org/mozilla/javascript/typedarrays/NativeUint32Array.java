@@ -24,7 +24,7 @@ import org.mozilla.javascript.VarScope;
  * An array view that stores 32-bit quantities and implements the JavaScript "Uint32Array"
  * interface. It also implements List&lt;Long&gt; for direct manipulation in Java.
  */
-public class NativeUint32Array extends NativeTypedArrayView<Long> {
+public class NativeUint32Array extends NativeTypedArrayView<Long> implements AtomicSupport {
     @Serial private static final long serialVersionUID = -7987831421954144244L;
 
     private static final String CLASS_NAME = "Uint32Array";
@@ -115,9 +115,6 @@ public class NativeUint32Array extends NativeTypedArrayView<Long> {
         ensureIndex(i);
         return (Long) js_set(i, aByte);
     }
-
-    @Override
-    public void checkAtomicSupport() {}
 
     @Override
     public Object atomicLoad(int index) {

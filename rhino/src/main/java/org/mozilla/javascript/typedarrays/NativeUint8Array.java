@@ -26,7 +26,7 @@ import org.mozilla.javascript.VarScope;
  * An array view that stores 8-bit quantities and implements the JavaScript "Uint8Array" interface.
  * It also implements List&lt;Integer&gt; for direct manipulation in Java.
  */
-public class NativeUint8Array extends NativeTypedArrayView<Integer> {
+public class NativeUint8Array extends NativeTypedArrayView<Integer> implements AtomicSupport {
     @Serial private static final long serialVersionUID = 4309679036296927829L;
 
     private static final String CLASS_NAME = "Uint8Array";
@@ -119,9 +119,6 @@ public class NativeUint8Array extends NativeTypedArrayView<Integer> {
 
     // VarHandle does not support any operations on bytes, so we have to do
     // everything with an explicit lock
-
-    @Override
-    public void checkAtomicSupport() {}
 
     @Override
     public Object atomicLoad(int index) {

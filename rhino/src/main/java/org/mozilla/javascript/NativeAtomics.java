@@ -3,7 +3,7 @@ package org.mozilla.javascript;
 import static org.mozilla.javascript.ClassDescriptor.Builder.value;
 import static org.mozilla.javascript.ClassDescriptor.Destination.CTOR;
 
-import org.mozilla.javascript.typedarrays.NativeTypedArrayView;
+import org.mozilla.javascript.typedarrays.AtomicSupport;
 
 public class NativeAtomics extends ScriptableObject {
     private static final String ATOMICS_TAG = "Atomics";
@@ -49,9 +49,9 @@ public class NativeAtomics extends ScriptableObject {
         return ATOMICS_TAG;
     }
 
-    private static NativeTypedArrayView<?> getArray(Object to) {
-        if (to instanceof NativeTypedArrayView<?> ta) {
-            return ta;
+    private static AtomicSupport getAtomics(Object to) {
+        if (to instanceof AtomicSupport s) {
+            return s;
         }
         throw ScriptRuntime.typeErrorById("msg.atomics.not.array");
     }
@@ -66,8 +66,7 @@ public class NativeAtomics extends ScriptableObject {
     private static Object load(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
-        var arr = getArray(t);
-        arr.checkAtomicSupport();
+        var arr = getAtomics(t);
         int index = indexArg(args, 1);
         return arr.atomicLoad(index);
     }
@@ -75,8 +74,7 @@ public class NativeAtomics extends ScriptableObject {
     private static Object store(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
-        var arr = getArray(t);
-        arr.checkAtomicSupport();
+        var arr = getAtomics(t);
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
         return arr.atomicStore(index, val);
@@ -85,8 +83,7 @@ public class NativeAtomics extends ScriptableObject {
     private static Object add(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
-        var arr = getArray(t);
-        arr.checkAtomicSupport();
+        var arr = getAtomics(t);
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
         return arr.atomicAdd(index, val);
@@ -95,8 +92,7 @@ public class NativeAtomics extends ScriptableObject {
     private static Object sub(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
-        var arr = getArray(t);
-        arr.checkAtomicSupport();
+        var arr = getAtomics(t);
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
         return arr.atomicSub(index, val);
@@ -105,8 +101,7 @@ public class NativeAtomics extends ScriptableObject {
     private static Object and(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
-        var arr = getArray(t);
-        arr.checkAtomicSupport();
+        var arr = getAtomics(t);
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
         return arr.atomicAnd(index, val);
@@ -115,8 +110,7 @@ public class NativeAtomics extends ScriptableObject {
     private static Object or(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
-        var arr = getArray(t);
-        arr.checkAtomicSupport();
+        var arr = getAtomics(t);
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
         return arr.atomicOr(index, val);
@@ -125,8 +119,7 @@ public class NativeAtomics extends ScriptableObject {
     private static Object xor(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
-        var arr = getArray(t);
-        arr.checkAtomicSupport();
+        var arr = getAtomics(t);
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
         return arr.atomicXor(index, val);
@@ -135,8 +128,7 @@ public class NativeAtomics extends ScriptableObject {
     private static Object exchange(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
-        var arr = getArray(t);
-        arr.checkAtomicSupport();
+        var arr = getAtomics(t);
         int index = indexArg(args, 1);
         Object val = objectArg(args, 2);
         return arr.atomicExchange(index, val);
@@ -145,8 +137,7 @@ public class NativeAtomics extends ScriptableObject {
     private static Object compareAndExchange(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
-        var arr = getArray(t);
-        arr.checkAtomicSupport();
+        var arr = getAtomics(t);
         int index = indexArg(args, 1);
         Object expected = objectArg(args, 2);
         Object replacement = objectArg(args, 3);

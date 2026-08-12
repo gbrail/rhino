@@ -26,7 +26,7 @@ import org.mozilla.javascript.VarScope;
  * An array view that stores 16-bit quantities and implements the JavaScript "Int16Array" interface.
  * It also implements List&lt;Short&gt; for direct manipulation in Java.
  */
-public class NativeInt16Array extends NativeTypedArrayView<Short> {
+public class NativeInt16Array extends NativeTypedArrayView<Short> implements AtomicSupport {
     @Serial private static final long serialVersionUID = -8592870435287581398L;
 
     private static final String CLASS_NAME = "Int16Array";
@@ -121,9 +121,6 @@ public class NativeInt16Array extends NativeTypedArrayView<Short> {
 
     // In Java 17, only load and store can be atomic.
     // Others are going to require explicit locking.
-
-    @Override
-    public void checkAtomicSupport() {}
 
     @Override
     public Object atomicLoad(int index) {

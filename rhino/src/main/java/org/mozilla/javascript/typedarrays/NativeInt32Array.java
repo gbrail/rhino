@@ -25,7 +25,7 @@ import org.mozilla.javascript.VarScope;
  * An array view that stores 32-bit quantities and implements the JavaScript "Int32Array" interface.
  * It also implements List&lt;Integer&gt; for direct manipulation in Java.
  */
-public class NativeInt32Array extends NativeTypedArrayView<Integer> {
+public class NativeInt32Array extends NativeTypedArrayView<Integer> implements AtomicSupport {
     @Serial private static final long serialVersionUID = 2090724894289667699L;
 
     private static final String CLASS_NAME = "Int32Array";
@@ -116,9 +116,6 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer> {
         ensureIndex(i);
         return (Integer) js_set(i, aByte);
     }
-
-    @Override
-    public void checkAtomicSupport() {}
 
     @Override
     public Object atomicLoad(int index) {

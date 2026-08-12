@@ -1561,54 +1561,6 @@ public abstract class NativeTypedArrayView<T> extends NativeArrayBufferView
         return result;
     }
 
-    // Methods for atomic access. These are overridden for each class when
-    // the operations are supported.
-
-    /**
-     * Override to not throw if atomics are supported. We need do do this separately so that we can
-     * check the array type before converting the arguments without over-complicating the absract
-     * interface.
-     */
-    public void checkAtomicSupport() {
-        throw ScriptRuntime.typeErrorById("msg.atomics.not.array");
-    }
-
-    public Object atomicLoad(int index) {
-        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "load");
-    }
-
-    public Object atomicStore(int index, Object val) {
-        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "store");
-    }
-
-    public Object atomicAdd(int index, Object val) {
-        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "add");
-    }
-
-    public Object atomicSub(int index, Object val) {
-        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "sub");
-    }
-
-    public Object atomicAnd(int index, Object val) {
-        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "and");
-    }
-
-    public Object atomicOr(int index, Object val) {
-        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "or");
-    }
-
-    public Object atomicXor(int index, Object val) {
-        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "xor");
-    }
-
-    public Object atomicExchange(int index, Object val) {
-        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "exchange");
-    }
-
-    public Object atomicCompareAndExchange(int index, Object expected, Object replacement) {
-        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array", "compareAndExchange");
-    }
-
     // External Array implementation
 
     @Override
