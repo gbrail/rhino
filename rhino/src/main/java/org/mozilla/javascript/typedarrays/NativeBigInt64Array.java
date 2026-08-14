@@ -26,7 +26,8 @@ import org.mozilla.javascript.VarScope;
  * An array view that stores 64-bit quantities and implements the JavaScript "BigInt64Array"
  * interface. It also implements List&lt;Double&gt; for direct manipulation in Java.
  */
-public class NativeBigInt64Array extends NativeBigIntArrayView implements AtomicSupport {
+public class NativeBigInt64Array extends NativeBigIntArrayView
+        implements AtomicSupport, WaitSupport {
     @Serial private static final long serialVersionUID = 3291575517061505304L;
 
     private static final String CLASS_NAME = "BigInt64Array";
@@ -46,6 +47,8 @@ public class NativeBigInt64Array extends NativeBigIntArrayView implements Atomic
                         .withProp(CTOR, SymbolKey.SPECIES, ScriptRuntimeES6::symbolSpecies)
                         .build();
     }
+
+    private transient volatile Waiters waiters = null;
 
     public NativeBigInt64Array() {}
 
@@ -220,5 +223,59 @@ public class NativeBigInt64Array extends NativeBigIntArrayView implements Atomic
                                 expected,
                                 replacement);
         return BigInteger.valueOf(base);
+    }
+
+    // Support for wait/notify
+
+    @Override
+    public boolean isShared() {
+        return arrayBuffer.isShared();
+    }
+
+    @Override
+    public Object wait(int index, Object v, Object t) {
+        long val = ScriptRuntime.toBigInt(v).longValue();
+        checkAtomicIndex(index);
+        int timeout = NativeInt32Array.getTimeout(t);
+        var waiters = getWaiters();
+        var r =
+                waiters.waitSync(
+                        index,
+                        timeout,
+                        () -> {
+                            long current =
+                                    (long)
+                                            accessor.getVolatile(
+                                                    arrayBuffer.buffer,
+                                                    (index * BYTES_PER_ELEMENT) + offset);
+                            return current == val;
+                        });
+        return Waiters.resultToString(r);
+    }
+
+    @Override
+    public Object waitAsync(int index, Object val, Object timeout) {
+        throw ScriptRuntime.typeError("Not implemented yet");
+    }
+
+    @Override
+    public Object notify(int index, int count) {
+        checkAtomicIndex(index);
+        return getWaiters().notify(index, count);
+    }
+
+    // Use double-checked locking, correct because waiters is volatile
+    private Waiters getWaiters() {
+        var w = waiters;
+        if (w == null) {
+            synchronized (this) {
+                w = waiters;
+                if (w == null) {
+                    w = new Waiters();
+                    waiters = w;
+                }
+            }
+        }
+        return w;
     }
 }

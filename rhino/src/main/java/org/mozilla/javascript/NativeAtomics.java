@@ -4,7 +4,6 @@ import static org.mozilla.javascript.ClassDescriptor.Builder.value;
 import static org.mozilla.javascript.ClassDescriptor.Destination.CTOR;
 
 import org.mozilla.javascript.typedarrays.AtomicSupport;
-import org.mozilla.javascript.typedarrays.NativeTypedArrayView;
 import org.mozilla.javascript.typedarrays.WaitSupport;
 
 public class NativeAtomics extends ScriptableObject {
@@ -73,14 +72,10 @@ public class NativeAtomics extends ScriptableObject {
     }
 
     private static WaitSupport getWaitable(Object to) {
-        if (!(to instanceof WaitSupport ws)) {
-            throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array");
+        if (to instanceof WaitSupport ws) {
+            return ws;
         }
-        var tv = (NativeTypedArrayView<?>) ws;
-        if (!tv.getBuffer().isShared()) {
-            throw ScriptRuntime.typeErrorById("msg.arraybuf.notsharedarraybuf");
-        }
-        return ws;
+        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array");
     }
 
     private static Object isLockFree(
@@ -172,6 +167,7 @@ public class NativeAtomics extends ScriptableObject {
         return arr.atomicCompareAndExchange(index, expected, replacement);
     }
 
+    @SuppressWarnings("ThreadPriorityCheck")
     private static Object pause(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Thread.yield();
@@ -182,6 +178,9 @@ public class NativeAtomics extends ScriptableObject {
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
         var arr = getWaitable(t);
+        if (!arr.isShared()) {
+            throw ScriptRuntime.typeErrorById("msg.arraybuf.notsharedarraybuf");
+        }
         int index = indexArg(args, 1);
         // These have to be validated differently and in a very specific order
         Object val = objectArg(args, 2);
@@ -193,8 +192,9 @@ public class NativeAtomics extends ScriptableObject {
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
         var arr = getWaitable(t);
-        Object c = objectArg(args, 2);
-
+        if (!arr.isShared()) {
+            throw ScriptRuntime.typeErrorById("msg.arraybuf.notsharedarraybuf");
+        }
         int index = indexArg(args, 1);
         // These have to be validated differently and in a very specific order
         Object val = objectArg(args, 2);

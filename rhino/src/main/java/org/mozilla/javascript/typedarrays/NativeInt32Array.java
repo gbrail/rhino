@@ -202,7 +202,13 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer>
     // Support for wait/notify
 
     @Override
+    public boolean isShared() {
+        return arrayBuffer.isShared();
+    }
+
+    @Override
     public Object wait(int index, Object v, Object t) {
+        checkAtomicIndex(index);
         int val = ScriptRuntime.toInt32(v);
         int timeout = getTimeout(t);
         var waiters = getWaiters();
@@ -228,6 +234,10 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer>
 
     @Override
     public Object notify(int index, int count) {
+        checkAtomicIndex(index);
+        if (!arrayBuffer.isShared()) {
+            return 0;
+        }
         return getWaiters().notify(index, count);
     }
 
