@@ -191,6 +191,10 @@ public class NativeArrayBuffer extends ScriptableObject {
         return buffer == null;
     }
 
+    public boolean isShared() {
+        return shared;
+    }
+
     /**
      * Return a new buffer that represents a slice of this buffer's content, starting at position
      * "start" and ending at position "end". Both values will be "clamped" as per the JavaScript

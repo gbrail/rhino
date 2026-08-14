@@ -4,6 +4,8 @@ import static org.mozilla.javascript.ClassDescriptor.Builder.value;
 import static org.mozilla.javascript.ClassDescriptor.Destination.CTOR;
 
 import org.mozilla.javascript.typedarrays.AtomicSupport;
+import org.mozilla.javascript.typedarrays.NativeTypedArrayView;
+import org.mozilla.javascript.typedarrays.WaitSupport;
 
 public class NativeAtomics extends ScriptableObject {
     private static final String ATOMICS_TAG = "Atomics";
@@ -23,6 +25,10 @@ public class NativeAtomics extends ScriptableObject {
                         .withMethod(CTOR, "xor", 3, NativeAtomics::xor)
                         .withMethod(CTOR, "exchange", 3, NativeAtomics::exchange)
                         .withMethod(CTOR, "compareExchange", 4, NativeAtomics::compareAndExchange)
+                        .withMethod(CTOR, "pause", 0, NativeAtomics::pause)
+                        .withMethod(CTOR, "wait", 4, NativeAtomics::wait)
+                        .withMethod(CTOR, "waitAsync", 4, NativeAtomics::waitAsync)
+                        .withMethod(CTOR, "notify", 3, NativeAtomics::notify)
                         .withProp(
                                 CTOR,
                                 SymbolKey.TO_STRING_TAG,
@@ -42,6 +48,16 @@ public class NativeAtomics extends ScriptableObject {
         return args.length > i ? args[i] : Undefined.instance;
     }
 
+    private static int countArg(Object[] args, int i) {
+        double d;
+        if (i >= args.length || Undefined.isUndefined(args[i])) {
+            d = Double.POSITIVE_INFINITY;
+        } else {
+            d = ScriptRuntime.toIntegerOrInfinity(args[i]);
+        }
+        return Math.max(0, (int) d);
+    }
+
     private NativeAtomics() {}
 
     @Override
@@ -53,7 +69,18 @@ public class NativeAtomics extends ScriptableObject {
         if (to instanceof AtomicSupport s) {
             return s;
         }
-        throw ScriptRuntime.typeErrorById("msg.atomics.not.array");
+        throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array");
+    }
+
+    private static WaitSupport getWaitable(Object to) {
+        if (!(to instanceof WaitSupport ws)) {
+            throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array");
+        }
+        var tv = (NativeTypedArrayView<?>) ws;
+        if (!tv.getBuffer().isShared()) {
+            throw ScriptRuntime.typeErrorById("msg.arraybuf.notsharedarraybuf");
+        }
+        return ws;
     }
 
     private static Object isLockFree(
@@ -143,5 +170,44 @@ public class NativeAtomics extends ScriptableObject {
         Object expected = objectArg(args, 2);
         Object replacement = objectArg(args, 3);
         return arr.atomicCompareAndExchange(index, expected, replacement);
+    }
+
+    private static Object pause(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        Thread.yield();
+        return Undefined.instance;
+    }
+
+    private static Object wait(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        Object t = objectArg(args, 0);
+        var arr = getWaitable(t);
+        int index = indexArg(args, 1);
+        // These have to be validated differently and in a very specific order
+        Object val = objectArg(args, 2);
+        Object timeout = objectArg(args, 3);
+        return arr.wait(index, val, timeout);
+    }
+
+    private static Object waitAsync(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        Object t = objectArg(args, 0);
+        var arr = getWaitable(t);
+        Object c = objectArg(args, 2);
+
+        int index = indexArg(args, 1);
+        // These have to be validated differently and in a very specific order
+        Object val = objectArg(args, 2);
+        Object timeout = objectArg(args, 3);
+        return arr.waitAsync(index, val, timeout);
+    }
+
+    private static Object notify(
+            Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
+        Object t = objectArg(args, 0);
+        var arr = getWaitable(t);
+        int index = indexArg(args, 1);
+        int count = countArg(args, 2);
+        return arr.notify(index, count);
     }
 }

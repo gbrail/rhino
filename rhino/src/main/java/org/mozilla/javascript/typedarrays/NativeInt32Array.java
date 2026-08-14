@@ -25,7 +25,8 @@ import org.mozilla.javascript.VarScope;
  * An array view that stores 32-bit quantities and implements the JavaScript "Int32Array" interface.
  * It also implements List&lt;Integer&gt; for direct manipulation in Java.
  */
-public class NativeInt32Array extends NativeTypedArrayView<Integer> implements AtomicSupport {
+public class NativeInt32Array extends NativeTypedArrayView<Integer>
+        implements AtomicSupport, WaitSupport {
     @Serial private static final long serialVersionUID = 2090724894289667699L;
 
     private static final String CLASS_NAME = "Int32Array";
@@ -45,6 +46,8 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer> implements A
                         .withProp(CTOR, SymbolKey.SPECIES, ScriptRuntimeES6::symbolSpecies)
                         .build();
     }
+
+    private transient volatile Waiters waiters = null;
 
     public NativeInt32Array() {
         super(Integer.TYPE);
@@ -194,5 +197,63 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer> implements A
                         (index * BYTES_PER_ELEMENT) + offset,
                         expected,
                         replacement);
+    }
+
+    // Support for wait/notify
+
+    @Override
+    public Object wait(int index, Object v, Object t) {
+        int val = ScriptRuntime.toInt32(v);
+        int timeout = getTimeout(t);
+        var waiters = getWaiters();
+        var r =
+                waiters.waitSync(
+                        index,
+                        timeout,
+                        () -> {
+                            int current =
+                                    (int)
+                                            accessor.getVolatile(
+                                                    arrayBuffer.buffer,
+                                                    (index * BYTES_PER_ELEMENT) + offset);
+                            return current == val;
+                        });
+        return Waiters.resultToString(r);
+    }
+
+    @Override
+    public Object waitAsync(int index, Object val, Object timeout) {
+        throw ScriptRuntime.typeError("Not implemented yet");
+    }
+
+    @Override
+    public Object notify(int index, int count) {
+        return getWaiters().notify(index, count);
+    }
+
+    static int getTimeout(Object t) {
+        double d = ScriptRuntime.toNumber(t);
+        if (Double.isNaN(d) || d == Double.POSITIVE_INFINITY) {
+            return Integer.MAX_VALUE;
+        }
+        if (d == Double.NEGATIVE_INFINITY) {
+            return 0;
+        }
+        return Math.max(0, (int) d);
+    }
+
+    // Use double-checked locking, correct because waiters is volatile
+    private Waiters getWaiters() {
+        var w = waiters;
+        if (w == null) {
+            synchronized (this) {
+                w = waiters;
+                if (w == null) {
+                    w = new Waiters();
+                    waiters = w;
+                }
+            }
+        }
+        return w;
     }
 }
