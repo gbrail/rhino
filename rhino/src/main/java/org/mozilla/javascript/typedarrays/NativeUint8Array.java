@@ -15,7 +15,6 @@ import java.util.function.BiFunction;
 import org.mozilla.javascript.ClassDescriptor;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.JSFunction;
-import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.ScriptRuntimeES6;
 import org.mozilla.javascript.SymbolKey;
 import org.mozilla.javascript.TopLevel;
@@ -132,7 +131,7 @@ public class NativeUint8Array extends NativeTypedArrayView<Integer> implements A
     @Override
     public Object atomicStore(int index, Object v) {
         double num = coerceNumber(v);
-        int val = Conversions.toUint8(ScriptRuntime.toInt32(num));
+        int val = Conversions.toUint8(v);
         checkAtomicIndex(index);
         synchronized (arrayBuffer) {
             arrayBuffer.buffer.put(index + offset, (byte) val);

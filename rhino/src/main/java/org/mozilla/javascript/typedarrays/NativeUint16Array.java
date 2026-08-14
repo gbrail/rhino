@@ -142,13 +142,13 @@ public class NativeUint16Array extends NativeTypedArrayView<Integer> implements 
     }
 
     private Object mathOp(int index, Object v, BiFunction<Integer, Integer, Integer> f) {
-        int val = Conversions.toInt32(v);
+        short val = Conversions.toUint16(v);
         checkAtomicIndex(index);
         int addr = (index * BYTES_PER_ELEMENT) + offset;
         synchronized (arrayBuffer) {
             short old = (short) accessor.get(arrayBuffer.buffer, addr);
             // Do math as integers because we need to handle overflow
-            int r = f.apply((int) old, val);
+            int r = f.apply((int) old, (int) val);
             accessor.set(arrayBuffer.buffer, addr, (short) (r & 0xffff));
             return Conversions.shortBitsToUint(old);
         }

@@ -23,7 +23,7 @@ import org.mozilla.javascript.Undefined;
 import org.mozilla.javascript.VarScope;
 
 /**
- * An array view that stores 64-bit quantities and implements the JavaScript "Float64Array"
+ * An array view that stores 64-bit quantities and implements the JavaScript "BigInt64Array"
  * interface. It also implements List&lt;Double&gt; for direct manipulation in Java.
  */
 public class NativeBigInt64Array extends NativeBigIntArrayView implements AtomicSupport {

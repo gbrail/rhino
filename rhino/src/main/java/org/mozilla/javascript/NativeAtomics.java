@@ -59,8 +59,9 @@ public class NativeAtomics extends ScriptableObject {
     private static Object isLockFree(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         var size = args.length > 0 ? ScriptRuntime.toIntegerOrInfinity(args[0]) : 0;
-        // This needs to be kept in sync with the various implementations of NativeTypedArrayView
-        return (size == 4);
+        // This needs to be kept in sync with the various implementations of NativeTypedArrayView.
+        // Only int and long are fully atomic using VarHandle in Java.
+        return size == 4 || size == 8;
     }
 
     private static Object load(
