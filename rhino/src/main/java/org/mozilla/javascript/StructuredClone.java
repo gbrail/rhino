@@ -65,21 +65,19 @@ public final class StructuredClone {
                     unwrapped = ((Delegator) unwrapped).getDelegee();
                 }
 
-                if (!(unwrapped instanceof NativeArrayBuffer)) {
-                    throw ScriptRuntime.constructError(
-                            "DataCloneError", "Transferable item is not an ArrayBuffer");
+                if (!(unwrapped instanceof NativeArrayBuffer buf)) {
+                    throw ScriptRuntime.constructErrorById(
+                            "DataCloneError", "msg.clone.transfer.not.arraybuffer");
                 }
 
-                NativeArrayBuffer buf = (NativeArrayBuffer) unwrapped;
-
                 if (buf.isDetached()) {
-                    throw ScriptRuntime.constructError(
-                            "DataCloneError", "Cannot transfer a detached ArrayBuffer");
+                    throw ScriptRuntime.constructErrorById(
+                            "DataCloneError", "msg.clone.transfer.detached");
                 }
 
                 if (!transferSet.add(buf)) {
-                    throw ScriptRuntime.constructError(
-                            "DataCloneError", "Duplicate ArrayBuffer in transfer list");
+                    throw ScriptRuntime.constructErrorById(
+                            "DataCloneError", "msg.clone.transfer.duplicate");
                 }
             }
         }

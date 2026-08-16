@@ -757,7 +757,7 @@ public class NativeSet extends ScriptableObject {
         target.instanceOfSet = true;
         ctx.remember(this, target);
 
-        Scriptable proto = (Scriptable) ScriptableObject.getClassPrototype(scope, "Set");
+        Scriptable proto = ScriptableObject.getClassPrototype(scope, "Set");
         var addCall = ScriptRuntime.getPropAndThis(proto, "add", cx, scope);
         Callable addMethod = addCall.getCallable();
 

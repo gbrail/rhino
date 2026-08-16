@@ -2537,22 +2537,31 @@ public class NativeArray extends ScriptableObject implements List {
             }
         }
 
-        Object[] ids = getIds();
-        for (Object id : ids) {
-            long idx = toArrayIndex(id);
-            if (idx >= 0 && idx < Integer.MAX_VALUE) {
-                int intIdx = (int) idx;
-                if (target.dense == null || intIdx >= target.dense.length) {
-                    Object val = get(intIdx, this);
-                    if (val != NOT_FOUND) {
-                        ScriptableObject.putProperty(target, intIdx, ctx.clone(val));
-                    }
+        // Iterate only slot-based properties (non-dense), avoiding getIds() which
+        // would allocate Integer objects for every dense element just to skip them.
+        try (var map = startCompoundOp(false)) {
+            for (var slot : map) {
+                if ((slot.getAttributes() & DONTENUM) != 0) {
+                    continue;
                 }
-            } else {
-                String key = ScriptRuntime.toString(id);
-                Object val = get(key, this);
+                Object name = slot.getName();
+                if (name instanceof Symbol) {
+                    continue;
+                }
+                Object key = slot.getKey();
+                Object val;
+                if (key instanceof Integer idx) {
+                    val = get(idx, this);
+                } else {
+                    val = get((String) key, this);
+                }
                 if (val != NOT_FOUND) {
-                    ScriptableObject.putProperty(target, key, ctx.clone(val));
+                    Object cloned = ctx.clone(val);
+                    if (key instanceof Integer idx) {
+                        ScriptableObject.putProperty(target, idx, cloned);
+                    } else {
+                        ScriptableObject.putProperty(target, (String) key, cloned);
+                    }
                 }
             }
         }
