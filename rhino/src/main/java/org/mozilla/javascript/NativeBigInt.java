@@ -160,10 +160,10 @@ final class NativeBigInt extends ScriptableObject {
     }
 
     @Override
-    public Object structuredClone(StructuredCloneContext ctx) {
+    public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         NativeBigInt target = new NativeBigInt(bigIntValue);
-        ScriptRuntime.setBuiltinProtoAndParent(target, ctx.getScope(), TopLevel.Builtins.BigInt);
-        ctx.remember(this, target);
+        ScriptRuntime.setBuiltinProtoAndParent(target, scope, TopLevel.Builtins.BigInt);
+        ccx.remember(this, target);
         return target;
     }
 }

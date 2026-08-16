@@ -751,20 +751,17 @@ public class NativeSet extends ScriptableObject {
     }
 
     @Override
-    public Object structuredClone(StructuredCloneContext ctx) {
-        Context cx = ctx.getContext();
-        VarScope scope = ctx.getScope();
-
+    public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         NativeSet target = (NativeSet) cx.newObject(scope, "Set");
         target.instanceOfSet = true;
-        ctx.remember(this, target);
+        ccx.remember(this, target);
 
         Scriptable proto = ScriptableObject.getClassPrototype(scope, "Set");
         var addCall = ScriptRuntime.getPropAndThis(proto, "add", cx, scope);
         Callable addMethod = addCall.getCallable();
 
         for (Hashtable.Entry entry : entries) {
-            Object clonedValue = ctx.clone(entry.key);
+            Object clonedValue = ccx.clone(entry.key);
             addMethod.call(cx, scope, target, new Object[] {clonedValue});
         }
         return target;

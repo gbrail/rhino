@@ -296,21 +296,18 @@ public class NativeMap extends ScriptableObject {
     }
 
     @Override
-    public Object structuredClone(StructuredCloneContext ctx) {
-        Context cx = ctx.getContext();
-        VarScope scope = ctx.getScope();
-
+    public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         NativeMap target = (NativeMap) cx.newObject(scope, "Map");
         target.instanceOfMap = true;
-        ctx.remember(this, target);
+        ccx.remember(this, target);
 
         Scriptable proto = ScriptableObject.getClassPrototype(scope, "Map");
         var setCall = ScriptRuntime.getPropAndThis(proto, "set", cx, scope);
         Callable setMethod = setCall.getCallable();
 
         for (Hashtable.Entry entry : entries) {
-            Object clonedKey = ctx.clone(entry.key);
-            Object clonedValue = ctx.clone(entry.value);
+            Object clonedKey = ccx.clone(entry.key);
+            Object clonedValue = ccx.clone(entry.value);
             setMethod.call(cx, scope, target, new Object[] {clonedKey, clonedValue});
         }
         return target;

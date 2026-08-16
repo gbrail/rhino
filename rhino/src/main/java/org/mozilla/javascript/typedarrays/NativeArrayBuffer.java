@@ -368,21 +368,19 @@ public class NativeArrayBuffer extends ScriptableObject {
     }
 
     @Override
-    public Object  structuredClone(StructuredCloneContext ctx) {
+    public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         if (isDetached()) {
-            throw ctx.dataCloneErrorById("msg.clone.arraybuf.detached");
+            throw ccx.dataCloneErrorById("msg.clone.arraybuf.detached");
         }
 
-        VarScope scope = ctx.getScope();
-
         // Check if this buffer is in the transfer set
-        if (ctx.getTransferSet().contains(this)) {
+        if (ccx.getTransferSet().contains(this)) {
             // Transfer: move the byte array, source will be detached after clone
             NativeArrayBuffer target = new NativeArrayBuffer();
             target.buffer = this.buffer;
             target.maxByteLength = this.maxByteLength;
             ScriptRuntime.setBuiltinProtoAndParent(target, scope, TopLevel.Builtins.ArrayBuffer);
-            ctx.remember(this, target);
+            ccx.remember(this, target);
             return target;
         }
 
@@ -394,7 +392,7 @@ public class NativeArrayBuffer extends ScriptableObject {
         }
         System.arraycopy(buffer, 0, target.buffer, 0, len);
         ScriptRuntime.setBuiltinProtoAndParent(target, scope, TopLevel.Builtins.ArrayBuffer);
-        ctx.remember(this, target);
+        ccx.remember(this, target);
         return target;
     }
 }
