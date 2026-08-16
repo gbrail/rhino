@@ -553,7 +553,7 @@ public class NativeDataView extends NativeArrayBufferView {
         // Check if the view is out of range (buffer may have been resized)
         int bufferLen = arrayBuffer.getLength();
         if (offset > bufferLen || offset + byteLength > bufferLen) {
-            throw ctx.dataCloneError("Cannot clone an out-of-range DataView");
+            throw ctx.dataCloneErrorById("msg.clone.view.outofrange");
         }
 
         // Check if the backing buffer is being transferred

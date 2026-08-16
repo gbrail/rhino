@@ -304,7 +304,7 @@ public class NativeMap extends ScriptableObject {
         target.instanceOfMap = true;
         ctx.remember(this, target);
 
-        Scriptable proto = (Scriptable) ScriptableObject.getClassPrototype(scope, "Map");
+        Scriptable proto = ScriptableObject.getClassPrototype(scope, "Map");
         var setCall = ScriptRuntime.getPropAndThis(proto, "set", cx, scope);
         Callable setMethod = setCall.getCallable();
 

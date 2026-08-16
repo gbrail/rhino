@@ -3118,7 +3118,6 @@ public abstract class ScriptableObject extends SlotMapOwner<Scriptable>
      * should override this method.
      */
     public Object structuredClone(StructuredCloneContext ctx) {
-        Context cx = ctx.getContext();
         VarScope scope = ctx.getScope();
 
         // Per WHATWG: use OrdinaryCreateFromConstructor which always gives Object.prototype
@@ -3133,15 +3132,13 @@ public abstract class ScriptableObject extends SlotMapOwner<Scriptable>
         try (var map = startCompoundOp(false)) {
             Object[] ids = getIds(map, false, false);
             for (Object id : ids) {
-                if (id instanceof String) {
-                    String key = (String) id;
+                if (id instanceof String key) {
                     Object val = get(key, this);
                     if (val != NOT_FOUND) {
                         Object cloned = ctx.clone(val);
                         ScriptableObject.putProperty(target, key, cloned);
                     }
-                } else if (id instanceof Integer) {
-                    int idx = (Integer) id;
+                } else if (id instanceof Integer idx) {
                     Object val = get(idx, this);
                     if (val != NOT_FOUND) {
                         Object cloned = ctx.clone(val);

@@ -5782,6 +5782,11 @@ public class ScriptRuntime {
         return new EcmaError(error, message, sourceName, lineNumber, lineSource, columnNumber);
     }
 
+    public static EcmaError constructErrorById(String error, String messageId, Object... args) {
+        String msg = getMessageById(messageId, args);
+        return constructError(error, msg);
+    }
+
     public static EcmaError rangeError(String message) {
         return constructError("RangeError", message);
     }
