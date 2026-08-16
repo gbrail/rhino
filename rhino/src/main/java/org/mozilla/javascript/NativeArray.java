@@ -2521,18 +2521,15 @@ public class NativeArray extends ScriptableObject implements List {
     private static final int MAX_PRE_GROW_SIZE = (int) (Integer.MAX_VALUE / GROW_FACTOR);
 
     @Override
-    public Object structuredClone(StructuredCloneContext ctx) {
-        Context cx = ctx.getContext();
-        VarScope scope = ctx.getScope();
-
+    public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         NativeArray target = (NativeArray) cx.newArray(scope, (int) getLength());
-        ctx.remember(this, target);
+        ccx.remember(this, target);
 
         if (dense != null) {
             for (int i = 0; i < dense.length; i++) {
                 Object val = dense[i];
                 if (val != Scriptable.NOT_FOUND) {
-                    target.dense[i] = ctx.clone(val);
+                    target.dense[i] = ccx.clone(val);
                 }
             }
         }
@@ -2556,7 +2553,7 @@ public class NativeArray extends ScriptableObject implements List {
                     val = get((String) key, this);
                 }
                 if (val != NOT_FOUND) {
-                    Object cloned = ctx.clone(val);
+                    Object cloned = ccx.clone(val);
                     if (key instanceof Integer idx) {
                         ScriptableObject.putProperty(target, idx, cloned);
                     } else {

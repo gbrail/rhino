@@ -527,22 +527,19 @@ public class NativeDataView extends NativeArrayBufferView {
     }
 
     @Override
-    public Object structuredClone(StructuredCloneContext ctx) {
-        Context cx = ctx.getContext();
-        VarScope scope = ctx.getScope();
-
+    public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         // Check if the view is out of range (buffer may have been resized)
         int bufferLen = arrayBuffer.getLength();
         if (offset > bufferLen || offset + byteLength > bufferLen) {
-            throw ctx.dataCloneErrorById("msg.clone.view.outofrange");
+            throw ccx.dataCloneErrorById("msg.clone.view.outofrange");
         }
 
         // Check if the backing buffer is being transferred
-        boolean transferring = ctx.getTransferSet().contains(arrayBuffer);
+        boolean transferring = ccx.getTransferSet().contains(arrayBuffer);
 
         if (transferring) {
             // For transfer, preserve auto-length behavior for resizable buffers
-            Object clonedBuffer = ctx.clone(arrayBuffer);
+            Object clonedBuffer = ccx.clone(arrayBuffer);
             Object[] args;
             if (isAutoLength()) {
                 args = new Object[] {clonedBuffer, offset};
@@ -550,17 +547,17 @@ public class NativeDataView extends NativeArrayBufferView {
                 args = new Object[] {clonedBuffer, offset, byteLength};
             }
             Object target = cx.newObject(scope, CLASS_NAME, args);
-            ctx.remember(this, target);
+            ccx.remember(this, target);
             return target;
         }
 
-        // Clone: use ctx.clone to handle shared buffers correctly
-        NativeArrayBuffer clonedBuffer = (NativeArrayBuffer) ctx.clone(arrayBuffer);
+        // Clone: use ccx.clone to handle shared buffers correctly
+        NativeArrayBuffer clonedBuffer = (NativeArrayBuffer) ccx.clone(arrayBuffer);
 
         // Use the original offset in the cloned buffer
         Object[] args = new Object[] {clonedBuffer, offset, byteLength};
         Object target = cx.newObject(scope, CLASS_NAME, args);
-        ctx.remember(this, target);
+        ccx.remember(this, target);
         return target;
     }
 }

@@ -312,10 +312,10 @@ final class NativeNumber extends ScriptableObject {
     }
 
     @Override
-    public Object structuredClone(StructuredCloneContext ctx) {
+    public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         NativeNumber target = new NativeNumber(doubleValue);
-        ScriptRuntime.setBuiltinProtoAndParent(target, ctx.getScope(), TopLevel.Builtins.Number);
-        ctx.remember(this, target);
+        ScriptRuntime.setBuiltinProtoAndParent(target, scope, TopLevel.Builtins.Number);
+        ccx.remember(this, target);
         return target;
     }
 }

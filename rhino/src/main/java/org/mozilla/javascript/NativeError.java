@@ -425,10 +425,7 @@ final class NativeError extends ScriptableObject {
     }
 
     @Override
-    public Object structuredClone(StructuredCloneContext ctx) {
-        Context cx = ctx.getContext();
-        VarScope scope = ctx.getScope();
-
+    public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         Scriptable proto = getPrototype();
         String errorType = "Error";
         if (proto != null) {
@@ -450,26 +447,26 @@ final class NativeError extends ScriptableObject {
             if (errorsObj == NOT_FOUND || Undefined.isUndefined(errorsObj)) {
                 errorsObj = cx.newArray(scope, 0);
             } else {
-                errorsObj = ctx.clone(errorsObj);
+                errorsObj = ccx.clone(errorsObj);
             }
 
             Object[] args;
             if (hasOwnCause && cause != NOT_FOUND && !Undefined.isUndefined(cause)) {
                 NativeObject options = (NativeObject) cx.newObject(scope);
-                ScriptableObject.putProperty(options, "cause", ctx.clone(cause));
-                args = new Object[] {errorsObj, hasOwnMessage ? ctx.clone(message) : "", options};
+                ScriptableObject.putProperty(options, "cause", ccx.clone(cause));
+                args = new Object[] {errorsObj, hasOwnMessage ? ccx.clone(message) : "", options};
             } else {
-                args = new Object[] {errorsObj, hasOwnMessage ? ctx.clone(message) : ""};
+                args = new Object[] {errorsObj, hasOwnMessage ? ccx.clone(message) : ""};
             }
             target = cx.newObject(scope, "AggregateError", args);
         } else {
             Object[] args;
             if (hasOwnCause && cause != NOT_FOUND && !Undefined.isUndefined(cause)) {
                 NativeObject options = (NativeObject) cx.newObject(scope);
-                ScriptableObject.putProperty(options, "cause", ctx.clone(cause));
-                args = new Object[] {hasOwnMessage ? ctx.clone(message) : "", options};
+                ScriptableObject.putProperty(options, "cause", ccx.clone(cause));
+                args = new Object[] {hasOwnMessage ? ccx.clone(message) : "", options};
             } else if (hasOwnMessage) {
-                args = new Object[] {ctx.clone(message)};
+                args = new Object[] {ccx.clone(message)};
             } else {
                 args = ScriptRuntime.emptyArgs;
             }
@@ -480,11 +477,11 @@ final class NativeError extends ScriptableObject {
         if (AbstractEcmaObjectOperations.hasOwnProperty(cx, this, "stack")) {
             Object stack = getProperty(this, "stack");
             if (stack != NOT_FOUND && !Undefined.isUndefined(stack)) {
-                ScriptableObject.putProperty((ScriptableObject) target, "stack", ctx.clone(stack));
+                ScriptableObject.putProperty((ScriptableObject) target, "stack", ccx.clone(stack));
             }
         }
 
-        ctx.remember(this, target);
+        ccx.remember(this, target);
         return target;
     }
 }

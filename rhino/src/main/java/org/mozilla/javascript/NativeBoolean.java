@@ -95,10 +95,10 @@ final class NativeBoolean extends ScriptableObject {
     }
 
     @Override
-    public Object structuredClone(StructuredCloneContext ctx) {
+    public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         NativeBoolean target = new NativeBoolean(booleanValue);
-        ScriptRuntime.setBuiltinProtoAndParent(target, ctx.getScope(), TopLevel.Builtins.Boolean);
-        ctx.remember(this, target);
+        ScriptRuntime.setBuiltinProtoAndParent(target, scope, TopLevel.Builtins.Boolean);
+        ccx.remember(this, target);
         return target;
     }
 }
