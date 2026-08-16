@@ -12,7 +12,9 @@ import static org.mozilla.javascript.ClassDescriptor.Destination.CTOR;
 import static org.mozilla.javascript.ClassDescriptor.Destination.PROTO;
 
 import java.io.Serial;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 
+@JSStructuredCloneable
 public class NativeSet extends ScriptableObject {
     @Serial private static final long serialVersionUID = -8442212766987072986L;
     private static final String CLASS_NAME = "Set";
@@ -744,5 +746,25 @@ public class NativeSet extends ScriptableObject {
         if (keysVal == Scriptable.NOT_FOUND) {
             throw ScriptRuntime.typeError("Set-like object must have a 'keys' method");
         }
+    }
+
+    @Override
+    public Object structuredClone(StructuredCloneContext ctx) {
+        Context cx = ctx.getContext();
+        VarScope scope = ctx.getScope();
+
+        NativeSet target = (NativeSet) cx.newObject(scope, "Set");
+        target.instanceOfSet = true;
+        ctx.remember(this, target);
+
+        Scriptable proto = (Scriptable) ScriptableObject.getClassPrototype(scope, "Set");
+        var addCall = ScriptRuntime.getPropAndThis(proto, "add", cx, scope);
+        Callable addMethod = addCall.getCallable();
+
+        for (Hashtable.Entry entry : entries) {
+            Object clonedValue = ctx.clone(entry.key);
+            addMethod.call(cx, scope, target, new Object[] {clonedValue});
+        }
+        return target;
     }
 }

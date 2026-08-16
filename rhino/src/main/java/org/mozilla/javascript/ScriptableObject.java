@@ -35,6 +35,7 @@ import org.mozilla.javascript.annotations.JSFunction;
 import org.mozilla.javascript.annotations.JSGetter;
 import org.mozilla.javascript.annotations.JSSetter;
 import org.mozilla.javascript.annotations.JSStaticFunction;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 import org.mozilla.javascript.debug.DebuggableObject;
 
 /**
@@ -49,6 +50,7 @@ import org.mozilla.javascript.debug.DebuggableObject;
  * @see org.mozilla.javascript.Scriptable
  * @author Norris Boyd
  */
+@JSStructuredCloneable
 public abstract class ScriptableObject extends SlotMapOwner<Scriptable>
         implements Scriptable,
                 SymbolScriptable,
@@ -3124,5 +3126,46 @@ public abstract class ScriptableObject extends SlotMapOwner<Scriptable>
                 functionName,
                 obj.getClass().getName(),
                 clazz.getName());
+    }
+
+    /**
+     * Default structured clone implementation for plain objects. Subclasses with internal state
+     * should override this method.
+     */
+    public Object structuredClone(StructuredCloneContext ctx) {
+        Context cx = ctx.getContext();
+        VarScope scope = ctx.getScope();
+
+        // Per WHATWG: use OrdinaryCreateFromConstructor which always gives Object.prototype
+        // for plain objects, even when source has null prototype
+        NativeObject target = new NativeObject();
+        ScriptRuntime.setBuiltinProtoAndParent(target, scope, TopLevel.Builtins.Object);
+
+        // Register immediately before iterating properties to break cycles
+        ctx.remember(this, target);
+
+        // Clone own enumerable properties (string and integer-indexed, no symbols)
+        try (var map = startCompoundOp(false)) {
+            Object[] ids = getIds(map, false, false);
+            for (Object id : ids) {
+                if (id instanceof String) {
+                    String key = (String) id;
+                    Object val = get(key, this);
+                    if (val != NOT_FOUND) {
+                        Object cloned = ctx.clone(val);
+                        ScriptableObject.putProperty(target, key, cloned);
+                    }
+                } else if (id instanceof Integer) {
+                    int idx = (Integer) id;
+                    Object val = get(idx, this);
+                    if (val != NOT_FOUND) {
+                        Object cloned = ctx.clone(val);
+                        ScriptableObject.putProperty(target, idx, cloned);
+                    }
+                }
+            }
+        }
+
+        return target;
     }
 }
