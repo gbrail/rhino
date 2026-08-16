@@ -36,10 +36,12 @@ import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.ScriptRuntimeES6;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.StructuredCloneContext;
 import org.mozilla.javascript.SymbolKey;
 import org.mozilla.javascript.TopLevel;
 import org.mozilla.javascript.Undefined;
 import org.mozilla.javascript.VarScope;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 import org.mozilla.javascript.config.RhinoConfig;
 
 /**
@@ -52,6 +54,7 @@ import org.mozilla.javascript.config.RhinoConfig;
  * @author Brendan Eich
  * @author Norris Boyd
  */
+@JSStructuredCloneable
 public class NativeRegExp extends ScriptableObject {
     @Serial private static final long serialVersionUID = 4965263491464903264L;
 
@@ -4989,6 +4992,21 @@ public class NativeRegExp extends ScriptableObject {
     private RECompiled re;
     Object lastIndex = ScriptRuntime.zeroObj; /* index after last match, for //g iterator */
     private int lastIndexAttr = DONTENUM | PERMANENT;
+
+    @Override
+    public Object structuredClone(StructuredCloneContext ctx) {
+        Context cx = ctx.getContext();
+        VarScope scope = ctx.getScope();
+
+        String source = new String(re.source);
+        StringBuilder flagsBuf = new StringBuilder();
+        appendFlags(this, flagsBuf);
+        String flags = flagsBuf.toString();
+
+        Object target = cx.newObject(scope, "RegExp", new Object[] {source, flags});
+        ctx.remember(this, target);
+        return target;
+    }
 } // class NativeRegExp
 
 class RECompiled implements Serializable {

@@ -14,7 +14,9 @@ import static org.mozilla.javascript.ClassDescriptor.Destination.PROTO;
 import java.io.Serial;
 import java.util.List;
 import java.util.Map;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 
+@JSStructuredCloneable
 public class NativeMap extends ScriptableObject {
     @Serial private static final long serialVersionUID = 1171922614280016891L;
     private static final String CLASS_NAME = "Map";
@@ -290,5 +292,26 @@ public class NativeMap extends ScriptableObject {
             return key;
         }
         return Undefined.instance;
+    }
+
+    @Override
+    public Object structuredClone(StructuredCloneContext ctx) {
+        Context cx = ctx.getContext();
+        VarScope scope = ctx.getScope();
+
+        NativeMap target = (NativeMap) cx.newObject(scope, "Map");
+        target.instanceOfMap = true;
+        ctx.remember(this, target);
+
+        Scriptable proto = (Scriptable) ScriptableObject.getClassPrototype(scope, "Map");
+        var setCall = ScriptRuntime.getPropAndThis(proto, "set", cx, scope);
+        Callable setMethod = setCall.getCallable();
+
+        for (Hashtable.Entry entry : entries) {
+            Object clonedKey = ctx.clone(entry.key);
+            Object clonedValue = ctx.clone(entry.value);
+            setMethod.call(cx, scope, target, new Object[] {clonedKey, clonedValue});
+        }
+        return target;
     }
 }

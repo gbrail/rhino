@@ -14,12 +14,14 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 
 /**
  * The class of error objects
  *
  * <p>ECMA 15.11
  */
+@JSStructuredCloneable
 final class NativeError extends ScriptableObject {
     @Serial private static final long serialVersionUID = -5338413581437645187L;
 
@@ -420,5 +422,69 @@ final class NativeError extends ScriptableObject {
                 prepareStackTrace = (Function) value;
             }
         }
+    }
+
+    @Override
+    public Object structuredClone(StructuredCloneContext ctx) {
+        Context cx = ctx.getContext();
+        VarScope scope = ctx.getScope();
+
+        Scriptable proto = getPrototype();
+        String errorType = "Error";
+        if (proto != null) {
+            Object nameObj = ScriptableObject.getProperty(proto, "name");
+            if (nameObj != Scriptable.NOT_FOUND) {
+                errorType = ScriptRuntime.toString(nameObj);
+            }
+        }
+
+        // Check if message/cause are own properties (not inherited from prototype)
+        boolean hasOwnMessage = AbstractEcmaObjectOperations.hasOwnProperty(cx, this, "message");
+        Object message = getProperty(this, "message");
+        boolean hasOwnCause = AbstractEcmaObjectOperations.hasOwnProperty(cx, this, "cause");
+        Object cause = getProperty(this, "cause");
+
+        Object target;
+        if ("AggregateError".equals(errorType)) {
+            Object errorsObj = getProperty(this, "errors");
+            if (errorsObj == NOT_FOUND || Undefined.isUndefined(errorsObj)) {
+                errorsObj = cx.newArray(scope, 0);
+            } else {
+                errorsObj = ctx.clone(errorsObj);
+            }
+
+            Object[] args;
+            if (hasOwnCause && cause != NOT_FOUND && !Undefined.isUndefined(cause)) {
+                NativeObject options = (NativeObject) cx.newObject(scope);
+                ScriptableObject.putProperty(options, "cause", ctx.clone(cause));
+                args = new Object[] {errorsObj, hasOwnMessage ? ctx.clone(message) : "", options};
+            } else {
+                args = new Object[] {errorsObj, hasOwnMessage ? ctx.clone(message) : ""};
+            }
+            target = cx.newObject(scope, "AggregateError", args);
+        } else {
+            Object[] args;
+            if (hasOwnCause && cause != NOT_FOUND && !Undefined.isUndefined(cause)) {
+                NativeObject options = (NativeObject) cx.newObject(scope);
+                ScriptableObject.putProperty(options, "cause", ctx.clone(cause));
+                args = new Object[] {hasOwnMessage ? ctx.clone(message) : "", options};
+            } else if (hasOwnMessage) {
+                args = new Object[] {ctx.clone(message)};
+            } else {
+                args = ScriptRuntime.emptyArgs;
+            }
+            target = cx.newObject(scope, errorType, args);
+        }
+
+        // Clone stack property if it's an own property
+        if (AbstractEcmaObjectOperations.hasOwnProperty(cx, this, "stack")) {
+            Object stack = getProperty(this, "stack");
+            if (stack != NOT_FOUND && !Undefined.isUndefined(stack)) {
+                ScriptableObject.putProperty((ScriptableObject) target, "stack", ctx.clone(stack));
+            }
+        }
+
+        ctx.remember(this, target);
+        return target;
     }
 }

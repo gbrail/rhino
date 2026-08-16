@@ -26,6 +26,7 @@ import java.util.NoSuchElementException;
 import org.mozilla.javascript.ArrayLikeAbstractOperations.IterativeOperation;
 import org.mozilla.javascript.ArrayLikeAbstractOperations.ReduceOperation;
 import org.mozilla.javascript.ClassDescriptor.BuiltInJSCodeExec;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 import org.mozilla.javascript.xml.XMLObject;
 
 /**
@@ -34,6 +35,7 @@ import org.mozilla.javascript.xml.XMLObject;
  * @author Norris Boyd
  * @author Mike McCabe
  */
+@JSStructuredCloneable
 public class NativeArray extends ScriptableObject implements List {
     @Serial private static final long serialVersionUID = 7331366857676127338L;
 
@@ -2517,4 +2519,44 @@ public class NativeArray extends ScriptableObject implements List {
     private static final double GROW_FACTOR = 1.5;
 
     private static final int MAX_PRE_GROW_SIZE = (int) (Integer.MAX_VALUE / GROW_FACTOR);
+
+    @Override
+    public Object structuredClone(StructuredCloneContext ctx) {
+        Context cx = ctx.getContext();
+        VarScope scope = ctx.getScope();
+
+        NativeArray target = (NativeArray) cx.newArray(scope, (int) getLength());
+        ctx.remember(this, target);
+
+        if (dense != null) {
+            for (int i = 0; i < dense.length; i++) {
+                Object val = dense[i];
+                if (val != Scriptable.NOT_FOUND) {
+                    target.dense[i] = ctx.clone(val);
+                }
+            }
+        }
+
+        Object[] ids = getIds();
+        for (Object id : ids) {
+            long idx = toArrayIndex(id);
+            if (idx >= 0 && idx < Integer.MAX_VALUE) {
+                int intIdx = (int) idx;
+                if (target.dense == null || intIdx >= target.dense.length) {
+                    Object val = get(intIdx, this);
+                    if (val != NOT_FOUND) {
+                        ScriptableObject.putProperty(target, intIdx, ctx.clone(val));
+                    }
+                }
+            } else {
+                String key = ScriptRuntime.toString(id);
+                Object val = get(key, this);
+                if (val != NOT_FOUND) {
+                    ScriptableObject.putProperty(target, key, ctx.clone(val));
+                }
+            }
+        }
+
+        return target;
+    }
 }

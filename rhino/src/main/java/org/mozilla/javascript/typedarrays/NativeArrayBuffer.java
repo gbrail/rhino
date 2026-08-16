@@ -23,15 +23,18 @@ import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.StructuredCloneContext;
 import org.mozilla.javascript.SymbolKey;
 import org.mozilla.javascript.TopLevel;
 import org.mozilla.javascript.Undefined;
 import org.mozilla.javascript.VarScope;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 
 /**
  * A NativeArrayBuffer is the backing buffer for a typed array. Used inside JavaScript code, it
  * implements the ArrayBuffer interface. Used directly from Java, it simply holds a byte array.
  */
+@JSStructuredCloneable
 public class NativeArrayBuffer extends ScriptableObject {
     @Serial private static final long serialVersionUID = 3110411773054879549L;
 
@@ -379,5 +382,37 @@ public class NativeArrayBuffer extends ScriptableObject {
         } else {
             return self.getLength();
         }
+    }
+
+    @Override
+    public Object structuredClone(StructuredCloneContext ctx) {
+        if (isDetached()) {
+            throw ctx.dataCloneError("Cannot clone a detached ArrayBuffer");
+        }
+
+        Context cx = ctx.getContext();
+        VarScope scope = ctx.getScope();
+
+        // Check if this buffer is in the transfer set
+        if (ctx.getTransferSet().contains(this)) {
+            // Transfer: move the byte array, source will be detached after clone
+            NativeArrayBuffer target = new NativeArrayBuffer();
+            target.buffer = this.buffer;
+            target.maxByteLength = this.maxByteLength;
+            ScriptRuntime.setBuiltinProtoAndParent(target, scope, TopLevel.Builtins.ArrayBuffer);
+            ctx.remember(this, target);
+            return target;
+        }
+
+        // Clone: copy the byte array
+        int len = getLength();
+        NativeArrayBuffer target = new NativeArrayBuffer(len);
+        if (maxByteLength >= 0) {
+            target.maxByteLength = maxByteLength;
+        }
+        System.arraycopy(buffer, 0, target.buffer, 0, len);
+        ScriptRuntime.setBuiltinProtoAndParent(target, scope, TopLevel.Builtins.ArrayBuffer);
+        ctx.remember(this, target);
+        return target;
     }
 }
