@@ -48,6 +48,7 @@ public class NativeGlobal implements Serializable {
                         .withMethod(CTOR, "unescape", 1, NativeGlobal::js_unescape)
                         .withMethod(CTOR, "uneval", 1, NativeGlobal::js_uneval)
                         .withMethod(CTOR, "eval", 1, NativeGlobal::js_eval)
+                        .withMethod(CTOR, "structuredClone", 1, NativeGlobal::js_structuredClone)
                         .withProp(CTOR, "NaN", value(ScriptRuntime.NaNobj))
                         .withProp(CTOR, "Infinity", value(Double.POSITIVE_INFINITY))
                         .withProp(CTOR, "undefined", value(Undefined.instance))
@@ -460,6 +461,13 @@ public class NativeGlobal implements Serializable {
             Context cx, JSFunction f, Object nt, VarScope s, Object thisObj, Object[] args) {
         TopLevel top = ScriptableObject.getTopLevelScope(f.getDeclarationScope());
         return ScriptRuntime.evalSpecial(cx, top, top.getGlobalThis(), args, "eval code", 1, false);
+    }
+
+    private static Object js_structuredClone(
+            Context cx, JSFunction f, Object nt, VarScope s, Object thisObj, Object[] args) {
+        Object value = args.length > 0 ? args[0] : Undefined.instance;
+        Object options = args.length > 1 ? args[1] : Undefined.instance;
+        return StructuredClone.clone(cx, s, value, options);
     }
 
     /**

@@ -41,6 +41,7 @@ import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.StructuredCloneContext;
 import org.mozilla.javascript.SymbolKey;
 import org.mozilla.javascript.TopLevel;
 import org.mozilla.javascript.Undefined;
@@ -1739,5 +1740,46 @@ public abstract class NativeTypedArrayView<T> extends NativeArrayBufferView
     @Override
     public boolean retainAll(Collection<?> objects) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Object structuredClone(StructuredCloneContext ctx) {
+        Context cx = ctx.getContext();
+        VarScope scope = ctx.getScope();
+
+        // Check if the view is out of range (buffer may have been resized)
+        int bufferLen = arrayBuffer.getLength();
+        int byteOffsetEnd = offset + getByteLength();
+        if (offset > bufferLen || byteOffsetEnd > bufferLen) {
+            throw ctx.dataCloneError("Cannot clone an out-of-range TypedArray");
+        }
+
+        // Check if the backing buffer is being transferred
+        boolean transferring = ctx.getTransferSet().contains(arrayBuffer);
+
+        NativeArrayBuffer clonedBuffer;
+        if (transferring) {
+            // For transfer, reuse the buffer with same offset and auto-length behavior
+            clonedBuffer = (NativeArrayBuffer) ctx.clone(arrayBuffer);
+            Object[] args;
+            if (isAutoLength) {
+                args = new Object[] {clonedBuffer, offset};
+            } else {
+                args = new Object[] {clonedBuffer, offset, getLength()};
+            }
+            Object target = cx.newObject(scope, getClassName(), args);
+            ctx.remember(this, target);
+            return target;
+        }
+
+        // Clone: use ctx.clone to handle shared buffers correctly
+        // If this buffer was already cloned (e.g., another view shares it), reuse it
+        clonedBuffer = (NativeArrayBuffer) ctx.clone(arrayBuffer);
+
+        // Use the original offset in the cloned buffer
+        Object[] args = new Object[] {clonedBuffer, offset, getLength()};
+        Object target = cx.newObject(scope, getClassName(), args);
+        ctx.remember(this, target);
+        return target;
     }
 }

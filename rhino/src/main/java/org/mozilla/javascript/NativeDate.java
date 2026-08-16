@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 
 /**
  * This class implements the Date native object. See ECMA 15.9.
@@ -32,6 +33,7 @@ import java.util.Locale;
  */
 @SuppressWarnings("AndroidJdkLibsChecker")
 // java.time.format API added in API level 26
+@JSStructuredCloneable
 final class NativeDate extends ScriptableObject {
     @Serial private static final long serialVersionUID = -8307438915861678966L;
 
@@ -2081,4 +2083,14 @@ final class NativeDate extends ScriptableObject {
             DateTimeFormatter.ofPattern("h:mm:ss a z");
 
     private double date;
+
+    @Override
+    public Object structuredClone(StructuredCloneContext ctx) {
+        Context cx = ctx.getContext();
+        VarScope scope = ctx.getScope();
+
+        Object target = cx.newObject(scope, "Date", new Object[] {getJSTimeValue()});
+        ctx.remember(this, target);
+        return target;
+    }
 }

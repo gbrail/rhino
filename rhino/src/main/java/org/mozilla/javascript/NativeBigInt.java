@@ -12,8 +12,10 @@ import static org.mozilla.javascript.ClassDescriptor.Destination.PROTO;
 
 import java.io.Serial;
 import java.math.BigInteger;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 
 /** This class implements the BigInt native object. */
+@JSStructuredCloneable
 final class NativeBigInt extends ScriptableObject {
     @Serial private static final long serialVersionUID = 1335609231306775449L;
 
@@ -155,5 +157,13 @@ final class NativeBigInt extends ScriptableObject {
     @Override
     public String toString() {
         return ScriptRuntime.bigIntToString(bigIntValue, 10);
+    }
+
+    @Override
+    public Object structuredClone(StructuredCloneContext ctx) {
+        NativeBigInt target = new NativeBigInt(bigIntValue);
+        ScriptRuntime.setBuiltinProtoAndParent(target, ctx.getScope(), TopLevel.Builtins.BigInt);
+        ctx.remember(this, target);
+        return target;
     }
 }

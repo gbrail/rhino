@@ -9,12 +9,14 @@ package org.mozilla.javascript;
 import static org.mozilla.javascript.ClassDescriptor.Destination.PROTO;
 
 import java.io.Serial;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 
 /**
  * This class implements the Boolean native object. See ECMA 15.6.
  *
  * @author Norris Boyd
  */
+@JSStructuredCloneable
 final class NativeBoolean extends ScriptableObject {
     @Serial private static final long serialVersionUID = -3716996899943880933L;
 
@@ -91,5 +93,13 @@ final class NativeBoolean extends ScriptableObject {
     private static Object js_toSource(
             Context cx, JSFunction f, Object nt, VarScope s, Object thisObj, Object[] args) {
         return "(new Boolean(" + ScriptRuntime.toString(toValue(thisObj)) + "))";
+    }
+
+    @Override
+    public Object structuredClone(StructuredCloneContext ctx) {
+        NativeBoolean target = new NativeBoolean(booleanValue);
+        ScriptRuntime.setBuiltinProtoAndParent(target, ctx.getScope(), TopLevel.Builtins.Boolean);
+        ctx.remember(this, target);
+        return target;
     }
 }

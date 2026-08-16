@@ -87,6 +87,8 @@ public class TopLevel extends ScopeObject {
         AggregateError,
         /** Basic Error */
         Error,
+        /** The native DataCloneError. */
+        DataCloneError,
         /** The native EvalError. */
         EvalError,
         /** The native RangeError. */

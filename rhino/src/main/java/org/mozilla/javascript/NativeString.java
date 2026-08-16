@@ -23,6 +23,7 @@ import java.util.Map;
 import org.mozilla.javascript.AbstractEcmaStringOperations.ReplacementOperation;
 import org.mozilla.javascript.ClassDescriptor.BuiltInJSCodeExec;
 import org.mozilla.javascript.ScriptRuntime.StringIdOrIndex;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 
 /**
  * This class implements the String native object.
@@ -36,6 +37,7 @@ import org.mozilla.javascript.ScriptRuntime.StringIdOrIndex;
  * @author Norris Boyd
  * @author Ronald Brill
  */
+@JSStructuredCloneable
 final class NativeString extends ScriptableObject {
     @Serial private static final long serialVersionUID = 920268368584188687L;
 
@@ -521,6 +523,14 @@ final class NativeString extends ScriptableObject {
             return attribs;
         }
         return super.getAttributes(index);
+    }
+
+    @Override
+    public Object structuredClone(StructuredCloneContext ctx) {
+        NativeString target = new NativeString(string);
+        ScriptRuntime.setBuiltinProtoAndParent(target, ctx.getScope(), TopLevel.Builtins.String);
+        ctx.remember(this, target);
+        return target;
     }
 
     @Override

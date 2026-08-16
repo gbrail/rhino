@@ -10,12 +10,14 @@ import java.io.Serial;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Undefined;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 
 /**
  * This class is the abstract parent for all views of the array. It shows a view of the underlying
  * NativeArrayBuffer. Many views may simultaneously share the same buffer, and changes to one will
  * affect all.
  */
+@JSStructuredCloneable
 public abstract class NativeArrayBufferView extends ScriptableObject {
     @Serial private static final long serialVersionUID = 6884475582973958419L;
 

@@ -15,6 +15,7 @@ import java.io.Serial;
 import java.text.NumberFormat;
 import java.util.IllformedLocaleException;
 import java.util.Locale;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 import org.mozilla.javascript.dtoa.DecimalFormatter;
 
 /**
@@ -24,6 +25,7 @@ import org.mozilla.javascript.dtoa.DecimalFormatter;
  *
  * @author Norris Boyd
  */
+@JSStructuredCloneable
 final class NativeNumber extends ScriptableObject {
     @Serial private static final long serialVersionUID = 3504516769741512101L;
 
@@ -308,5 +310,13 @@ final class NativeNumber extends ScriptableObject {
 
     private static boolean isDoubleSafeInteger(double d) {
         return isDoubleInteger(d) && (d <= MAX_SAFE_INTEGER) && (d >= MIN_SAFE_INTEGER);
+    }
+
+    @Override
+    public Object structuredClone(StructuredCloneContext ctx) {
+        NativeNumber target = new NativeNumber(doubleValue);
+        ScriptRuntime.setBuiltinProtoAndParent(target, ctx.getScope(), TopLevel.Builtins.Number);
+        ctx.remember(this, target);
+        return target;
     }
 }
