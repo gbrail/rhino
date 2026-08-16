@@ -2103,12 +2103,9 @@ final class NativeDate extends ScriptableObject {
     private double date;
 
     @Override
-    public Object structuredClone(StructuredCloneContext ctx) {
-        Context cx = ctx.getContext();
-        VarScope scope = ctx.getScope();
-
+    public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         Object target = cx.newObject(scope, "Date", new Object[] {getJSTimeValue()});
-        ctx.remember(this, target);
+        ccx.remember(this, target);
         return target;
     }
 }

@@ -4994,17 +4994,14 @@ public class NativeRegExp extends ScriptableObject {
     private int lastIndexAttr = DONTENUM | PERMANENT;
 
     @Override
-    public Object structuredClone(StructuredCloneContext ctx) {
-        Context cx = ctx.getContext();
-        VarScope scope = ctx.getScope();
-
+    public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         String source = new String(re.source);
         StringBuilder flagsBuf = new StringBuilder();
         appendFlags(this, flagsBuf);
         String flags = flagsBuf.toString();
 
         Object target = cx.newObject(scope, "RegExp", new Object[] {source, flags});
-        ctx.remember(this, target);
+        ccx.remember(this, target);
         return target;
     }
 } // class NativeRegExp

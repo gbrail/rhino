@@ -73,7 +73,7 @@ public final class StructuredCloneContext {
                 throw dataCloneErrorById("msg.clone.not.cloneable", so.getClassName());
             }
 
-            return so.structuredClone(this);
+            return so.structuredClone(cx, scope, this);
         }
 
         throw dataCloneErrorById("msg.clone.not.supported");
@@ -82,21 +82,6 @@ public final class StructuredCloneContext {
     /** Record a source-to-clone mapping in the cycle-tracking memory. */
     public void remember(Object source, Object clone) {
         memory.put(source, clone);
-    }
-
-    /** Returns true if any buffer has been transferred during this clone operation. */
-    public boolean hasTransferredBuffers() {
-        return !transferSet.isEmpty();
-    }
-
-    /** Get the current execution context. */
-    public Context getContext() {
-        return cx;
-    }
-
-    /** Get the target scope for object creation. */
-    public VarScope getScope() {
-        return scope;
     }
 
     /** Get the transfer set for checking whether a buffer should be transferred. */

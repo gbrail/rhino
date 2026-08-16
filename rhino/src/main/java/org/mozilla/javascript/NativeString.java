@@ -525,10 +525,10 @@ final class NativeString extends ScriptableObject {
     }
 
     @Override
-    public Object structuredClone(StructuredCloneContext ctx) {
+    public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         NativeString target = new NativeString(string);
-        ScriptRuntime.setBuiltinProtoAndParent(target, ctx.getScope(), TopLevel.Builtins.String);
-        ctx.remember(this, target);
+        ScriptRuntime.setBuiltinProtoAndParent(target, scope, TopLevel.Builtins.String);
+        ccx.remember(this, target);
         return target;
     }
 

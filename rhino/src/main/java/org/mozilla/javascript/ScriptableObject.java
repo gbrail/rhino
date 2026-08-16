@@ -3132,16 +3132,14 @@ public abstract class ScriptableObject extends SlotMapOwner<Scriptable>
      * Default structured clone implementation for plain objects. Subclasses with internal state
      * should override this method.
      */
-    public Object structuredClone(StructuredCloneContext ctx) {
-        VarScope scope = ctx.getScope();
-
+    public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         // Per WHATWG: use OrdinaryCreateFromConstructor which always gives Object.prototype
         // for plain objects, even when source has null prototype
         NativeObject target = new NativeObject();
         ScriptRuntime.setBuiltinProtoAndParent(target, scope, TopLevel.Builtins.Object);
 
         // Register immediately before iterating properties to break cycles
-        ctx.remember(this, target);
+        ccx.remember(this, target);
 
         // Clone own enumerable properties (string and integer-indexed, no symbols)
         try (var map = startCompoundOp(false)) {
@@ -3150,13 +3148,13 @@ public abstract class ScriptableObject extends SlotMapOwner<Scriptable>
                 if (id instanceof String key) {
                     Object val = get(key, this);
                     if (val != NOT_FOUND) {
-                        Object cloned = ctx.clone(val);
+                        Object cloned = ccx.clone(val);
                         ScriptableObject.putProperty(target, key, cloned);
                     }
                 } else if (id instanceof Integer idx) {
                     Object val = get(idx, this);
                     if (val != NOT_FOUND) {
-                        Object cloned = ctx.clone(val);
+                        Object cloned = ccx.clone(val);
                         ScriptableObject.putProperty(target, idx, cloned);
                     }
                 }
