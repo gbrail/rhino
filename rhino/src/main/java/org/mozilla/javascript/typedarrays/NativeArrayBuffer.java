@@ -385,12 +385,11 @@ public class NativeArrayBuffer extends ScriptableObject {
     }
 
     @Override
-    public Object structuredClone(StructuredCloneContext ctx) {
+    public Object  structuredClone(StructuredCloneContext ctx) {
         if (isDetached()) {
-            throw ctx.dataCloneError("Cannot clone a detached ArrayBuffer");
+            throw ctx.dataCloneErrorById("msg.clone.arraybuf.detached");
         }
 
-        Context cx = ctx.getContext();
         VarScope scope = ctx.getScope();
 
         // Check if this buffer is in the transfer set

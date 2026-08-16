@@ -1751,7 +1751,7 @@ public abstract class NativeTypedArrayView<T> extends NativeArrayBufferView
         int bufferLen = arrayBuffer.getLength();
         int byteOffsetEnd = offset + getByteLength();
         if (offset > bufferLen || byteOffsetEnd > bufferLen) {
-            throw ctx.dataCloneError("Cannot clone an out-of-range TypedArray");
+            throw ctx.dataCloneErrorById("msg.clone.view.outofrange");
         }
 
         // Check if the backing buffer is being transferred

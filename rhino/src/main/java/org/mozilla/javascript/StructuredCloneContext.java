@@ -6,7 +6,6 @@
 
 package org.mozilla.javascript;
 
-import java.math.BigInteger;
 import java.util.IdentityHashMap;
 import java.util.Set;
 import org.mozilla.javascript.annotations.JSStructuredCloneable;
@@ -32,26 +31,23 @@ public final class StructuredCloneContext {
 
     /** Clone {@code value}, handling primitives, cycles, and object dispatch. */
     public Object clone(Object value) {
-        if (value == null || value == Undefined.instance) {
+        if (value == null || Undefined.isUndefined(value)) {
             return value;
         }
 
         // Primitives pass through directly (BigInteger is the BigInt primitive)
-        if (value instanceof Boolean
-                || value instanceof Number
-                || value instanceof String
-                || value instanceof BigInteger) {
+        if (value instanceof Boolean || value instanceof Number || value instanceof String) {
             return value;
         }
 
         // Symbol is never cloneable
         if (value instanceof NativeSymbol) {
-            throw dataCloneError("Symbols are not cloneable");
+            throw dataCloneErrorById("msg.clone.not.symbol");
         }
 
         // Functions and other callables are never cloneable
         if (value instanceof Callable) {
-            throw dataCloneError("Functions are not cloneable");
+            throw dataCloneErrorById("msg.clone.not.function");
         }
 
         // Unwrap Delegator
@@ -65,10 +61,7 @@ public final class StructuredCloneContext {
             return existing;
         }
 
-        if (value instanceof ScriptableObject) {
-            ScriptableObject so = (ScriptableObject) value;
-
-            // Check cloneability annotation
+        if (value instanceof ScriptableObject so) {
             Class<?> cls = so.getClass();
             while (cls != null) {
                 if (cls.isAnnotationPresent(JSStructuredCloneable.class)) {
@@ -77,13 +70,13 @@ public final class StructuredCloneContext {
                 cls = cls.getSuperclass();
             }
             if (cls == null) {
-                throw dataCloneError("Object of class " + so.getClassName() + " is not cloneable");
+                throw dataCloneErrorById("msg.clone.not.cloneable", so.getClassName());
             }
 
             return so.structuredClone(this);
         }
 
-        throw dataCloneError("Value is not cloneable");
+        throw dataCloneErrorById("msg.clone.not.supported");
     }
 
     /** Record a source-to-clone mapping in the cycle-tracking memory. */
@@ -111,7 +104,7 @@ public final class StructuredCloneContext {
         return transferSet;
     }
 
-    public EcmaError dataCloneError(String message) {
-        return ScriptRuntime.constructError("DataCloneError", message);
+    public EcmaError dataCloneErrorById(String messageId, Object... args) {
+        return ScriptRuntime.constructErrorById("DataCloneError", messageId, args);
     }
 }
