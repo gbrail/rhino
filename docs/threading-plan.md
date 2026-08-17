@@ -50,11 +50,35 @@ of correctness if they are shared between threads.
 Any aspects of Rhino that are shared between Contexts and top-level scopes, such as 
 caches, must be thread-safe so that many scripts can execute at the same time.
 
-*TODO* is there a diagram we can insert here?
+A picture of the current model:
+
+```
+    Thread A                 Thread B                Thread C
+       |                        |                       |
+       v                        v                       v
+  +------------+          +------------+           +------------+
+  |  Context A |          |  Context B |           |  Context C |
+  | bound to   |          | bound to   |           | bound to   |
+  | this thread|          | this thread|           | this thread|
+  +-----+------+          +-----+------+           +-----+------+
+        |                        |                       |
+        v                        v                       v
+  +------------+          +------------+           +------------+
+  | top-level  |          | top-level  |           | top-level  |
+  | scope A    |          | scope B    |           | scope C    |
+  | (NOT       |          | (NOT       |           | (NOT       |
+  | thread-    |          | thread-    |           | thread-    |
+  | safe)      |          | safe)      |           | safe)      |
+  +------------+          +------------+           +------------+
+
+  ------------------- shared by all threads ----------------------
+  * script source, AST, IR, and compiled bytecode (immutable)
+  * global caches and other static state (must be thread-safe)
+```
 
 ### Optional features
 
-Rhino includes a few optional features that change some of theses invariants, which
+Rhino includes a few optional features that change some of these invariants, which
 are described in the appendix.
 
 ## Missing Features
@@ -78,7 +102,28 @@ capabilities in Rhino. They are listed in reverse order of "what depends on what
 * Lock support from Atomics object (depends on shared ArrayBuffers)
 * Safe serialization format (depends on structured cloning)
 
-*TODO* insert a dependency diagram or chart here
+```mermaid
+graph BT
+    SC["Structured cloning"]
+    EL["Thread-capable event loop"]
+    MP["Inter-Context message passing"]
+    WK["Workers"]
+    SAB["Shared ArrayBuffers"]
+    AT["Atomics variable access"]
+    TM["Timer capability"]
+    LOCK["Atomics wait/notify"]
+    SER["Safe serialization format"]
+
+    SC --> MP
+    SC --> WK
+    SC --> SER
+    EL --> MP
+    EL --> WK
+    MP --> WK
+    SAB --> LOCK
+    AT --> LOCK
+    TM --> LOCK
+```
 
 ### Structured Cloning
 
@@ -114,7 +159,28 @@ this is the only feature in ECMAScript that needs this.)
 Whatever we do, we will retrofit the Rhino shell to use the new event loop, since it
 already contains a simple timer capability via the setTimeout capability.
 
-*TODO* This will take more careful design.
+Some design considerations to work through:
+
+* The new queue should be a separate, thread-safe "macro task" queue, distinct
+  from the existing microtask queue on the Context (see
+  `Context.enqueueMicrotask`/`processMicrotasks`). Microtasks stay fast and
+  non-thread-safe; events posted from other threads go on the new queue. As in
+  the HTML event loop, the microtask queue should be drained to completion
+  after each posted task runs.
+* The abstraction should be owned by the embedder: something like an
+  EventLoop object associated with a top-level scope, with a thread-safe
+  `post()` method, a `pump()`/`runPending()` method for the owning thread to
+  call, and optional hooks so the embedder can interleave its own work
+  (network I/O callbacks, etc.).
+* The shell's current Timers class (rhino-tools) blocks its thread sleeping
+  until the next timeout fires. Retrofitting it to the new event loop means
+  replacing that sleep-and-poll loop with a timed pump.
+* Atomics.waitAsync needs timeout delivery even for scripts that never touch
+  the rest of the event loop. That argues for a minimal built-in default
+  (for example, a single shared timer thread that posts expirations onto the
+  context's queue) rather than making the full event loop mandatory.
+* If a context has an event loop installed, blocking Atomics.wait is probably
+  the wrong primitive anyway -- see the "No-Park Mode" open issue below.
 
 ### Workers
 
@@ -139,15 +205,31 @@ As part of this we will do two other things:
 First, we will modify the existing ArrayBuffer to use a ByteBuffer rather than a 
 plain byte[] array. That will be necessary to support direct (off-heap) buffers.
 
-Second, we will likely need to make shared array buffers into a direct buffers
-(*TODO* a bit more research is required here). We may also want to consider 
-whether other non-shared buffers, such as buffers larger than particular size,
-be made direct buffers as well so that we can reduce heap pressure.
+Second, shared array buffers must be allocated as direct ByteBuffers. This is
+not merely a performance choice: on JDK 22 and later, the VarHandle volatile
+and atomic operations that implement Atomics only work on direct buffers (see
+the "Direct Buffers" open issue below for details). The current working
+branch already allocates shared buffers this way in
+`NativeArrayBuffer.allocateBuffer()`. We may also want to consider whether
+other non-shared buffers, such as buffers larger than a particular size, be
+made direct buffers as well so that we can reduce heap pressure.
 
 In order for shared arraybuffers to support the Java memory model, even
 non-Atomics based changes to the buffer via the DataView class on numeric
-types should be "tear free." That will require moving to VarHandle for those
-operations rather than doing it in a bitwise way. (*TODO*) research and confirm this.
+types should be "tear free." That requires moving to VarHandle for those
+operations rather than doing it in a bitwise way. This has been researched and
+confirmed: VarHandle accesses on a ByteBuffer (via
+`MethodHandles.byteBufferViewVarHandle`) compile down to single machine-word
+loads and stores for 4- and 8-byte values, so even plain (non-volatile)
+get/set are tear-free; 1- and 2-byte values are inherently tear-free because
+they are sub-word. Two caveats: volatile and atomic VarHandle operations
+require the position to be naturally aligned (typed arrays are always aligned,
+but DataView permits arbitrary byte offsets -- DataView uses plain get/set, so
+this is not a problem today), and plain accesses provide no happens-before
+edge, so another thread may observe a stale value for an unspecified time.
+That matches the ECMAScript spec, which treats non-atomic accesses to shared
+memory as unordered. The current working branch already routes all DataView
+and typed-array numeric accesses through these VarHandles.
 
 ### Atomics Class (minus locking)
 
@@ -184,6 +266,13 @@ environment with an optional customization capability.
 With the shared buffers, atomics, and timers in place, we can implement the
 "wait" and "notify" capabilities of the Atomics object without much new complication!
 
+Status: a first implementation of wait/notify already exists on the current
+working branch (a `Waiters` class using `LockSupport.parkNanos`, wired up for
+Int32Array). It still needs the timer/event-loop work above to finish
+waitAsync, and it has a known spec gap: the value must be re-checked after a
+wake-up so that a value which changed during the wait reports "not-equal"
+rather than "ok".
+
 ### Serialization Format
 
 V8 builds on structured cloning to define a simple object serialization component that
@@ -199,13 +288,68 @@ away from it and would let us even disable serialization by default.
 
 ## Direct Buffers
 
-Do we *need* direct buffers for shared ArrayBuffers to work? *TODO* research
-which operations of VarHandle operate on which data types with direct vs
-non-direct buffers. Once upon a time, direct buffers were slower to access
-but they do reduce GC load at a certain point.
+Do we *need* direct buffers for shared ArrayBuffers to work? Yes -- if we want
+portable lock-free Atomics. This was researched empirically (Temurin 17, 21,
+and 24, and OpenJDK 25) and traced to the JDK source:
 
-If we will never use direct buffers we could stick with byte[] as the backing
-array for array buffers, with the same direct access via VarHandle.
+* Plain get/set VarHandle operations on a ByteBuffer work on both heap and
+  direct buffers on every version tested, and tolerate unaligned positions.
+* Volatile operations (`getVolatile`, `setVolatile`) and all atomic
+  read-modify-write operations (`compareAndExchange`, `getAndAdd`,
+  `getAndBitwise*`, `getAndSet`) work on both heap and direct buffers on JDK
+  9 through 21. Starting with JDK 22, they throw `IllegalStateException`
+  ("Atomic access not supported for heap buffer") when the ByteBuffer is
+  heap-backed. The change came from JDK-8318966 (commit 9c852df6aa, merged
+  Feb 2024), which reworked the generated ByteBuffer-view VarHandles to route
+  memory accesses through the FFM-era `ScopedMemoryAccess` machinery, which
+  only implements atomic operations for direct buffers.
+* Atomic RMW operations exist only for int and long. short supports volatile
+  access but no `compareAndExchange` or `getAndAdd`, and byte is not supported
+  by `MethodHandles.byteBufferViewVarHandle` at all. (This matches the current
+  implementation, which falls back to synchronized blocks for 8- and 16-bit
+  typed arrays.)
+* Volatile and atomic operations also require natural alignment; unaligned
+  positions throw `IllegalStateException` ("Misaligned access at index: ...").
+
+So the decision tree is simple: if shared ArrayBuffers ever expose Atomics
+(with or without locking), they must be direct ByteBuffers, and the current
+working branch already does this. On JDK 17 (Rhino's build baseline) the
+atomic operations would happen to work on heap buffers too, but relying on
+that would break at runtime on JDK 22 and later, so direct is the only
+portable choice. Plain (non-shared) ArrayBuffers can remain heap-backed,
+since nothing requires atomicity there.
+
+A corollary for the implementation: the spec hands a non-shared ArrayBuffer
+to exactly one agent at a time (ownership moves only via atomic transfer),
+so its Atomics operations never contend with another thread. They should be
+implemented with plain (non-volatile) VarHandle get/set -- and plain
+read-modify-write for add/exchange/compareExchange -- rather than the
+volatile and atomic variants, which throw on heap buffers on JDK 22+. Under
+exclusive ownership, plain accesses are observably identical to atomic ones:
+no other thread can interleave the read-modify-write, and there is no
+cross-thread visibility to establish. (Engines such as V8 instead emit real
+CPU atomics unconditionally, which is harmless on a single-owner buffer; the
+Java VarHandle restriction makes the branch necessary here.) Note that all
+Atomics operations except wait/waitAsync are spec-legal on non-shared
+buffers, and Atomics.notify is defined to return 0 on them -- matching what
+Node.js does.
+
+The old performance argument against direct buffers (extra mapping/pinning
+overhead on every access) no longer holds on modern HotSpot for simple element
+accesses; the `ByteBufferBenchmark` added to the benchmarks module can
+quantify the current difference if needed. The real trade-offs now are:
+
+* Direct memory lives outside the Java heap and is reclaimed by a Cleaner, so
+  it is freed only when the garbage collector runs. Many large direct buffers
+  can exhaust native memory without triggering a Java OutOfMemoryError
+  (bounded by `-XX:MaxDirectMemorySize`, which defaults to the heap size).
+* Direct buffers have no backing array (`buffer.hasArray()` is false), so the
+  deprecated `NativeArrayBuffer.getBuffer()` returns null for them. Callers
+  must move to the ByteBuffer API.
+
+Sticking with byte[] as the backing store is only viable if we give up
+lock-free Atomics entirely (every cross-thread access becomes a synchronized
+block on one monitor per buffer). Not recommended.
 
 ## Endianness
 
@@ -215,18 +359,80 @@ in Java, on the vast majority of today's hardware now that people don't run on
 Sun SPARC any more.) It is possible that existing JavaScript code may break in
 Rhino if it assumes little-endian access. 
 
-*TODO* research the implications of flipping this. 2.0 is a good time.
+Research on the implications of flipping the default to little-endian:
+
+* Per the ECMAScript spec, typed array element accesses are always
+  little-endian, while DataView getters and setters default to big-endian
+  unless passed an explicit littleEndian flag.
+* Rhino today splits the difference: DataView honors the littleEndian flag
+  and defaults to big-endian (spec-compliant), but typed array element
+  accesses follow the ByteOrder of the underlying buffer, which defaults to
+  big-endian unless `Context.FEATURE_LITTLE_ENDIAN` is enabled. In other
+  words, Rhino's typed arrays are non-spec-compliant by default.
+* Flipping the default makes typed arrays spec-compliant and does not change
+  DataView behavior at all. Little-endian is also the native order on x86 and
+  ARM, so it avoids byte-swapping on the vast majority of hardware.
+* What could break: JavaScript written against Rhino's historical big-endian
+  typed-array layout (for example, code that packs network packets into an
+  Int32Array expecting big-endian bytes on the wire), and Java code that reads
+  the raw backing bytes assuming big-endian. Both are rare in practice, but
+  they are silent behavioral changes, not errors.
+
+Recommendation: flip the default in 2.0, which is the breaking-change window
+anyway. Keep FEATURE_LITTLE_ENDIAN as a no-op for compatibility (or repurpose
+it as a big-endian override for legacy interop), and call the change out
+prominently in the release notes.
 
 ## Android
 
-VarHandle is only available in Android API version 33 and up. Can we require that?
-Otherwise we need a more complicated implementation.
+VarHandle is only available in Android API version 33 (Tiramisu, 2022) and up.
+Can we require that? Otherwise we need a more complicated implementation.
+
+Research: the repository's Android integration tests (it-android) currently
+target minSdk 26 with compileSdk 33, so requiring API 33 would drop support
+for Android 8 through 12, which still represent a substantial installed base.
+Options:
+
+1. Require API 33. Simplest; matches the compileSdk the tests already use.
+2. Runtime detection: use the VarHandle path on API 33+ and fall back to
+   synchronized-block implementations below it. The fallback is functionally
+   complete (the 8- and 16-bit types already use synchronization, and the
+   int/long types can as well), just contended under parallel access.
+3. Ship two code paths selected at class-load time, keeping the hot path free
+   of per-operation feature checks.
+
+Note that the Foreign Function & Memory API (see "MemorySegment" below) is not
+available on Android at all, so any future FFM-based path would need the same
+fallback regardless. Recommendation: option 2 if the community cares about
+pre-33 devices; otherwise option 1.
 
 ## No-Park Mode
 
 Browsers often support a mode in which Atomics.wait will throw an exception instead
 of blocking the thread. Rhino embedders will also appreciate this! The question is,
 should a blocking wait be allowed or disallowed by default?
+
+Research: in browsers, Atomics.wait throws a RangeError when called on the main
+thread and is only permitted inside Web Workers, where blocking is safe because
+the worker has no other work to do. Node.js behaves the same way: Atomics.wait
+throws ERR_ATOMICS_WAIT_NOT_ALLOWED on the main thread but works in
+worker_threads. The rationale in both cases is that the main thread must remain
+responsive to input and rendering.
+
+Rhino has no concept of a "main thread"; a Context simply runs on whatever
+thread the embedder gives it, so Rhino cannot make the browser's distinction on
+its own. A blocking Atomics.wait will block that thread, full stop -- which is
+catastrophic for a server embedder that evaluates scripts on request-handler
+threads, and harmless for an embedder that dedicates a thread to a script.
+
+Recommendation: allow blocking waits by default (Rhino is an embedded engine
+and the embedder owns its threading), but provide opt-outs:
+
+* A Context-level feature flag that makes Atomics.wait throw, mirroring the
+  browser main-thread behavior for embedders that want it.
+* When a context has an event loop installed (see above), prefer returning a
+  Promise (waitAsync semantics) over blocking, since a pumping thread cannot
+  usefully block anyway.
 
 ## MemorySegment
 
@@ -240,7 +446,39 @@ that depend on the specified behavior to throw OOM errors.
 
 This would complicate Android support and would need a backup plan.
 
-*TODO* understand the implications of this.
+Research (verified against the JEP texts, the JDK 16-25 source trees, and
+small test programs):
+
+* The premise that MemorySegment is "the only way" to reserve without
+  allocating does not hold. No released version of the API -- incubator
+  (JDK 16-18), preview (JDK 19-21), or final (JDK 22+) -- has ever offered a
+  reserve-without-commit operation. `Arena` (which replaced `MemorySession`
+  in the JDK 20 preview) offers only `allocate(size, alignment)`, which
+  commits immediately.
+* FFM also does not solve the small-type atomics problem. MemorySegment has no
+  direct atomic methods; atomics are obtained from `ValueLayout.varHandle()`.
+  Empirically, those handles support full volatile/atomic operations for int
+  and long, volatile only for short, and nothing beyond plain get/set for
+  byte -- the same gaps as the ByteBuffer VarHandles, so 8- and 16-bit typed
+  arrays would still need synchronized fallbacks.
+* Where FFM genuinely helps: buffers larger than 2 GB (ByteBuffer sizing is
+  limited by int), deterministic off-heap deallocation when an Arena is closed
+  (instead of waiting for the GC's Cleaner), zero-copy bridging with existing
+  ByteBuffers (`MemorySegment.ofBuffer` / `asByteBuffer`), and structured
+  access via layouts.
+* On growable buffers specifically: native allocations (mmap) reserve virtual
+  address space and commit physical pages lazily on first touch. So
+  allocating maxByteLength up front costs virtual address space, not RAM, and
+  the feared OOMs from "reserving" a large growable buffer are largely a
+  non-issue on 64-bit systems. The current realloc-and-copy growth strategy
+  works too, at the cost of transiently needing twice the memory.
+* Costs: FFM requires Java 22+, is not available on Android at all, and adds
+  arena lifetime management (confined arenas are single-threaded, so shared
+  buffers would need shared arenas) on top of everything else.
+
+Conclusion: a complement, not a replacement. Defer adoption until a concrete
+need appears (multi-gigabyte buffers or deterministic off-heap cleanup); keep
+ByteBuffer as the storage mechanism for now.
 
 ## Relaxing other Restrictions
 
@@ -259,9 +497,83 @@ We will not have the same restrictions in Java and might want to consider that.
 Perhaps we could consider additional locking support that is more efficient because it
 uses capabilties built in to Java, but that may not be worth the effort.
 
+Research notes:
+
+* On cloning vs. serializing: V8/Node serialize postMessage payloads because
+  their isolates and processes do not share a heap. Inside one JVM all contexts
+  share a garbage collector, so passing cloned objects directly (as this plan
+  proposes) is strictly cheaper and loses nothing -- structured cloning remains
+  the semantic boundary (it decides what is transferable and resets prototypes
+  and scopes), while binary serialization is skipped.
+* V8's serialization format is confirmed to be an implementation detail, not a
+  specification; no compatibility promise is possible or advisable.
+* On relaxing Atomics wait/notify to non-shared buffers: the spec mandates a
+  TypeError for wait/notify on non-shared buffers, and test262 enforces it.
+  Offering it by default would break conformance. If we offer it at all, it
+  should be an explicitly non-standard extension behind a feature flag. Given
+  that Synchronizer (see appendix) and ordinary Java locks are available to
+  embedders who want richer locking, the effort is probably not worth it.
+
 # Additional Data
 
 ## Appendix: Existing Rhino Threading Support
 
-*TODO*: Research existing Rhino threading support, including the Rhino-specific
-locking class (forget what it's called) and support for thread-safe objects.
+Research into what Rhino already provides:
+
+### Context-to-thread binding
+
+* Each Context is bound to exactly one thread via a ThreadLocal
+  (`Context.currentContext`). `Context.enter()`/`exit()` manage the
+  association, and `ContextFactory.call(ContextAction)` runs a unit of work
+  with a context associated for the duration. Using a Context from another
+  thread throws IllegalStateException.
+* `Context.putThreadLocal`/`getThreadLocal`/`removeThreadLocal` provide
+  per-context, per-thread scratch storage.
+
+### Thread-safe objects (optional)
+
+* `Context.FEATURE_THREAD_SAFE_OBJECTS` (default false; can be forced on via
+  the `rhino.useThreadSafeObjectsByDefault` system property) causes every
+  ScriptableObject to use a StampedLock-based property map
+  (`ThreadSafeHashSlotMap`) instead of the plain `HashSlotMap`. The
+  `LockAwareSlotMap` interface exposes the read/write stamps, and compound
+  operations run under a single stamp via `ThreadSafeCompoundOperationMap`.
+* Important limitation: this protects only the property maps. It does not make
+  object behavior (methods, internal state of specific builtins) thread-safe.
+  See `ThreadSafeScriptableObjectTest` and `DeadlockReproTest` for current
+  coverage and known deadlock scenarios.
+
+### Synchronizer / sync()
+
+* The "Rhino-specific locking class" is `org.mozilla.javascript.Synchronizer`.
+  It wraps a JavaScript function so that each invocation runs while holding a
+  Java monitor on the `this` object (or an explicitly supplied lock object).
+  The shell exposes it as the global `sync(fun)` helper. This is the
+  documented escape hatch for sharing objects between threads today.
+
+### Shell timers
+
+* rhino-tools ships a `Timers` class implementing setTimeout/clearTimeout for
+  the shell. It is single-threaded: a priority queue of timeouts plus
+  `Thread.sleep` on the shell's own thread, driven by `Main`. This is the
+  functionality that will be retrofitted onto the new event loop.
+
+### Multi-threaded primitives
+
+* Anything shared across contexts -- the global ContextFactory, generated
+  classes once compiled, error message tables, service-loaded components such
+  as the RegExpLoader -- must be thread-safe, and is. Compiled scripts and
+  their ASTs/IR are treated as immutable and freely shared.
+
+### In-progress (current working branch)
+
+* The greg-all-atomics branch already contains: `NativeAtomics` with
+  load/store/add/sub/and/or/xor/exchange/compareExchange/pause/wait/waitAsync/
+  notify/isLockFree; `AtomicSupport` and `WaitSupport` interfaces on the typed
+  arrays; VarHandle-based element access for all numeric types;
+  SharedArrayBuffer backed by direct ByteBuffers; and a `Waiters` class
+  implementing wait/notify with `LockSupport.parkNanos` (currently wired up
+  for Int32Array only). Known gaps: waitAsync is unimplemented, and
+  `Waiters.waitSync` does not re-check the value after being woken by a
+  notification, which the spec requires in order to return "not-equal" when
+  the value changed during the wait.
