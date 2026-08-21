@@ -4499,7 +4499,17 @@ public class ScriptRuntime {
             if (isNaN(x) && isNaN(y)) {
                 return true;
             }
-            return x.equals(y);
+            // Compare by numeric value: JS numbers may be boxed as different
+            // Number subtypes (e.g. Integer vs Double), which Object.equals
+            // would treat as distinct even when numerically equal.
+            final double dx = ((Number) x).doubleValue();
+            final double dy = ((Number) y).doubleValue();
+            if (dx != dy) {
+                return false;
+            }
+            // SameValue distinguishes +0 from -0.
+            return dx != 0.0
+                    || Double.doubleToRawLongBits(dx) == Double.doubleToRawLongBits(dy);
         }
         return eq(x, y);
     }
