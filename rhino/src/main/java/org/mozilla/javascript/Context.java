@@ -29,7 +29,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -379,11 +378,13 @@ public class Context implements Closeable {
      */
     private static final ThreadLocal<Context> currentContext = new ThreadLocal<>();
 
-    private enum LoopResult { CONTINUE, CONTINUE_TIMEOUT, EXIT }
+    private enum LoopResult {
+        CONTINUE,
+        CONTINUE_TIMEOUT,
+        EXIT
+    }
 
-    /**
-     * A result to indicate to the event loop mechanism what to do.
-     */
+    /** A result to indicate to the event loop mechanism what to do. */
     public static class LoopStatus {
         private final LoopResult result;
         private final long timeout;
@@ -394,9 +395,8 @@ public class Context implements Closeable {
         }
 
         /**
-         * Create a new result that indicates that the loop should continue
-         * but wait up to the timeout for new events. A timeout
-         * of zero causes the loop to proceed without delay.
+         * Create a new result that indicates that the loop should continue but wait up to the
+         * timeout for new events. A timeout of zero causes the loop to proceed without delay.
          */
         public LoopStatus(long timeout, TimeUnit u) {
             this.result = LoopResult.CONTINUE_TIMEOUT;
@@ -406,6 +406,7 @@ public class Context implements Closeable {
 
     /** Indicate that the event loop should continue and wait indefinitely for events */
     public static final LoopStatus LOOP_CONTINUE = new LoopStatus(LoopResult.CONTINUE);
+
     /** Indicate that the event loop should exit */
     public static final LoopStatus LOOP_EXIT = new LoopStatus(LoopResult.EXIT);
 
@@ -2561,8 +2562,8 @@ public class Context implements Closeable {
      * Otherwise, callers should call "processMicrotasks" to run them all. This feature is primarily
      * used to implement Promises.
      *
-     * <p>The microtask queue is not thread-safe. Applications that wish
-     * to pass tasks to this context from a different thread must use enqueueConcurrentTask.
+     * <p>The microtask queue is not thread-safe. Applications that wish to pass tasks to this
+     * context from a different thread must use enqueueConcurrentTask.
      *
      * @see #enqueueConcurrentTask
      */
@@ -2571,8 +2572,8 @@ public class Context implements Closeable {
     }
 
     /**
-     * Add a task that will be run on the microtask queue the next time it executes. Tasks may
-     * be posted from any thread.
+     * Add a task that will be run on the microtask queue the next time it executes. Tasks may be
+     * posted from any thread.
      *
      * @see #processMicrotasks
      */
@@ -2588,8 +2589,8 @@ public class Context implements Closeable {
      * registered using a FinalizationRegistry, finalization callbacks will be called in this method
      * as well.
      *
-     * <p>This method will not block -- it will pull all events from the concurrent task
-     * queue only once, then process them all.
+     * <p>This method will not block -- it will pull all events from the concurrent task queue only
+     * once, then process them all.
      *
      * <p>Nothing will happen if suspendMicrotaskProcessing was called.
      *
@@ -2659,22 +2660,21 @@ public class Context implements Closeable {
     }
 
     /**
-     * Run an event loop. The loop will run until it is stopped by calling stopEventLoop.
-     * Until that time, it will process all microtasks, finalization requests, and
-     * events on the concurrent task queue, and pause to wait to pick up new events
-     * from the concurrent task queue. This call, as a matter of course, blocks the
-     * current thread.
+     * Run an event loop. The loop will run until it is stopped by calling stopEventLoop. Until that
+     * time, it will process all microtasks, finalization requests, and events on the concurrent
+     * task queue, and pause to wait to pick up new events from the concurrent task queue. This
+     * call, as a matter of course, blocks the current thread.
      *
-     * <p>This mechanism can be used as the basis for a higher-level event loop that
-     * processes events via timers, network I/O, and other mechanisms.
+     * <p>This mechanism can be used as the basis for a higher-level event loop that processes
+     * events via timers, network I/O, and other mechanisms.
      */
     public void runEventLoop(
-        Consumer<Context> loopCb,
-        java.util.function.Function<Context, LoopStatus> continueCb) {
+            Consumer<Context> loopCb, java.util.function.Function<Context, LoopStatus> continueCb) {
         var loopStatus = new LoopStatus(0L, TimeUnit.MILLISECONDS);
         processMicrotasks();
         while (loopStatus.result != LoopResult.EXIT) {
-            var timeout = loopStatus.result == LoopResult.CONTINUE_TIMEOUT ? loopStatus.timeout : -1L;
+            var timeout =
+                    loopStatus.result == LoopResult.CONTINUE_TIMEOUT ? loopStatus.timeout : -1L;
             var event = takeNextTask(timeout);
             if (event == STOP_SENTINEL) {
                 return;
@@ -2705,8 +2705,8 @@ public class Context implements Closeable {
     }
 
     /**
-     * Stop the event loop. An event will be delivered to the concurrent task queue
-     * to cause it to exit and will cause runEventLoop to exit. This method is thread-safe.
+     * Stop the event loop. An event will be delivered to the concurrent task queue to cause it to
+     * exit and will cause runEventLoop to exit. This method is thread-safe.
      */
     public void stopEventLoop() {
         concurrentTasks.offer(STOP_SENTINEL);
