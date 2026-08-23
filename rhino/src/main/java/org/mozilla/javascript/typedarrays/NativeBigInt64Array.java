@@ -12,6 +12,7 @@ import static org.mozilla.javascript.ClassDescriptor.Destination.PROTO;
 
 import java.io.Serial;
 import java.math.BigInteger;
+import java.util.function.BiFunction;
 import org.mozilla.javascript.ClassDescriptor;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.JSFunction;
@@ -31,7 +32,7 @@ public class NativeBigInt64Array extends NativeBigIntArrayView
     @Serial private static final long serialVersionUID = 3291575517061505304L;
 
     private static final String CLASS_NAME = "BigInt64Array";
-    private static final int BYTES_PER_ELEMENT = 8;
+    protected static final int BYTES_PER_ELEMENT = 8;
 
     private static final ClassDescriptor DESCRIPTOR;
 
@@ -47,8 +48,6 @@ public class NativeBigInt64Array extends NativeBigIntArrayView
                         .withProp(CTOR, SymbolKey.SPECIES, ScriptRuntimeES6::symbolSpecies)
                         .build();
     }
-
-    private transient volatile Waiters waiters = null;
 
     public NativeBigInt64Array() {}
 
@@ -76,6 +75,9 @@ public class NativeBigInt64Array extends NativeBigIntArrayView
 
     private static Object js_constructor(
             Context cx, JSFunction f, Object nt, VarScope s, Object thisObj, Object[] args) {
+        // Pre-inspect the array buffer and see if it's shared
+        boolean shared =
+                (args.length > 0 && args[0] instanceof NativeArrayBuffer ab && ab.isShared());
         return NativeTypedArrayView.js_constructor(
                 cx,
                 f,
@@ -83,9 +85,9 @@ public class NativeBigInt64Array extends NativeBigIntArrayView
                 s,
                 thisObj,
                 args,
-                NativeBigInt64Array::new,
+                shared ? NativeSharedBigInt64Array::new : NativeBigInt64Array::new,
                 8,
-                TopLevel.Builtins.BigInt64Array);
+                TopLevel.Builtins.Uint32Array);
     }
 
     @Override
@@ -93,7 +95,7 @@ public class NativeBigInt64Array extends NativeBigIntArrayView
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        long base = (long) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+        long base = arrayBuffer.buffer.getLong((index * BYTES_PER_ELEMENT) + offset);
         return BigInteger.valueOf(base);
     }
 
@@ -105,7 +107,7 @@ public class NativeBigInt64Array extends NativeBigIntArrayView
         }
 
         long base = val.longValue();
-        accessor.set(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, base);
+        arrayBuffer.buffer.putLong((index * BYTES_PER_ELEMENT) + offset, base);
         return null;
     }
 
@@ -128,10 +130,10 @@ public class NativeBigInt64Array extends NativeBigIntArrayView
     @Override
     public Object atomicLoad(int index) {
         checkAtomicIndex(index);
-        long base =
-                (long)
-                        accessor.getVolatile(
-                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+        long base;
+        synchronized (arrayBuffer) {
+            base = arrayBuffer.buffer.getLong((index * BYTES_PER_ELEMENT) + offset);
+        }
         return BigInteger.valueOf(base);
     }
 
@@ -140,92 +142,80 @@ public class NativeBigInt64Array extends NativeBigIntArrayView
         var val = ScriptRuntime.toBigInt(v);
         long base = val.longValue();
         checkAtomicIndex(index);
-        accessor.setVolatile(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, base);
+        synchronized (arrayBuffer) {
+            arrayBuffer.buffer.putLong((index * BYTES_PER_ELEMENT) + offset, base);
+        }
         return val;
+    }
+
+    private Object mathOp(int index, Object v, BiFunction<Long, Long, Long> f) {
+        var bVal = ScriptRuntime.toBigInt(v);
+        long val = bVal.longValue();
+        checkAtomicIndex(index);
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        synchronized (arrayBuffer) {
+            long old = arrayBuffer.buffer.getLong(addr);
+            long r = f.apply(old, val);
+            arrayBuffer.buffer.putLong(addr, r);
+            return BigInteger.valueOf(old);
+        }
     }
 
     @Override
     public Object atomicAdd(int index, Object v) {
-        long val = ScriptRuntime.toBigInt(v).longValue();
-        checkAtomicIndex(index);
-        long base =
-                (long)
-                        accessor.getAndAdd(
-                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
-        return BigInteger.valueOf(base);
+        return mathOp(index, v, Long::sum);
     }
 
     @Override
     public Object atomicSub(int index, Object v) {
-        long val = ScriptRuntime.toBigInt(v).longValue();
-        checkAtomicIndex(index);
-        long base =
-                (long)
-                        accessor.getAndAdd(
-                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, -val);
-        return BigInteger.valueOf(base);
+        return mathOp(index, v, (a, b) -> a - b);
     }
 
     @Override
     public Object atomicAnd(int index, Object v) {
-        long val = ScriptRuntime.toBigInt(v).longValue();
-        checkAtomicIndex(index);
-        long base =
-                (long)
-                        accessor.getAndBitwiseAnd(
-                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
-        return BigInteger.valueOf(base);
+        return mathOp(index, v, (a, b) -> a & b);
     }
 
     @Override
     public Object atomicOr(int index, Object v) {
-        long val = ScriptRuntime.toBigInt(v).longValue();
-        checkAtomicIndex(index);
-        long base =
-                (long)
-                        accessor.getAndBitwiseOr(
-                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
-        return BigInteger.valueOf(base);
+        return mathOp(index, v, (a, b) -> a | b);
     }
 
     @Override
     public Object atomicXor(int index, Object v) {
-        long val = ScriptRuntime.toBigInt(v).longValue();
-        checkAtomicIndex(index);
-        long base =
-                (long)
-                        accessor.getAndBitwiseXor(
-                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
-        return BigInteger.valueOf(base);
+        return mathOp(index, v, (a, b) -> a ^ b);
     }
 
     @Override
     public Object atomicExchange(int index, Object v) {
         long val = ScriptRuntime.toBigInt(v).longValue();
         checkAtomicIndex(index);
-        long base =
-                (long)
-                        accessor.getAndSet(
-                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
-        return BigInteger.valueOf(base);
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        synchronized (arrayBuffer) {
+            long old = arrayBuffer.buffer.getLong(addr);
+            arrayBuffer.buffer.putLong(addr, val);
+            return BigInteger.valueOf(old);
+        }
     }
 
     @Override
     public Object atomicCompareAndExchange(int index, Object e, Object r) {
         long expected = ScriptRuntime.toBigInt(e).longValue();
         long replacement = ScriptRuntime.toBigInt(r).longValue();
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
         checkAtomicIndex(index);
-        long base =
-                (long)
-                        accessor.compareAndExchange(
-                                arrayBuffer.buffer,
-                                (index * BYTES_PER_ELEMENT) + offset,
-                                expected,
-                                replacement);
-        return BigInteger.valueOf(base);
+        synchronized (arrayBuffer) {
+            long old = arrayBuffer.buffer.getLong(addr);
+            if (old == expected) {
+                arrayBuffer.buffer.putLong(addr, replacement);
+            }
+            return BigInteger.valueOf(old);
+        }
     }
 
     // Support for wait/notify
+
+    private transient volatile Waiters waiters = null;
 
     @Override
     public boolean isShared() {
@@ -233,23 +223,17 @@ public class NativeBigInt64Array extends NativeBigIntArrayView
     }
 
     @Override
+    public boolean isDetached() {
+        return arrayBuffer.isDetached();
+    }
+
+    @Override
     public Object wait(int index, Object v, Object t) {
-        long val = ScriptRuntime.toBigInt(v).longValue();
         checkAtomicIndex(index);
-        int timeout = NativeInt32Array.getTimeout(t);
-        var waiters = getWaiters();
-        var r =
-                waiters.waitSync(
-                        index,
-                        timeout,
-                        () -> {
-                            long current =
-                                    (long)
-                                            accessor.getVolatile(
-                                                    arrayBuffer.buffer,
-                                                    (index * BYTES_PER_ELEMENT) + offset);
-                            return current == val;
-                        });
+        long val = ScriptRuntime.toBigInt(v).longValue();
+        int timeout = Waiters.getTimeout(t);
+        var w = getWaiters();
+        var r = w.waitSync(index, timeout, () -> readCurrent(index) == val);
         return Waiters.resultToString(r);
     }
 
@@ -262,6 +246,13 @@ public class NativeBigInt64Array extends NativeBigIntArrayView
     public Object notify(int index, int count) {
         checkAtomicIndex(index);
         return getWaiters().notify(index, count);
+    }
+
+    /** Reads the current value at the given index. Overridden for shared buffers. */
+    protected long readCurrent(int index) {
+        synchronized (arrayBuffer) {
+            return arrayBuffer.buffer.getLong((index * BYTES_PER_ELEMENT) + offset);
+        }
     }
 
     // Use double-checked locking, correct because waiters is volatile

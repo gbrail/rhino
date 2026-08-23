@@ -91,9 +91,7 @@ public class NativeFloat64Array extends NativeTypedArrayView<Double> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        // Can't consolidate for performance
-        double d = (double) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
-        return d;
+        return arrayBuffer.buffer.getDouble((index * BYTES_PER_ELEMENT) + offset);
     }
 
     @Override
@@ -102,7 +100,7 @@ public class NativeFloat64Array extends NativeTypedArrayView<Double> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        accessor.set(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        arrayBuffer.buffer.putDouble((index * BYTES_PER_ELEMENT) + offset, val);
         return null;
     }
 

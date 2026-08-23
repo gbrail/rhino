@@ -11,7 +11,6 @@ import static org.mozilla.javascript.ClassDescriptor.Destination.PROTO;
 import static org.mozilla.javascript.Symbol.Kind.REGULAR;
 
 import java.io.Serial;
-import java.lang.invoke.VarHandle;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -139,9 +138,6 @@ public abstract class NativeTypedArrayView<T> extends NativeArrayBufferView
      */
     private final int length;
 
-    /** An accessor for the correct data type and endianness of this handle. */
-    protected final VarHandle accessor;
-
     /**
      * True if this is an auto-length view (ES2025). Auto-length views are created when a TypedArray
      * is constructed on a resizable ArrayBuffer without specifying a length.
@@ -152,7 +148,6 @@ public abstract class NativeTypedArrayView<T> extends NativeArrayBufferView
         super();
         length = 0;
         isAutoLength = false;
-        accessor = NativeDataView.accessor(type, null);
     }
 
     /**
@@ -164,7 +159,6 @@ public abstract class NativeTypedArrayView<T> extends NativeArrayBufferView
         super(ab, off, byteLen);
         this.isAutoLength = (len < 0);
         this.length = len;
-        this.accessor = NativeDataView.accessor(type, ab);
     }
 
     // Array properties implementation.

@@ -4508,8 +4508,7 @@ public class ScriptRuntime {
                 return false;
             }
             // SameValue distinguishes +0 from -0.
-            return dx != 0.0
-                    || Double.doubleToRawLongBits(dx) == Double.doubleToRawLongBits(dy);
+            return dx != 0.0 || Double.doubleToRawLongBits(dx) == Double.doubleToRawLongBits(dy);
         }
         return eq(x, y);
     }

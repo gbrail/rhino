@@ -92,8 +92,7 @@ public class NativeUint16Array extends NativeTypedArrayView<Integer> implements 
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        short shortBits =
-                (short) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+        short shortBits = arrayBuffer.buffer.getShort((index * BYTES_PER_ELEMENT) + offset);
         return Conversions.shortBitsToUint(shortBits);
     }
 
@@ -103,7 +102,7 @@ public class NativeUint16Array extends NativeTypedArrayView<Integer> implements 
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        accessor.set(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        arrayBuffer.buffer.putShort((index * BYTES_PER_ELEMENT) + offset, val);
         return null;
     }
 
@@ -125,10 +124,10 @@ public class NativeUint16Array extends NativeTypedArrayView<Integer> implements 
     @Override
     public Object atomicLoad(int index) {
         checkAtomicIndex(index);
-        short bits =
-                (short)
-                        accessor.getVolatile(
-                                arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+        short bits;
+        synchronized (arrayBuffer) {
+            bits = arrayBuffer.buffer.getShort((index * BYTES_PER_ELEMENT) + offset);
+        }
         return Conversions.shortBitsToUint(bits);
     }
 
@@ -137,7 +136,9 @@ public class NativeUint16Array extends NativeTypedArrayView<Integer> implements 
         double num = coerceNumber(v);
         short val = (short) (ScriptRuntime.toInt32(num) & 0xffff);
         checkAtomicIndex(index);
-        accessor.setVolatile(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        synchronized (arrayBuffer) {
+            arrayBuffer.buffer.putShort((index * BYTES_PER_ELEMENT) + offset, val);
+        }
         return num;
     }
 
@@ -146,10 +147,10 @@ public class NativeUint16Array extends NativeTypedArrayView<Integer> implements 
         checkAtomicIndex(index);
         int addr = (index * BYTES_PER_ELEMENT) + offset;
         synchronized (arrayBuffer) {
-            short old = (short) accessor.get(arrayBuffer.buffer, addr);
+            short old = arrayBuffer.buffer.getShort(addr);
             // Do math as integers because we need to handle overflow
             int r = f.apply((int) old, (int) val);
-            accessor.set(arrayBuffer.buffer, addr, (short) (r & 0xffff));
+            arrayBuffer.buffer.putShort(addr, (short) (r & 0xffff));
             return Conversions.shortBitsToUint(old);
         }
     }
@@ -185,8 +186,8 @@ public class NativeUint16Array extends NativeTypedArrayView<Integer> implements 
         checkAtomicIndex(index);
         int addr = (index * BYTES_PER_ELEMENT) + offset;
         synchronized (arrayBuffer) {
-            short old = (short) accessor.get(arrayBuffer.buffer, addr);
-            accessor.set(arrayBuffer.buffer, addr, val);
+            short old = arrayBuffer.buffer.getShort(addr);
+            arrayBuffer.buffer.putShort(addr, val);
             return Conversions.shortBitsToUint(old);
         }
     }
@@ -198,9 +199,9 @@ public class NativeUint16Array extends NativeTypedArrayView<Integer> implements 
         int addr = (index * BYTES_PER_ELEMENT) + offset;
         checkAtomicIndex(index);
         synchronized (arrayBuffer) {
-            short old = (short) accessor.get(arrayBuffer.buffer, addr);
+            short old = arrayBuffer.buffer.getShort(addr);
             if (old == expected) {
-                accessor.set(arrayBuffer.buffer, addr, replacement);
+                arrayBuffer.buffer.putShort(addr, replacement);
             }
             return Conversions.shortBitsToUint(old);
         }

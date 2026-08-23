@@ -67,11 +67,12 @@ load('testsrc/assert.js');
   assertThrows(function() { Atomics.wait(u8ca, 0, 0, 0); }, TypeError);
 })();
 
-(function TestNotifyTypeErrorNonShared() {
+(function TestNotifyNonShared() {
   var ab = new ArrayBuffer(16);
   var a = new Int32Array(ab);
 
-  assertThrows(function() { Atomics.notify(a, 0, 1); }, TypeError);
+  // Non-shared buffers cannot be waited on; notify simply returns 0
+  assertEquals(0, Atomics.notify(a, 0, 1));
 })();
 
 (function TestNotifyTypeErrorNonInteger() {
@@ -79,15 +80,22 @@ load('testsrc/assert.js');
   assertThrows(function() { Atomics.notify(new Float32Array(sab), 0, 1); }, TypeError);
 })();
 
-(function TestWaitBigInt64NotYetSupported() {
-  // BigInt64Array and BigUint64Array do not yet implement WaitSupport
+(function TestWaitBigInt64() {
+  // Only Int32Array and BigInt64Array support wait/notify
   var sab = new SharedArrayBuffer(16);
+  var u32a = new Uint32Array(sab);
   var a64 = new BigInt64Array(sab);
   var au64 = new BigUint64Array(sab);
 
-  assertThrows(function() { Atomics.wait(a64, 0, 42n, 0); }, TypeError);
+  assertThrows(function() { Atomics.wait(u32a, 0, 42, 0); }, TypeError);
+  assertThrows(function() { Atomics.notify(u32a, 0, 1); }, TypeError);
+
+  a64[0] = 42n;
+  assertEquals('timed-out', Atomics.wait(a64, 0, 42n, 0));
+  assertEquals('not-equal', Atomics.wait(a64, 0, 43n, 0));
+  assertEquals(0, Atomics.notify(a64, 0, 1));
+
   assertThrows(function() { Atomics.wait(au64, 0, 42n, 0); }, TypeError);
-  assertThrows(function() { Atomics.notify(a64, 0, 1); }, TypeError);
   assertThrows(function() { Atomics.notify(au64, 0, 1); }, TypeError);
 })();
 

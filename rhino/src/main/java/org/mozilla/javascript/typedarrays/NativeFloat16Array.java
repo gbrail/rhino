@@ -91,8 +91,7 @@ public class NativeFloat16Array extends NativeTypedArrayView<Float> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        short shortBits =
-                (short) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+        short shortBits = arrayBuffer.buffer.getShort((index * BYTES_PER_ELEMENT) + offset);
         return Conversions.shortBitsToFloat16(shortBits);
     }
 
@@ -103,7 +102,7 @@ public class NativeFloat16Array extends NativeTypedArrayView<Float> {
             return Undefined.instance;
         }
         short shortBits = Conversions.float16ToShortBits(val);
-        accessor.set(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, shortBits);
+        arrayBuffer.buffer.putShort((index * BYTES_PER_ELEMENT) + offset, shortBits);
         return null;
     }
 

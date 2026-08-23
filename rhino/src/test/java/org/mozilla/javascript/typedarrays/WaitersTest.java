@@ -91,7 +91,10 @@ public class WaitersTest {
         waiter.start();
 
         assertTrue(started.await(1, TimeUnit.SECONDS));
-        Thread.sleep(50);
+        // Poll until the waiter is enqueued
+        for (int i = 0; i < 200 && waiters.waiterCount(0) < 1; i++) {
+            Thread.sleep(5);
+        }
         int count = waiters.notify(0, 1);
         assertEquals(1, count);
 
@@ -120,7 +123,10 @@ public class WaitersTest {
         waiter.start();
 
         assertTrue(started.await(1, TimeUnit.SECONDS));
-        Thread.sleep(100);
+        // Poll until the waiter is enqueued
+        for (int i = 0; i < 200 && waiters.waiterCount(0) < 1; i++) {
+            Thread.sleep(5);
+        }
         state.set(1);
         int count = waiters.notify(0, 1);
         assertEquals(1, count);
@@ -147,7 +153,10 @@ public class WaitersTest {
         }
 
         assertTrue(started.await(1, TimeUnit.SECONDS));
-        Thread.sleep(50);
+        // Poll until all 3 waiters are enqueued
+        for (int i = 0; i < 200 && waiters.waiterCount(0) < 3; i++) {
+            Thread.sleep(5);
+        }
         int count = waiters.notify(0, 3);
         assertEquals(3, count);
 
@@ -215,7 +224,10 @@ public class WaitersTest {
         waiter.start();
 
         assertTrue(started.await(1, TimeUnit.SECONDS));
-        Thread.sleep(50);
+        // Poll until the waiter is enqueued
+        for (int i = 0; i < 200 && waiters.waiterCount(0) < 1; i++) {
+            Thread.sleep(5);
+        }
         assertEquals(0, waiters.notify(1, 1));
         assertEquals(1, waiters.notify(0, 1));
 

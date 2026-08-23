@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
+import org.mozilla.javascript.ScriptRuntime;
 
 /** This class implements the wait / notify capability of Atomics. */
 class Waiters {
@@ -102,6 +103,17 @@ class Waiters {
     public int waiterCount(int index) {
         Queue<Wtr> l = waiters.get(index);
         return l == null ? 0 : l.size();
+    }
+
+    public static int getTimeout(Object t) {
+        double d = ScriptRuntime.toNumber(t);
+        if (Double.isNaN(d) || d == Double.POSITIVE_INFINITY) {
+            return Integer.MAX_VALUE;
+        }
+        if (d == Double.NEGATIVE_INFINITY) {
+            return 0;
+        }
+        return Math.max(0, (int) d);
     }
 
     public static String resultToString(Result r) {

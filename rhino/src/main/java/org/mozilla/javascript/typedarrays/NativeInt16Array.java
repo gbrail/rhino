@@ -92,9 +92,7 @@ public class NativeInt16Array extends NativeTypedArrayView<Short> implements Ato
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        // Can't consolidate for performance
-        short s = (short) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
-        return s;
+        return arrayBuffer.buffer.getShort((index * BYTES_PER_ELEMENT) + offset);
     }
 
     @Override
@@ -103,7 +101,7 @@ public class NativeInt16Array extends NativeTypedArrayView<Short> implements Ato
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        accessor.set(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        arrayBuffer.buffer.putShort((index * BYTES_PER_ELEMENT) + offset, val);
         return null;
     }
 
@@ -125,7 +123,9 @@ public class NativeInt16Array extends NativeTypedArrayView<Short> implements Ato
     @Override
     public Object atomicLoad(int index) {
         checkAtomicIndex(index);
-        return accessor.getVolatile(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
+        synchronized (arrayBuffer) {
+            return arrayBuffer.buffer.getShort((index * BYTES_PER_ELEMENT) + offset);
+        }
     }
 
     @Override
@@ -133,18 +133,20 @@ public class NativeInt16Array extends NativeTypedArrayView<Short> implements Ato
         double num = coerceNumber(v);
         short val = (short) ScriptRuntime.toInt32(num);
         checkAtomicIndex(index);
-        accessor.setVolatile(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        synchronized (arrayBuffer) {
+            arrayBuffer.buffer.putShort((index * BYTES_PER_ELEMENT) + offset, val);
+        }
         return num;
     }
 
-    private Object mathOp(int index, Object v, BiFunction<Short, Short, Short> f) {
+    protected Object mathOp(int index, Object v, BiFunction<Short, Short, Short> f) {
         short val = Conversions.toInt16(v);
         checkAtomicIndex(index);
         int addr = (index * BYTES_PER_ELEMENT) + offset;
         synchronized (arrayBuffer) {
-            short old = (short) accessor.get(arrayBuffer.buffer, addr);
+            short old = arrayBuffer.buffer.getShort(addr);
             short r = f.apply(old, val);
-            accessor.set(arrayBuffer.buffer, addr, r);
+            arrayBuffer.buffer.putShort(addr, r);
             return old;
         }
     }
@@ -180,8 +182,8 @@ public class NativeInt16Array extends NativeTypedArrayView<Short> implements Ato
         checkAtomicIndex(index);
         int addr = (index * BYTES_PER_ELEMENT) + offset;
         synchronized (arrayBuffer) {
-            short old = (short) accessor.get(arrayBuffer.buffer, addr);
-            accessor.set(arrayBuffer.buffer, addr, val);
+            short old = arrayBuffer.buffer.getShort(addr);
+            arrayBuffer.buffer.putShort(addr, val);
             return old;
         }
     }
@@ -193,9 +195,9 @@ public class NativeInt16Array extends NativeTypedArrayView<Short> implements Ato
         int addr = (index * BYTES_PER_ELEMENT) + offset;
         checkAtomicIndex(index);
         synchronized (arrayBuffer) {
-            short old = (short) accessor.get(arrayBuffer.buffer, addr);
+            short old = arrayBuffer.buffer.getShort(addr);
             if (old == expected) {
-                accessor.set(arrayBuffer.buffer, addr, replacement);
+                arrayBuffer.buffer.putShort(addr, replacement);
             }
             return old;
         }

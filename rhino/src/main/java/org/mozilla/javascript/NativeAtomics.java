@@ -206,8 +206,14 @@ public class NativeAtomics extends ScriptableObject {
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
         var arr = getWaitable(t);
+        if (arr.isDetached()) {
+            throw ScriptRuntime.typeErrorById("msg.arraybuf.detached");
+        }
         int index = indexArg(args, 1);
         int count = countArg(args, 2);
+        if (!arr.isShared()) {
+            return 0;
+        }
         return arr.notify(index, count);
     }
 }

@@ -91,9 +91,7 @@ public class NativeFloat32Array extends NativeTypedArrayView<Float> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        // Cannot consolidate so Java will compile to a single instruction
-        float f = (float) accessor.get(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset);
-        return f;
+        return arrayBuffer.buffer.getFloat((index * BYTES_PER_ELEMENT) + offset);
     }
 
     @Override
@@ -102,7 +100,7 @@ public class NativeFloat32Array extends NativeTypedArrayView<Float> {
         if (checkIndex(index)) {
             return Undefined.instance;
         }
-        accessor.set(arrayBuffer.buffer, (index * BYTES_PER_ELEMENT) + offset, val);
+        arrayBuffer.buffer.putFloat((index * BYTES_PER_ELEMENT) + offset, val);
         return null;
     }
 
