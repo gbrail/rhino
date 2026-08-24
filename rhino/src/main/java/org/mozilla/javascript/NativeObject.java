@@ -22,12 +22,14 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 import org.mozilla.javascript.ScriptRuntime.StringIdOrIndex;
+import org.mozilla.javascript.annotations.JSStructuredCloneable;
 
 /**
  * This class implements the Object native object. See ECMA 15.2.
  *
  * @author Norris Boyd
  */
+@JSStructuredCloneable
 public class NativeObject extends ScriptableObject implements Map {
     @Serial private static final long serialVersionUID = -6345305608474346996L;
 

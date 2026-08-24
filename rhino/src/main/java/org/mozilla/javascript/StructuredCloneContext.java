@@ -29,7 +29,14 @@ public final class StructuredCloneContext {
         this.transferSet = transferSet;
     }
 
-    /** Clone {@code value}, handling primitives, cycles, and object dispatch. */
+    /**
+     * Clone {@code value}, handling primitives, cycles, and object dispatch.
+     *
+     * <p>Dispatch to a {@code ScriptableObject} requires {@link JSStructuredCloneable} somewhere in
+     * its class hierarchy; otherwise a {@code DataCloneError} is thrown. Eligible values are cloned
+     * by their {@code structuredClone} implementation, which subclasses override to preserve
+     * internal state.
+     */
     public Object clone(Object value) {
         if (value == null || Undefined.isUndefined(value)) {
             return value;
