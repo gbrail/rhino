@@ -48,6 +48,14 @@ public abstract class NativeArrayBufferView extends ScriptableObject {
         outOfRange = offset > bufferByteLength || byteOffsetEnd > bufferByteLength;
     }
 
+    public boolean isShared() {
+        return arrayBuffer.isShared();
+    }
+
+    public boolean isDetached() {
+        return arrayBuffer.isDetached();
+    }
+
     /** Return the buffer that backs this view. */
     public NativeArrayBuffer getBuffer() {
         return arrayBuffer;

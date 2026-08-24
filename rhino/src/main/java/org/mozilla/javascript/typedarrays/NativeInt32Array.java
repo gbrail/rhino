@@ -26,8 +26,7 @@ import org.mozilla.javascript.VarScope;
  * An array view that stores 32-bit quantities and implements the JavaScript "Int32Array" interface.
  * It also implements List&lt;Integer&gt; for direct manipulation in Java.
  */
-public class NativeInt32Array extends NativeTypedArrayView<Integer>
-        implements AtomicSupport, WaitSupport {
+public class NativeInt32Array extends NativeTypedArrayView<Integer> implements AtomicSupport {
     @Serial private static final long serialVersionUID = 2090724894289667699L;
 
     private static final String CLASS_NAME = "Int32Array";
@@ -58,6 +57,11 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer>
 
     public NativeInt32Array(int len) {
         this(new NativeArrayBuffer((double) len * BYTES_PER_ELEMENT), 0, len);
+    }
+
+    @Override
+    public boolean isWaitCapable() {
+        return true;
     }
 
     @Override
@@ -202,62 +206,5 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer>
             }
             return old;
         }
-    }
-
-    // Support for wait/notify
-
-    private transient volatile Waiters waiters = null;
-
-    @Override
-    public boolean isShared() {
-        return arrayBuffer.isShared();
-    }
-
-    @Override
-    public boolean isDetached() {
-        return arrayBuffer.isDetached();
-    }
-
-    @Override
-    public Object wait(int index, Object v, Object t) {
-        checkAtomicIndex(index);
-        int val = ScriptRuntime.toInt32(v);
-        int timeout = Waiters.getTimeout(t);
-        var w = getWaiters();
-        var r = w.waitSync(index, timeout, () -> readCurrent(index) == val);
-        return Waiters.resultToString(r);
-    }
-
-    @Override
-    public Object waitAsync(int index, Object val, Object timeout) {
-        throw ScriptRuntime.typeError("Not implemented yet");
-    }
-
-    @Override
-    public Object notify(int index, int count) {
-        checkAtomicIndex(index);
-        return getWaiters().notify(index, count);
-    }
-
-    /** Reads the current value at the given index. Overridden for shared buffers. */
-    protected int readCurrent(int index) {
-        synchronized (arrayBuffer) {
-            return arrayBuffer.buffer.getInt((index * BYTES_PER_ELEMENT) + offset);
-        }
-    }
-
-    // Use double-checked locking, correct because waiters is volatile
-    private Waiters getWaiters() {
-        var w = waiters;
-        if (w == null) {
-            synchronized (this) {
-                w = waiters;
-                if (w == null) {
-                    w = new Waiters();
-                    waiters = w;
-                }
-            }
-        }
-        return w;
     }
 }

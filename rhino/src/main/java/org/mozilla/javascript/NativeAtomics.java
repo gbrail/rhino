@@ -177,7 +177,8 @@ public class NativeAtomics extends ScriptableObject {
     private static Object wait(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
-        var arr = getWaitable(t);
+        var arr = getAtomics(t);
+        var waitable = getWaitable(t);
         if (!arr.isShared()) {
             throw ScriptRuntime.typeErrorById("msg.arraybuf.notsharedarraybuf");
         }
@@ -185,13 +186,14 @@ public class NativeAtomics extends ScriptableObject {
         // These have to be validated differently and in a very specific order
         Object val = objectArg(args, 2);
         Object timeout = objectArg(args, 3);
-        return arr.wait(index, val, timeout);
+        return waitable.wait(index, val, timeout);
     }
 
     private static Object waitAsync(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
-        var arr = getWaitable(t);
+        var arr = getAtomics(t);
+        var waitable = getWaitable(t);
         if (!arr.isShared()) {
             throw ScriptRuntime.typeErrorById("msg.arraybuf.notsharedarraybuf");
         }
@@ -199,21 +201,26 @@ public class NativeAtomics extends ScriptableObject {
         // These have to be validated differently and in a very specific order
         Object val = objectArg(args, 2);
         Object timeout = objectArg(args, 3);
-        return arr.waitAsync(index, val, timeout);
+        return waitable.waitAsync(index, val, timeout);
     }
 
     private static Object notify(
             Context cx, JSFunction f, Object nt, VarScope s, Object to, Object[] args) {
         Object t = objectArg(args, 0);
-        var arr = getWaitable(t);
+        var arr = getAtomics(t);
+        if (!arr.isWaitCapable()) {
+            throw ScriptRuntime.typeErrorById("msg.atomics.not.supported.array");
+        }
         if (arr.isDetached()) {
             throw ScriptRuntime.typeErrorById("msg.arraybuf.detached");
         }
+        // Again, validation has to happen in a specific order
         int index = indexArg(args, 1);
         int count = countArg(args, 2);
         if (!arr.isShared()) {
             return 0;
         }
-        return arr.notify(index, count);
+        var waitable = getWaitable(t);
+        return waitable.notify(index, count);
     }
 }

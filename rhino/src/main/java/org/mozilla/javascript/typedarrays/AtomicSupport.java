@@ -6,6 +6,21 @@ package org.mozilla.javascript.typedarrays;
  * traditional Java synchronization, or other mechanisms.
  */
 public interface AtomicSupport {
+    /** If true, backed by a shared ArrayBuffer */
+    boolean isShared();
+
+    /** If true, backing buffer has been detached */
+    boolean isDetached();
+
+    /**
+     * If true, type is capable of "wait" operations, but may not be implemented if the type is not
+     * shared. WaitSupport will be implemented if "wait" is actually supported. This basically tells
+     * us if "notify" may be called.
+     */
+    default boolean isWaitCapable() {
+        return false;
+    }
+
     Object atomicLoad(int index);
 
     Object atomicStore(int index, Object val);

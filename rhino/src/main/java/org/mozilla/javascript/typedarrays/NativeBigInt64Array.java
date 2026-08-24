@@ -27,8 +27,7 @@ import org.mozilla.javascript.VarScope;
  * An array view that stores 64-bit quantities and implements the JavaScript "BigInt64Array"
  * interface. It also implements List&lt;Double&gt; for direct manipulation in Java.
  */
-public class NativeBigInt64Array extends NativeBigIntArrayView
-        implements AtomicSupport, WaitSupport {
+public class NativeBigInt64Array extends NativeBigIntArrayView implements AtomicSupport {
     @Serial private static final long serialVersionUID = 3291575517061505304L;
 
     private static final String CLASS_NAME = "BigInt64Array";
@@ -53,6 +52,11 @@ public class NativeBigInt64Array extends NativeBigIntArrayView
 
     public NativeBigInt64Array(NativeArrayBuffer ab, int off, int len) {
         super(ab, off, len, len * BYTES_PER_ELEMENT);
+    }
+
+    @Override
+    public boolean isWaitCapable() {
+        return true;
     }
 
     public NativeBigInt64Array(int len) {
@@ -211,62 +215,5 @@ public class NativeBigInt64Array extends NativeBigIntArrayView
             }
             return BigInteger.valueOf(old);
         }
-    }
-
-    // Support for wait/notify
-
-    private transient volatile Waiters waiters = null;
-
-    @Override
-    public boolean isShared() {
-        return arrayBuffer.isShared();
-    }
-
-    @Override
-    public boolean isDetached() {
-        return arrayBuffer.isDetached();
-    }
-
-    @Override
-    public Object wait(int index, Object v, Object t) {
-        checkAtomicIndex(index);
-        long val = ScriptRuntime.toBigInt(v).longValue();
-        int timeout = Waiters.getTimeout(t);
-        var w = getWaiters();
-        var r = w.waitSync(index, timeout, () -> readCurrent(index) == val);
-        return Waiters.resultToString(r);
-    }
-
-    @Override
-    public Object waitAsync(int index, Object val, Object timeout) {
-        throw ScriptRuntime.typeError("Not implemented yet");
-    }
-
-    @Override
-    public Object notify(int index, int count) {
-        checkAtomicIndex(index);
-        return getWaiters().notify(index, count);
-    }
-
-    /** Reads the current value at the given index. Overridden for shared buffers. */
-    protected long readCurrent(int index) {
-        synchronized (arrayBuffer) {
-            return arrayBuffer.buffer.getLong((index * BYTES_PER_ELEMENT) + offset);
-        }
-    }
-
-    // Use double-checked locking, correct because waiters is volatile
-    private Waiters getWaiters() {
-        var w = waiters;
-        if (w == null) {
-            synchronized (this) {
-                w = waiters;
-                if (w == null) {
-                    w = new Waiters();
-                    waiters = w;
-                }
-            }
-        }
-        return w;
     }
 }
