@@ -50,7 +50,6 @@ import org.mozilla.javascript.debug.DebuggableObject;
  * @see org.mozilla.javascript.Scriptable
  * @author Norris Boyd
  */
-@JSStructuredCloneable
 public abstract class ScriptableObject extends SlotMapOwner<Scriptable>
         implements Scriptable,
                 SymbolScriptable,
@@ -3114,8 +3113,45 @@ public abstract class ScriptableObject extends SlotMapOwner<Scriptable>
     }
 
     /**
-     * Default structured clone implementation for plain objects. Subclasses with internal state
-     * should override this method.
+     * Clones this object as part of a {@code structuredClone()} operation.
+     *
+     * <p>This method is the behavioral half of the structured-clone contract; the {@link
+     * JSStructuredCloneable} annotation is the eligibility half. The dispatcher admits a value
+     * based on the annotation, then delegates to this method to build the actual clone. See the
+     * annotation's documentation for why a new cloneable type must provide both.
+     *
+     * <p>The default implementation realizes the plain-object case of the WHATWG algorithm: it
+     * creates a new object with {@code Object.prototype} (even when the source has a null
+     * prototype) and recursively clones the source's own enumerable string- and integer-indexed
+     * properties. Symbol-keyed properties are not copied.
+     *
+     * <p>Subclasses whose JavaScript-visible state lives in Java fields <em>must</em> override this
+     * method; the default would silently discard that state. When overriding, follow the contract
+     * used by the existing implementations ({@code NativeMap}, {@code NativeArrayBuffer}, ...):
+     *
+     * <ul>
+     *   <li>Create the target with the proper built-in prototype, typically via {@code
+     *       cx.newObject(scope, className, args)} or {@link
+     *       ScriptRuntime#setBuiltinProtoAndParent(Scriptable, VarScope, TopLevel.Builtins)}.
+     *   <li>Call {@link StructuredCloneContext#remember(Object, Object)} as soon as the target
+     *       exists, <em>before</em> cloning any member. Registering the in-progress clone first is
+     *       what makes cyclic structures terminate: a back-reference finds the partial clone in the
+     *       memory instead of recursing indefinitely.
+     *   <li>Clone every member value through {@link StructuredCloneContext#clone(Object)} rather
+     *       than copying references, so nested values are cloned consistently, cycles are shared,
+     *       and non-cloneable members raise {@code DataCloneError}.
+     *   <li>Types wrapping an {@code ArrayBuffer} must consult {@link
+     *       StructuredCloneContext#getTransferSet()}: a transferred buffer is moved to the clone,
+     *       not copied.
+     *   <li>Report clone-specific failures with {@link
+     *       StructuredCloneContext#dataCloneErrorById(String, Object...)}.
+     * </ul>
+     *
+     * @param cx the execution context
+     * @param scope the scope in which the clone is created
+     * @param ccx the per-operation context holding the cycle memory, transfer set, and error
+     *     factory
+     * @return the newly created clone; never {@code this}
      */
     public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
         // Per WHATWG: use OrdinaryCreateFromConstructor which always gives Object.prototype
