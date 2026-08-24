@@ -6,13 +6,15 @@
 
 package org.mozilla.javascript;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import org.mozilla.javascript.typedarrays.NativeArrayBuffer;
 
 /**
- * Implements the WHATWG structured clone algorithm. Entry point for {@code structuredClone(value,
- * options)}.
+ * Implements the WHATWG structured clone algorithm. Entry points: {@code structuredClone(value,
+ * options)} for JavaScript ({@link #clone}) and {@link #cloneIntoScope} for Java embeddings that
+ * need to move a graph of values into a different top-level scope.
  */
 public final class StructuredClone {
 
@@ -35,6 +37,67 @@ public final class StructuredClone {
         }
 
         StructuredCloneContext ctx = new StructuredCloneContext(cx, scope, transferSet);
+        Object result = ctx.clone(value);
+
+        // Detach all transferred buffers
+        for (NativeArrayBuffer buf : transferSet) {
+            buf.detach();
+        }
+
+        return result;
+    }
+
+    /**
+     * Clones {@code value} with the same semantics as {@link #clone}, but creates every object in
+     * the realm of {@code targetScope}: each clone's parent scope is set to the top level of {@code
+     * targetScope}, and its prototype is looked up from that top level rather than from the realm
+     * the source objects were created in.
+     *
+     * <p>This is a Java-only entry point, not exposed to JavaScript. It lets an embedding pass a
+     * graph of values between scripts running in different top-level scopes: after cloning, the
+     * graph behaves as if it had been created in the target scope, e.g. {@code instanceof} checks
+     * and prototype method resolution succeed against the target realm's built-ins.
+     *
+     * <p>All {@code ArrayBuffer}s are copied, never moved. To move buffers instead, use {@link
+     * #cloneIntoScope(Context, VarScope, Object, Collection)}.
+     *
+     * <p>Error values are re-created by looking up their type name (e.g. {@code "TypeError"}) in
+     * the target realm, so non-standard error types resolvable only in the source realm will fail
+     * to clone.
+     *
+     * @param cx the current execution context
+     * @param targetScope the top-level scope (or any scope within it) whose realm the clones are
+     *     wired into
+     * @param value the value to clone
+     * @return the cloned value
+     */
+    public static Object cloneIntoScope(Context cx, VarScope targetScope, Object value) {
+        return cloneIntoScope(cx, targetScope, value, Set.of());
+    }
+
+    /**
+     * As {@link #cloneIntoScope(Context, VarScope, Object)}, but additionally transfers the given
+     * {@code ArrayBuffer}s: their storage is moved to the clones instead of being copied, and the
+     * sources are detached once the clone succeeds. All views on a transferred buffer share the
+     * single moved buffer in the clone. A listed buffer that is not reachable from {@code value} is
+     * still detached, matching the transfer semantics of {@link #clone}; if the clone fails, no
+     * buffer is detached.
+     *
+     * @param cx the current execution context
+     * @param targetScope the top-level scope (or any scope within it) whose realm the clones are
+     *     wired into
+     * @param value the value to clone
+     * @param transfer buffers to move rather than copy
+     * @return the cloned value
+     */
+    public static Object cloneIntoScope(
+            Context cx,
+            VarScope targetScope,
+            Object value,
+            Collection<NativeArrayBuffer> transfer) {
+        TopLevel target = ScriptableObject.getTopLevelScope(targetScope);
+        Set<NativeArrayBuffer> transferSet = new HashSet<>(transfer);
+        StructuredCloneContext ctx = new StructuredCloneContext(cx, target, transferSet);
         Object result = ctx.clone(value);
 
         // Detach all transferred buffers
