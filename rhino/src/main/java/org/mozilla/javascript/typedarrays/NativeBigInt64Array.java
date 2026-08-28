@@ -91,7 +91,7 @@ public class NativeBigInt64Array extends NativeBigIntArrayView implements Atomic
                 args,
                 shared ? NativeSharedBigInt64Array::new : NativeBigInt64Array::new,
                 8,
-                TopLevel.Builtins.Uint32Array);
+                TopLevel.Builtins.BigInt64Array);
     }
 
     @Override
