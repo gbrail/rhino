@@ -126,6 +126,7 @@ class CodeGenerator<T extends ScriptOrFn<T>> {
                     FunctionNode fn = theFunction.getFunctionNode(i);
                     if (fn.getFunctionType() == FunctionNode.FUNCTION_STATEMENT) {
                         addIndexOp(Icode.CLOSURE_STMT, i);
+                        addUint8(0);
                     }
                 }
             }
@@ -284,15 +285,22 @@ class CodeGenerator<T extends ScriptOrFn<T>> {
             case Token.FUNCTION:
                 {
                     int fnIndex = node.getExistingIntProp(Node.FUNCTION_PROP);
-                    int fnType = scriptOrFn.getFunctionNode(fnIndex).getFunctionType();
+                    var fnNode = scriptOrFn.getFunctionNode(fnIndex);
+                    int fnType = fnNode.getFunctionType();
                     // Only function expressions or function expression
                     // statements need closure code creating new function
                     // object on stack as function statements are initialized
                     // at script/function start.
                     // In addition, function expressions can not be present here
                     // at statement level, they must only be present as expressions.
-                    if (fnType == FunctionNode.FUNCTION_EXPRESSION_STATEMENT) {
+                    if (fnType == FunctionNode.FUNCTION_EXPRESSION_STATEMENT
+                            || fnType == FunctionNode.FUNCTION_BLOCK_SCOPED) {
                         addIndexOp(Icode.CLOSURE_STMT, fnIndex);
+                        if (fnNode.isAnnexBHoisted()) {
+                            addUint8(1);
+                        } else {
+                            addUint8(0);
+                        }
                     } else {
                         if (fnType != FunctionNode.FUNCTION_STATEMENT) {
                             throw Kit.codeBug();
@@ -319,6 +327,7 @@ class CodeGenerator<T extends ScriptOrFn<T>> {
             case Token.LABEL:
             case Token.LOOP:
             case Token.BLOCK:
+            case Token.SCOPE_BLOCK:
             case Token.EMPTY:
             case Token.WITH:
                 updateLineNumber(node);
@@ -336,8 +345,12 @@ class CodeGenerator<T extends ScriptOrFn<T>> {
                 stackChange(-1);
                 break;
 
-            case Token.LEAVEWITH:
-                addToken(Token.LEAVEWITH);
+            case Token.ENTER_SCOPE:
+                visitEnterScope(node, child);
+                break;
+
+            case Token.LEAVE_SCOPE:
+                addToken(Token.LEAVE_SCOPE);
                 break;
 
             case Token.LOCAL_BLOCK:
@@ -559,6 +572,25 @@ class CodeGenerator<T extends ScriptOrFn<T>> {
         if (stackDepth != initialStackDepth) {
             throw Kit.codeBug();
         }
+    }
+
+    private void visitEnterScope(Node node, Node child) {
+        addToken(Token.ENTER_SCOPE);
+        stackChange(1);
+        Object[] names = (Object[]) node.getProp(Node.OBJECT_IDS_PROP);
+        int i = 0;
+        while (child != null) {
+            addIcode(Icode.DUP);
+            stackChange(1);
+            visitExpression(child, 0);
+            addStringOp(Token.SETNAME, (String) names[i]);
+            addIcode(Icode.POP);
+            stackChange(-2);
+            child = child.getNext();
+            i++;
+        }
+        addIcode(Icode.POP);
+        stackChange(-1);
     }
 
     private void visitExpression(Node node, int contextFlags) {
@@ -1187,7 +1219,17 @@ class CodeGenerator<T extends ScriptOrFn<T>> {
                     addToken(Token.ENTERWITH);
                     stackChange(-1);
                     visitExpression(with.getFirstChild(), 0);
-                    addToken(Token.LEAVEWITH);
+                    addToken(Token.LEAVE_SCOPE);
+                    break;
+                }
+
+            case Token.SCOPEEXPR:
+                {
+                    Node enterScope = node.getFirstChild();
+                    Node expr = enterScope.getNext();
+                    visitEnterScope(enterScope, enterScope.getFirstChild());
+                    visitExpression(expr.getFirstChild(), 0);
+                    addToken(Token.LEAVE_SCOPE);
                     break;
                 }
 
