@@ -41,46 +41,31 @@ class DoubleLinker implements TypeBasedGuardingDynamicLinker {
             if (req.getArguments().length > 1) {
                 arg2 = req.getArguments()[1];
             }
-            if (op.isOperation(RhinoOperation.ADD) && arg2 instanceof Double) {
-                mh = lookup.findStatic(DoubleLinker.class, "add", mType);
+            if (op.isOperation(RhinoOperation.ADD)
+                    && (arg2 instanceof Double || arg2 instanceof Integer)) {
+                mh = lookup.findStatic(DoubleLinker.class, "addNum", mType);
                 MethodType guardType = mType.changeReturnType(Boolean.TYPE);
-                guard = lookup.findStatic(DoubleLinker.class, "testAdd", guardType);
-            } else if (op.isOperation(RhinoOperation.ADD) && arg2 instanceof Integer) {
-                mh = lookup.findStatic(DoubleLinker.class, "addInt", mType);
-                MethodType guardType = mType.changeReturnType(Boolean.TYPE);
-                guard = lookup.findStatic(DoubleLinker.class, "testAddInt", guardType);
+                guard = lookup.findStatic(DoubleLinker.class, "testNum", guardType);
             } else if (op.isOperation(RhinoOperation.EQ, RhinoOperation.SHALLOWEQ)
-                    && arg2 instanceof Double) {
-                mh = lookup.findStatic(DoubleLinker.class, "eq", mType);
-                guard = lookup.findStatic(DoubleLinker.class, "testTwo", mType);
-            } else if (op.isOperation(RhinoOperation.EQ, RhinoOperation.SHALLOWEQ)
-                    && arg2 instanceof Integer) {
-                mh = lookup.findStatic(DoubleLinker.class, "eqInt", mType);
-                guard = lookup.findStatic(DoubleLinker.class, "testTwoInt", mType);
-            } else if (op.isOperation(RhinoOperation.COMPARE_LT) && arg2 instanceof Double) {
-                mh = lookup.findStatic(DoubleLinker.class, "compareLT", mType);
-                guard = lookup.findStatic(DoubleLinker.class, "testTwo", mType);
-            } else if (op.isOperation(RhinoOperation.COMPARE_GT) && arg2 instanceof Double) {
-                mh = lookup.findStatic(DoubleLinker.class, "compareGT", mType);
-                guard = lookup.findStatic(DoubleLinker.class, "testTwo", mType);
-            } else if (op.isOperation(RhinoOperation.COMPARE_LE) && arg2 instanceof Double) {
-                mh = lookup.findStatic(DoubleLinker.class, "compareLE", mType);
-                guard = lookup.findStatic(DoubleLinker.class, "testTwo", mType);
-            } else if (op.isOperation(RhinoOperation.COMPARE_GE) && arg2 instanceof Double) {
-                mh = lookup.findStatic(DoubleLinker.class, "compareGE", mType);
-                guard = lookup.findStatic(DoubleLinker.class, "testTwo", mType);
-            } else if (op.isOperation(RhinoOperation.COMPARE_LT) && arg2 instanceof Integer) {
-                mh = lookup.findStatic(DoubleLinker.class, "compareLTInt", mType);
-                guard = lookup.findStatic(DoubleLinker.class, "testTwoInt", mType);
-            } else if (op.isOperation(RhinoOperation.COMPARE_GT) && arg2 instanceof Integer) {
-                mh = lookup.findStatic(DoubleLinker.class, "compareGTInt", mType);
-                guard = lookup.findStatic(DoubleLinker.class, "testTwoInt", mType);
-            } else if (op.isOperation(RhinoOperation.COMPARE_LE) && arg2 instanceof Integer) {
-                mh = lookup.findStatic(DoubleLinker.class, "compareLEInt", mType);
-                guard = lookup.findStatic(DoubleLinker.class, "testTwoInt", mType);
-            } else if (op.isOperation(RhinoOperation.COMPARE_GE) && arg2 instanceof Integer) {
-                mh = lookup.findStatic(DoubleLinker.class, "compareGEInt", mType);
-                guard = lookup.findStatic(DoubleLinker.class, "testTwoInt", mType);
+                    && (arg2 instanceof Double || arg2 instanceof Integer)) {
+                mh = lookup.findStatic(DoubleLinker.class, "eqNum", mType);
+                guard = lookup.findStatic(DoubleLinker.class, "testTwoNum", mType);
+            } else if (op.isOperation(RhinoOperation.COMPARE_LT)
+                    && (arg2 instanceof Double || arg2 instanceof Integer)) {
+                mh = lookup.findStatic(DoubleLinker.class, "compareLTNum", mType);
+                guard = lookup.findStatic(DoubleLinker.class, "testTwoNum", mType);
+            } else if (op.isOperation(RhinoOperation.COMPARE_GT)
+                    && (arg2 instanceof Double || arg2 instanceof Integer)) {
+                mh = lookup.findStatic(DoubleLinker.class, "compareGTNum", mType);
+                guard = lookup.findStatic(DoubleLinker.class, "testTwoNum", mType);
+            } else if (op.isOperation(RhinoOperation.COMPARE_LE)
+                    && (arg2 instanceof Double || arg2 instanceof Integer)) {
+                mh = lookup.findStatic(DoubleLinker.class, "compareLENum", mType);
+                guard = lookup.findStatic(DoubleLinker.class, "testTwoNum", mType);
+            } else if (op.isOperation(RhinoOperation.COMPARE_GE)
+                    && (arg2 instanceof Double || arg2 instanceof Integer)) {
+                mh = lookup.findStatic(DoubleLinker.class, "compareGENum", mType);
+                guard = lookup.findStatic(DoubleLinker.class, "testTwoNum", mType);
             } else if (op.isOperation(RhinoOperation.TOBOOLEAN)) {
                 mh = lookup.findStatic(DoubleLinker.class, "toBoolean", mType);
                 guard = Guards.getInstanceOfGuard(Double.class);
@@ -110,84 +95,51 @@ class DoubleLinker implements TypeBasedGuardingDynamicLinker {
         return null;
     }
 
+    /**
+     * The RHS may be either a Double or an Integer. Both are accepted so that a call site whose
+     * operand flips between the two representations does not need to be re-linked.
+     */
     @SuppressWarnings("unused")
-    private static boolean testAdd(Object lval, Object rval, Context cx) {
-        return lval instanceof Double && rval instanceof Double;
+    private static boolean testNum(Object lval, Object rval, Context cx) {
+        return lval instanceof Double && (rval instanceof Double || rval instanceof Integer);
     }
 
     @SuppressWarnings("unused")
-    private static Object add(Object lval, Object rval, Context cx) {
+    private static Object addNum(Object lval, Object rval, Context cx) {
+        if (rval instanceof Integer) {
+            return ((Double) lval) + ((Integer) rval);
+        }
         return ((Double) lval) + ((Double) rval);
     }
 
     @SuppressWarnings("unused")
-    private static boolean testAddInt(Object lval, Object rval, Context cx) {
-        return lval instanceof Double && rval instanceof Integer;
+    private static boolean testTwoNum(Object lval, Object rval) {
+        return lval instanceof Double && (rval instanceof Double || rval instanceof Integer);
     }
 
     @SuppressWarnings("unused")
-    private static Object addInt(Object lval, Object rval, Context cx) {
-        return (Double) lval + (Integer) rval;
+    private static boolean eqNum(Object lval, Object rval) {
+        return ((Double) lval).doubleValue() == ((Number) rval).doubleValue();
     }
 
     @SuppressWarnings("unused")
-    private static boolean testTwo(Object lval, Object rval) {
-        return lval instanceof Double && rval instanceof Double;
+    private static boolean compareLTNum(Object lval, Object rval) {
+        return ((Double) lval).doubleValue() < ((Number) rval).doubleValue();
     }
 
     @SuppressWarnings("unused")
-    private static boolean testTwoInt(Object lval, Object rval) {
-        return lval instanceof Double && rval instanceof Integer;
+    private static boolean compareGTNum(Object lval, Object rval) {
+        return ((Double) lval).doubleValue() > ((Number) rval).doubleValue();
     }
 
     @SuppressWarnings("unused")
-    private static boolean eq(Object lval, Object rval) {
-        return ((Double) lval).doubleValue() == ((Double) rval).doubleValue();
+    private static boolean compareLENum(Object lval, Object rval) {
+        return ((Double) lval).doubleValue() <= ((Number) rval).doubleValue();
     }
 
     @SuppressWarnings("unused")
-    private static boolean eqInt(Object lval, Object rval) {
-        return ((Double) lval) == ((Integer) rval).doubleValue();
-    }
-
-    @SuppressWarnings("unused")
-    private static boolean compareLT(Object lval, Object rval) {
-        return ((Double) lval) < ((Double) rval);
-    }
-
-    @SuppressWarnings("unused")
-    private static boolean compareGT(Object lval, Object rval) {
-        return ((Double) lval) > ((Double) rval);
-    }
-
-    @SuppressWarnings("unused")
-    private static boolean compareLE(Object lval, Object rval) {
-        return ((Double) lval) <= ((Double) rval);
-    }
-
-    @SuppressWarnings("unused")
-    private static boolean compareGE(Object lval, Object rval) {
-        return ((Double) lval) >= ((Double) rval);
-    }
-
-    @SuppressWarnings("unused")
-    private static boolean compareLTInt(Object lval, Object rval) {
-        return ((Double) lval) < ((Integer) rval).doubleValue();
-    }
-
-    @SuppressWarnings("unused")
-    private static boolean compareGTInt(Object lval, Object rval) {
-        return ((Double) lval) > ((Integer) rval).doubleValue();
-    }
-
-    @SuppressWarnings("unused")
-    private static boolean compareLEInt(Object lval, Object rval) {
-        return ((Double) lval) <= ((Integer) rval).doubleValue();
-    }
-
-    @SuppressWarnings("unused")
-    private static boolean compareGEInt(Object lval, Object rval) {
-        return ((Double) lval) >= ((Integer) rval).doubleValue();
+    private static boolean compareGENum(Object lval, Object rval) {
+        return ((Double) lval).doubleValue() >= ((Number) rval).doubleValue();
     }
 
     @SuppressWarnings("unused")
