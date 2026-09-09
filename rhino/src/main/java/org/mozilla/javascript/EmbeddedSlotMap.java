@@ -100,6 +100,33 @@ public class EmbeddedSlotMap<T extends PropHolder<T>> implements SlotMap<T> {
     }
 
     /**
+     * Fast query for a non-null String key. This is a specialized version of {@link #query(Object,
+     * int)} that skips the null/hasIndex checks, allowing the caller (which already knows the key
+     * is a non-null String) to avoid those branches. Package-private so the common {@code
+     * get(String, T)} path can call it directly on a receiver whose static type is {@code
+     * EmbeddedSlotMap}, letting the JIT devirtualize and inline the bucket scan.
+     */
+    Slot<T> queryFast(String key) {
+        Slot<T>[] slots = this.slots;
+        if (slots == null) {
+            return null;
+        }
+        int indexOrHash = key.hashCode();
+        Slot<T> slot = slots[getSlotIndex(slots.length, indexOrHash)];
+        while (slot != null) {
+            if (slot instanceof StandardSlot) {
+                if (((StandardSlot<T>) slot).keyMatchesFast(key, indexOrHash)) {
+                    return slot;
+                }
+            } else if (slot.keyMatches(key, indexOrHash)) {
+                return slot;
+            }
+            slot = slot.next;
+        }
+        return null;
+    }
+
+    /**
      * Locate the slot with given name or index, and create a new one if necessary.
      *
      * @param key either a String or a Symbol object that identifies the property

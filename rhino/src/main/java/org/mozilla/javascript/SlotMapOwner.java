@@ -448,7 +448,15 @@ public abstract class SlotMapOwner<T extends PropHolder<T>> implements PropHolde
      */
     @Override
     public Object get(String name, T start) {
-        var slot = getMap().query(name, 0);
+        SlotMap<T> map = slotMap;
+        if (map instanceof EmbeddedSlotMap<T> esm) {
+            Slot<T> slot = esm.queryFast(name);
+            if (slot == null) {
+                return Scriptable.NOT_FOUND;
+            }
+            return slot.getValue(start);
+        }
+        var slot = map.query(name, 0);
         if (slot == null) {
             return Scriptable.NOT_FOUND;
         }
