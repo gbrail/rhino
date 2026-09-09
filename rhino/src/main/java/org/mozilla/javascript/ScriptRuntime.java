@@ -6297,6 +6297,10 @@ public class ScriptRuntime {
             this.name = name;
         }
 
+        public static LookupResult newLookupResult(Object result, Scriptable thisObj, Object name) {
+            return new LookupResult(result, thisObj, name);
+        }
+
         public Object getResult() {
             return result;
         }
