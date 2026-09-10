@@ -67,9 +67,11 @@ public final class DoubleConversion {
     }
 
     public static int doubleToInt32(double x) {
-        int i = (int) x;
-        if ((double) i == x) {
-            return i;
+        // Fast path: if |x| < 2^31 (or x is NaN/zero/subnormal), ToInt32(x) == (int) x
+        // (truncation toward zero). This covers the common `| 0` idiom, including
+        // fractional values, without touching the slow path.
+        if (Math.getExponent(x) <= 30) {
+            return (int) x;
         }
         long d64 = Double.doubleToLongBits(x);
         int exponent = exponent(d64);
