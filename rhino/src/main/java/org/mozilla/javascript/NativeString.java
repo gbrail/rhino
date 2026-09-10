@@ -173,9 +173,6 @@ final class NativeString extends ScriptableObject {
 
     NativeString(CharSequence s) {
         string = s;
-        // This needs to happen right here because ScriptRuntime sometimes
-        // constructs strings directly without using the JS constructor.
-        defineProperty("length", s::length, null, DONTENUM | READONLY | PERMANENT);
     }
 
     @Override
@@ -523,25 +520,91 @@ final class NativeString extends ScriptableObject {
     }
 
     @Override
+    public Object get(String name, Scriptable start) {
+        if ("length".equals(name)) {
+            return string.length();
+        }
+        return super.get(name, start);
+    }
+
+    @Override
+    public boolean has(String name, Scriptable start) {
+        if ("length".equals(name)) {
+            return true;
+        }
+        return super.has(name, start);
+    }
+
+    @Override
+    public int getAttributes(String name) {
+        if ("length".equals(name)) {
+            return DONTENUM | READONLY | PERMANENT;
+        }
+        return super.getAttributes(name);
+    }
+
+    @Override
+    public void setAttributes(String name, int attributes) {
+        if ("length".equals(name)) {
+            return;
+        }
+        super.setAttributes(name, attributes);
+    }
+
+    @Override
+    public void delete(String name) {
+        if ("length".equals(name)) {
+            Context cx = Context.getContext();
+            if (cx != null && cx.isStrictMode()) {
+                throw ScriptRuntime.typeErrorById(
+                        "msg.delete.property.with.configurable.false", name);
+            }
+            return;
+        }
+        super.delete(name);
+    }
+
+    @Override
+    protected boolean putOwnProperty(String name, Scriptable start, Object value, boolean isThrow) {
+        if ("length".equals(name)) {
+            if (isThrow) {
+                throw ScriptRuntime.typeErrorById("msg.modify.readonly", name);
+            }
+            return true;
+        }
+        return super.putOwnProperty(name, start, value, isThrow);
+    }
+
+    @Override
     protected Object[] getIds(
             CompoundOperationMap<Scriptable> map, boolean nonEnumerable, boolean getSymbols) {
-        // In ES6, Strings have entries in the property map for each character.
         Context cx = Context.getCurrentContext();
-        if ((cx != null) && (cx.getLanguageVersion() >= Context.VERSION_ES6)) {
-            Object[] sids = super.getIds(map, nonEnumerable, getSymbols);
-            Object[] a = new Object[sids.length + string.length()];
-            int i;
-            for (i = 0; i < string.length(); i++) {
-                a[i] = i;
-            }
-            System.arraycopy(sids, 0, a, i, sids.length);
-            return a;
+        boolean es6 = (cx != null) && (cx.getLanguageVersion() >= Context.VERSION_ES6);
+        Object[] sids = super.getIds(map, nonEnumerable, getSymbols);
+        int extra = (es6 ? string.length() : 0) + (nonEnumerable ? 1 : 0);
+        if (extra == 0) {
+            return sids;
         }
-        return super.getIds(map, nonEnumerable, getSymbols);
+        Object[] a = new Object[sids.length + extra];
+        int i = 0;
+        if (es6) {
+            for (int index = 0; index < string.length(); index++) {
+                a[i++] = index;
+            }
+        }
+        if (nonEnumerable) {
+            a[i++] = "length";
+        }
+        System.arraycopy(sids, 0, a, i, sids.length);
+        return a;
     }
 
     @Override
     protected ScriptableObject.DescriptorInfo getOwnPropertyDescriptor(Context cx, Object id) {
+        if ("length".equals(id)) {
+            return new ScriptableObject.DescriptorInfo(
+                    false, false, false, NOT_FOUND, NOT_FOUND, string.length());
+        }
         if (!(id instanceof Symbol)
                 && (cx != null)
                 && (cx.getLanguageVersion() >= Context.VERSION_ES6)) {
