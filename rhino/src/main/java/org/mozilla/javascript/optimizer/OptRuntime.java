@@ -269,6 +269,10 @@ public final class OptRuntime extends ScriptRuntime {
         throw new JavaScriptException(si, "", 0);
     }
 
+    public static Object generatorReturnResult(Object genState) {
+        return ES6Generator.GeneratorReturnResult.forValue(getGeneratorReturnValue(genState));
+    }
+
     public static Scriptable createNativeGenerator(
             Context cx,
             VarScope scope,

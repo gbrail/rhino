@@ -126,7 +126,13 @@ public final class NativeGenerator extends ScriptableObject {
                 if (locked) throw ScriptRuntime.typeErrorById("msg.already.exec.gen");
                 locked = true;
             }
-            return function.resumeGenerator(cx, scope, operation, savedState, value);
+            Object r = function.resumeGenerator(cx, scope, operation, savedState, value);
+            if (r instanceof ES6Generator.GeneratorReturnResult) {
+                // Older generator consumers expect StopIteration to be thrown
+                // when the generator completes.
+                org.mozilla.javascript.optimizer.OptRuntime.throwStopIteration(scope, savedState);
+            }
+            return r;
         } catch (GeneratorClosedException e) {
             // On closing a generator in the compile path, the generator
             // throws a special exception. This ensures execution of all pending

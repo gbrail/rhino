@@ -15,6 +15,7 @@ import java.io.Serial;
 import java.text.Collator;
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IllformedLocaleException;
 import java.util.List;
@@ -581,21 +582,68 @@ final class NativeString extends ScriptableObject {
         Context cx = Context.getCurrentContext();
         boolean es6 = (cx != null) && (cx.getLanguageVersion() >= Context.VERSION_ES6);
         Object[] sids = super.getIds(map, nonEnumerable, getSymbols);
-        int extra = (es6 ? string.length() : 0) + (nonEnumerable ? 1 : 0);
-        if (extra == 0) {
-            return sids;
+        if (!es6) {
+            if (!nonEnumerable) {
+                return sids;
+            }
+            Object[] a = new Object[sids.length + 1];
+            a[0] = "length";
+            System.arraycopy(sids, 0, a, 1, sids.length);
+            return a;
         }
-        Object[] a = new Object[sids.length + extra];
-        int i = 0;
-        if (es6) {
-            for (int index = 0; index < string.length(); index++) {
-                a[i++] = index;
+
+        int stringLength = string.length();
+        int extraIndexCount = 0;
+        int otherCount = 0;
+        for (Object id : sids) {
+            if (id instanceof Symbol) {
+                otherCount++;
+                continue;
+            }
+            StringIdOrIndex idOrIndex = ScriptRuntime.toStringIdOrIndex(id);
+            if (idOrIndex.stringId == null) {
+                // Indices below the string length are provided virtually. Higher
+                // index properties must be merged into the sorted index sequence.
+                if (idOrIndex.index >= stringLength) {
+                    extraIndexCount++;
+                }
+            } else if (!"length".equals(idOrIndex.stringId)) {
+                otherCount++;
             }
         }
-        if (nonEnumerable) {
-            a[i++] = "length";
+
+        Object[] a =
+                new Object[stringLength + extraIndexCount + (nonEnumerable ? 1 : 0) + otherCount];
+        int i = 0;
+        for (int index = 0; index < stringLength; index++) {
+            a[i++] = index;
         }
-        System.arraycopy(sids, 0, a, i, sids.length);
+
+        Object[] extraIndices = extraIndexCount == 0 ? null : new Object[extraIndexCount];
+        int extraIndexPos = 0;
+        int otherPos = i + extraIndexCount + (nonEnumerable ? 1 : 0);
+        for (Object id : sids) {
+            if (id instanceof Symbol) {
+                a[otherPos++] = id;
+                continue;
+            }
+            StringIdOrIndex idOrIndex = ScriptRuntime.toStringIdOrIndex(id);
+            if (idOrIndex.stringId == null) {
+                if (idOrIndex.index >= stringLength) {
+                    extraIndices[extraIndexPos++] = idOrIndex.index;
+                }
+            } else if (!"length".equals(idOrIndex.stringId)) {
+                a[otherPos++] = id;
+            }
+        }
+
+        if (extraIndices != null) {
+            Arrays.sort(extraIndices);
+            System.arraycopy(extraIndices, 0, a, stringLength, extraIndexCount);
+        }
+        if (nonEnumerable) {
+            a[stringLength + extraIndexCount] = "length";
+        }
         return a;
     }
 

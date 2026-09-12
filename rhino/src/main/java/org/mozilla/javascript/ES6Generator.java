@@ -252,7 +252,11 @@ public final class ES6Generator extends ScriptableObject {
                     function.resumeGenerator(
                             cx, scope, NativeGenerator.GENERATOR_SEND, savedState, value);
 
-            if (r instanceof YieldStarResult) {
+            if (r instanceof GeneratorReturnResult) {
+                state = State.COMPLETED;
+                ScriptableObject.putProperty(
+                        result, ES6Iterator.VALUE_PROPERTY, ((GeneratorReturnResult) r).getValue());
+            } else if (r instanceof YieldStarResult) {
                 // This special result tells us that we are executing a "yield *"
                 state = State.SUSPENDED_YIELD;
                 YieldStarResult ysResult = (YieldStarResult) r;
@@ -275,9 +279,9 @@ public final class ES6Generator extends ScriptableObject {
                     state = State.COMPLETED;
                 }
                 return delResult;
+            } else {
+                ScriptableObject.putProperty(result, ES6Iterator.VALUE_PROPERTY, r);
             }
-
-            ScriptableObject.putProperty(result, ES6Iterator.VALUE_PROPERTY, r);
 
         } catch (NativeGenerator.GeneratorClosedException gce) {
             state = State.COMPLETED;
@@ -346,9 +350,15 @@ public final class ES6Generator extends ScriptableObject {
 
         try {
             Object r = function.resumeGenerator(cx, scope, op, savedState, throwValue);
-            ScriptableObject.putProperty(result, ES6Iterator.VALUE_PROPERTY, r);
-            // If we get here without an exception we can still run.
-            state = State.SUSPENDED_YIELD;
+            if (r instanceof GeneratorReturnResult) {
+                state = State.COMPLETED;
+                ScriptableObject.putProperty(
+                        result, ES6Iterator.VALUE_PROPERTY, ((GeneratorReturnResult) r).getValue());
+            } else {
+                ScriptableObject.putProperty(result, ES6Iterator.VALUE_PROPERTY, r);
+                // If we get here without an exception we can still run.
+                state = State.SUSPENDED_YIELD;
+            }
 
         } catch (NativeGenerator.GeneratorClosedException gce) {
             state = State.COMPLETED;
@@ -420,6 +430,25 @@ public final class ES6Generator extends ScriptableObject {
 
         Object getResult() {
             return result;
+        }
+    }
+
+    public static final class GeneratorReturnResult {
+        private static final GeneratorReturnResult UNDEFINED =
+                new GeneratorReturnResult(Undefined.instance);
+
+        private final Object value;
+
+        public GeneratorReturnResult(Object value) {
+            this.value = value;
+        }
+
+        public static GeneratorReturnResult forValue(Object value) {
+            return Undefined.isUndefined(value) ? UNDEFINED : new GeneratorReturnResult(value);
+        }
+
+        public Object getValue() {
+            return value;
         }
     }
 }

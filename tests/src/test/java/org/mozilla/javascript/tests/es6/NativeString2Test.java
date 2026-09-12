@@ -33,6 +33,24 @@ public class NativeString2Test {
     }
 
     @Test
+    public void getOwnPropertyNamesOrdersIndicesBeforeLength() {
+        String js =
+                "var str = new String('abc');\n"
+                        + "str[5] = 'de';\n"
+                        + "Object.getOwnPropertyNames(str).join(',');";
+        Utils.assertWithAllModes_ES6("0,1,2,5,length", js);
+    }
+
+    @Test
+    public void keysIncludesVirtualAndExtraIndices() {
+        String js =
+                "var str = new String('abc');\n"
+                        + "str[5] = 'de';\n"
+                        + "Object.keys(str).join(',');";
+        Utils.assertWithAllModes_ES6("0,1,2,5", js);
+    }
+
+    @Test
     public void normalizeNoParam() {
         Utils.assertWithAllModes("123", "'123'.normalize()");
     }

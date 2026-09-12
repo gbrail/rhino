@@ -591,12 +591,11 @@ class BodyCodegen {
             // change state for re-entry
             generateSetGeneratorResumptionPoint(GENERATOR_TERMINATE);
 
-            // throw StopIteration. Needs scope as well as the generator state
-            cfw.addALoad(variableObjectLocal);
+            // Return a sentinel value to the generator resume call site. The
+            // wrapper converts it into the appropriate completion protocol
+            // without throwing StopIteration on the common path.
             cfw.addALoad(generatorStateLocal);
-            addOptRuntimeInvoke("throwStopIteration", "(Ljava/lang/Object;Ljava/lang/Object;)V");
-
-            Codegen.pushUndefined(cfw);
+            addOptRuntimeInvoke("generatorReturnResult", "(Ljava/lang/Object;)Ljava/lang/Object;");
             cfw.add(ByteCode.ARETURN);
 
         } else if (hasVarsInRegs) {
