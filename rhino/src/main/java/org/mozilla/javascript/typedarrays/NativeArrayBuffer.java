@@ -379,26 +379,23 @@ public class NativeArrayBuffer extends ScriptableObject {
             throw ccx.dataCloneErrorById("msg.clone.arraybuf.detached");
         }
 
-        // Check if this buffer is in the transfer set
-        if (ccx.getTransferSet().contains(this)) {
-            // Transfer: move the byte array, source will be detached after clone
-            NativeArrayBuffer target = new NativeArrayBuffer();
-            target.buffer = this.buffer;
-            target.maxByteLength = this.maxByteLength;
-            ScriptRuntime.setBuiltinProtoAndParent(target, scope, TopLevel.Builtins.ArrayBuffer);
-            ccx.remember(this, target);
-            return target;
-        }
-
-        // Clone: copy the byte array
-        int len = getLength();
-        NativeArrayBuffer target = new NativeArrayBuffer(len);
-        if (maxByteLength >= 0) {
-            target.maxByteLength = maxByteLength;
-        }
-        System.arraycopy(buffer, 0, target.buffer, 0, len);
+        NativeArrayBuffer target = new NativeArrayBuffer();
+        target.maxByteLength = this.maxByteLength;
         ScriptRuntime.setBuiltinProtoAndParent(target, scope, TopLevel.Builtins.ArrayBuffer);
         ccx.remember(this, target);
+
+        if (ccx.getTransferSet().contains(this)) {
+            // Transfer: move the byte array, source will be detached after clone
+            target.buffer = this.buffer;
+            detach();
+        } else {
+            // Clone: copy the byte array
+            var tmp = buffer.duplicate();
+            target.buffer = allocateBuffer(tmp.limit());
+            target.buffer.put(tmp);
+            target.buffer.rewind();
+        }
+
         return target;
     }
 }
