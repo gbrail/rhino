@@ -8,11 +8,7 @@ import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.util.ArrayDeque;
 import java.util.PriorityQueue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
@@ -22,14 +18,18 @@ import java.util.function.LongSupplier;
  *
  * <p>This class owns the context's microtask queue, the unhandled promise rejection tracker, and
  * the FinalizationRegistry reference queue. It also supports timed tasks: tasks that are run a
- * given number of milliseconds after they are scheduled.
+ * given time after they are scheduled.
  *
- * <p>Tasks run on the thread associated with the context, and the queue's local state is not
- * thread-safe. The "schedule" methods and the pump methods ("processPending", "timeToNextTask",
- * "awaitNextTask") must be called from the context's thread. The "post" methods are safe to call
- * from any thread: a post from the context's thread goes directly to the local queue, while a post
- * from another thread is placed in a thread-safe inbox that the context's thread migrates when it
- * next pumps the queue. A post from another thread wakes a thread blocked in "awaitNextTask".
+ * <p>The queue is not thread-safe and must be used from a single thread, the thread associated with
+ * the context, which is also the thread on which tasks run. If an event on another thread must
+ * result in a task running, it is the application's responsibility to wake the thread that pumps
+ * the queue, for example by interrupting it, and to schedule the task once it runs.
+ *
+ * <p>Applications that use timers or need integration with an event loop must call {@link
+ * #runTasks} to ensure that all tasks are executed. A simple application may simply call {@link
+ * #runAllTasks}, which will run until all scheduled timers have executed, even if this takes
+ * forever. A more sophisticated application may instead loop on {@link #runTasks} and block using
+ * another mechanism in order to incorporate events from other event loops.
  */
 public class TaskQueue {
     private final Context context;
@@ -43,10 +43,6 @@ public class TaskQueue {
     private long sequence = 0;
     private LongSupplier clock = System::currentTimeMillis;
 
-    private final ConcurrentLinkedQueue<InboxTask> inbox = new ConcurrentLinkedQueue<>();
-    private final ReentrantLock lock = new ReentrantLock();
-    private final Condition signalled = lock.newCondition();
-
     TaskQueue(Context context) {
         this.context = context;
     }
@@ -54,20 +50,21 @@ public class TaskQueue {
     /**
      * Add a task that will be executed at the end of the current operation. The various "evaluate"
      * functions will all call this before exiting to ensure that all microtasks run to completion.
-     * Otherwise, callers should call "processMicrotasks" to run them all. This feature is primarily
-     * used to implement Promises. The microtask queue is not thread-safe.
+     * Otherwise, callers should call "processMicrotasks" to run them all.
      */
     public void enqueueMicrotask(Runnable task) {
         microtasks.add(task);
     }
 
     /**
-     * Run all the microtasks for the current context to completion. This is called by the various
-     * "evaluate" functions. Frameworks that call Function objects directly should call this
-     * function to ensure that everything completes if they want all Promises to eventually resolve.
-     * This function is idempotent, but the microtask queue is not thread-safe. If references are
-     * registered using a FinalizationRegistry, finalization callbacks will be called in this method
-     * as well.
+     * Run all the microtasks for the current context to completion without blocking for any timers
+     * that may be ready to fire. This is called by the various "evaluate" functions. Frameworks
+     * that call Function objects directly should call this function to ensure that everything
+     * completes if they want all Promises to eventually resolve. This function is idempotent, but
+     * the microtask queue is not thread-safe. If references are registered using a
+     * FinalizationRegistry, finalization callbacks will be called in this method as well.
+     *
+     * <p>This method does not run scheduled timers; call {@link #runTasks} for that.
      *
      * <p>Nothing will happen if suspendMicrotaskProcessing was called.
      *
@@ -131,237 +128,127 @@ public class TaskQueue {
 
     /**
      * Replace the clock used to compute the deadlines of scheduled tasks. The default is {@link
-     * System#currentTimeMillis()}. Tests may install a virtual clock so that tasks can be made due
-     * deterministically. Deadlines are absolute values in the clock's time base, so the clock
-     * should be installed before scheduling tasks.
+     * System#currentTimeMillis()}. Tests that wish to override the clock must set this before
+     * scheduling any timers. The clock is only used to compute task deadlines; {@link #runAllTasks}
+     * always sleeps in real time, so it must not be used together with a custom clock.
      */
     public void setClock(LongSupplier clock) {
         this.clock = clock;
     }
 
     /**
-     * Schedule a task to run after "delayMillis" milliseconds. If the delay is zero or negative,
-     * the task is immediately eligible to run. Tasks become eligible in order of their deadline,
-     * with ties broken in the order they were scheduled. The task is invoked on the context's
-     * thread, which has the context set on it at that time, and the context is passed to the task.
+     * Schedule a task to run after "delay". If the delay is zero or negative, the task is
+     * immediately eligible to run. A delay so large that its deadline overflows results in a task
+     * that is never due. This method must be called from the thread that runs the queue.
      *
-     * <p>Must be called from the context's thread; to post a task from another thread, use {@link
-     * #post(Consumer, long)} instead.
+     * <p>Scheduled tasks will not be executed unless {@link #runTasks} or {@link #runAllTasks} is
+     * called.
      *
      * @return a handle that can be used to cancel the task before it runs
      */
-    public Task schedule(Consumer<Context> task, long delayMillis) {
-        // Prevent a wraparound past Long.MAX_VALUE.
-        long deadline = Math.max(clock.getAsLong() + Math.max(0, delayMillis), 0);
-        var s =
-                new Scheduled(task, deadline, ++sequence, new AtomicReference<>(State.PENDING));
+    public Task schedule(Consumer<Context> task, long delay, TimeUnit unit) {
+        long delayMs;
+        if (delay <= 0) {
+            // A zero or negative delay is immediately eligible to run.
+            delayMs = 0;
+        } else {
+            delayMs = unit.toMillis(delay);
+        }
+        long now = clock.getAsLong();
+        long deadline;
+        if (delayMs <= 0) {
+            deadline = now;
+        } else if (now > Long.MAX_VALUE - delayMs) {
+            // The deadline would overflow; the task is never due.
+            deadline = Long.MAX_VALUE;
+        } else {
+            deadline = now + delayMs;
+        }
+        var s = new Scheduled(task, deadline, ++sequence);
         scheduled.add(s);
         return new Task(s);
     }
 
-    /** Schedule a task that is immediately eligible to run. */
-    public Task schedule(Consumer<Context> task) {
-        return schedule(task, 0);
-    }
-
     /**
-     * Post a task to this queue, from any thread. If called from the context's thread, the task
-     * goes directly to the local queue; otherwise it is placed in the inbox and migrated when the
-     * context's thread next pumps the queue. A post from another thread wakes a thread blocked in
-     * {@link #awaitNextTask(long)}. The task is invoked on the context's thread, which has the
-     * context set on it at that time, and the context is passed to the task.
+     * Run all tasks that are due without blocking: timers whose deadline has arrived, microtasks,
+     * and finalization callbacks. Timers run in order of their deadlines, with a microtask
+     * checkpoint after each one, so a microtask scheduled by a timer runs before the next timer. A
+     * timer that schedules another timer that is already due, for example with a zero delay, is
+     * also run by this call.
      *
-     * @return a handle that can be used to cancel the task before it runs
-     */
-    public Task post(Consumer<Context> task, long delayMillis) {
-        if (Context.getCurrentContext() == context) {
-            return schedule(task, delayMillis);
-        }
-        long deadline = clock.getAsLong() + Math.max(0, delayMillis);
-        InboxTask in = new InboxTask(task, deadline);
-        inbox.add(in);
-        lock.lock();
-        try {
-            signalled.signal();
-        } finally {
-            lock.unlock();
-        }
-        return new Task(in);
-    }
-
-    /** Post a task that is immediately eligible to run, from any thread. */
-    public Task post(Consumer<Context> task) {
-        return post(task, 0);
-    }
-
-    /**
-     * Run all tasks that are due now, in deadline order, migrating any tasks posted from other
-     * threads first. After each task, the microtask queue is drained, as the microtask checkpoint
-     * requires. Must be called from the context's thread.
+     * <p>If microtask processing is suspended, due timers are held in the microtask queue until
+     * processing resumes.
      *
-     * @return true if at least one task was run
+     * @return the number of milliseconds, according to the current clock, until the next scheduled
+     *     task is due, or -1 if there are no scheduled tasks
      */
-    public boolean processPending() {
-        boolean ran = false;
-        for (; ; ) {
+    public long runTasks() {
+        while (true) {
             Scheduled next = nextDue();
-            if (next == null) {
-                return ran;
+            if (next != null) {
+                next.beginRun();
+                // Add to the microtask queue so that the task interleaves with existing work
+                // and a microtask checkpoint runs after it.
+                Consumer<Context> task = next.task;
+                microtasks.add(() -> task.accept(context));
             }
-            next.task.accept(Context.getContext());
             processMicrotasks();
-            ran = true;
+            long nextDelay = timeToNextTask();
+            if (nextDelay != 0) {
+                return nextDelay;
+            }
+            // A task scheduled while running is already due: run it in the next iteration.
         }
     }
 
     /**
-     * Return the number of milliseconds until the next scheduled task is due, or 0 if a task is due
-     * now. Migrates any tasks posted from other threads first. Must be called from the context's
-     * thread.
+     * Run tasks until there are no scheduled tasks, blocking the current thread as needed. This is
+     * the equivalent of looping on {@link #runTasks} and sleeping in between. It sleeps in real
+     * time, so it must not be used together with a clock set by {@link #setClock}. A task that
+     * schedules more work keeps the queue non-empty, so a self-scheduling program runs forever by
+     * design.
      *
-     * @return Long.MAX_VALUE if there are no scheduled tasks
+     * @throws InterruptedException if the thread is interrupted while waiting
      */
-    public long timeToNextTask() {
-        migrateInbox();
-        for (; ; ) {
-            Scheduled head = scheduled.peek();
-            if (head == null) {
-                return Long.MAX_VALUE;
+    public void runAllTasks() throws InterruptedException {
+        long nextDelay;
+        while ((nextDelay = runTasks()) >= 0) {
+            Thread.sleep(nextDelay);
+        }
+    }
+
+    /** Return and remove the next task that is due now, or null if none is due. */
+    private Scheduled nextDue() {
+        Scheduled head;
+        while ((head = scheduled.peek()) != null) {
+            if (!head.isPending()) {
+                // Cancelled: drop it.
+                scheduled.poll();
+                continue;
             }
+            if (head.deadline <= clock.getAsLong()) {
+                scheduled.poll();
+                return head;
+            }
+            return null;
+        }
+        return null;
+    }
+
+    /**
+     * Return the number of milliseconds until the next pending task is due, or -1 if there are no
+     * pending tasks. Returns 0 if the next pending task is due now.
+     */
+    private long timeToNextTask() {
+        Scheduled head;
+        while ((head = scheduled.peek()) != null) {
             if (!head.isPending()) {
                 scheduled.poll();
                 continue;
             }
             return Math.max(0, head.deadline - clock.getAsLong());
         }
-    }
-
-    /**
-     * Block until the next scheduled task is due or "timeoutMillis" have elapsed, whichever happens
-     * first, and run one task if one is then due, draining the microtask queue after it. The total
-     * time this method may block is bounded by "timeoutMillis"; pass {@link Long#MAX_VALUE} to wait
-     * indefinitely for the next task. A task posted from another thread wakes this method. Must be
-     * called from the context's thread.
-     *
-     * @return true if a task was run, false if the total timeout expired with no task due
-     * @throws InterruptedException if the thread is interrupted while waiting
-     */
-    public boolean awaitNextTask(long timeoutMillis) throws InterruptedException {
-        // A real-time bound on the total wait. The (overridable) clock is only used for task
-        // deadlines, so the timeout must be measured against wall time.
-        final long limitNanos;
-        if (timeoutMillis >= Long.MAX_VALUE / 1000000) {
-            limitNanos = Long.MAX_VALUE;
-        } else {
-            limitNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
-        }
-        while (true) {
-            Scheduled next = null;
-            lock.lock();
-            try {
-                next = nextDue();
-                if (next == null) {
-                    long wait = timeToNextTaskLocked();
-                    long remainingNanos =
-                            limitNanos == Long.MAX_VALUE
-                                    ? Long.MAX_VALUE
-                                    : limitNanos - System.nanoTime();
-                    if (remainingNanos <= 0) {
-                        return false;
-                    }
-                    long sleepNanos =
-                            wait == Long.MAX_VALUE
-                                    ? remainingNanos
-                                    : Math.min(TimeUnit.MILLISECONDS.toNanos(wait), remainingNanos);
-                    signalled.awaitNanos(sleepNanos);
-                }
-            } finally {
-                lock.unlock();
-            }
-            if (next != null) {
-                next.task.accept(Context.getContext());
-                processMicrotasks();
-                return true;
-            }
-            // Woken by a signal, a timeout, or spuriously: loop and re-check
-        }
-    }
-
-    /**
-     * Run tasks until the queue is empty, blocking as needed. This implements the host policy "stay
-     * alive while work is pending"; it is what the shell and test harnesses use after a script
-     * finishes. A task that schedules more work keeps the queue non-empty, so a self-scheduling
-     * program (for example, a script that calls {@code setTimeout(() => setTimeout(f, 1), 1)}) runs
-     * forever by design, the same way a pending timer keeps a Node.js process or a browser page
-     * alive. If a pending task is cancelled from another thread, this method may notice up to the
-     * cancelled task's remaining delay later, but it never blocks indefinitely once the queue is
-     * empty. Hosts that want a different termination policy (an idle timeout, a wall-clock cap,
-     * ...) should pump with the individual methods instead.
-     *
-     * @throws InterruptedException if the thread is interrupted while waiting
-     */
-    public void runUntilEmpty() throws InterruptedException {
-        while (true) {
-            long wait = timeToNextTask();
-            if (wait == Long.MAX_VALUE) {
-                return;
-            }
-            awaitNextTask(wait);
-        }
-    }
-
-    /**
-     * Like {@link #timeToNextTask()}, but without migrating the inbox and without skipping
-     * completed or cancelled tasks. The caller holds the lock, and this is only called from {@link
-     * #awaitNextTask(long)} immediately after {@link #nextDue()} has returned null, which
-     * guarantees that the head of the queue, if any, is still pending.
-     */
-    private long timeToNextTaskLocked() {
-        Scheduled head = scheduled.peek();
-        if (head == null) {
-            return Long.MAX_VALUE;
-        }
-        return Math.max(0, head.deadline - clock.getAsLong());
-    }
-
-    /**
-     * Move any tasks posted from other threads into the local queue. Only the context's thread may
-     * call this, but the inbox itself is thread-safe, so no lock is needed.
-     */
-    private void migrateInbox() {
-        InboxTask in;
-        while ((in = inbox.poll()) != null) {
-            if (in.state.get() == State.PENDING) {
-                scheduled.add(new Scheduled(in.task, in.deadline, ++sequence, in.state));
-            }
-        }
-    }
-
-    /**
-     * Return and remove the next task that is due now, or null if none is due. Migrates any tasks
-     * posted from other threads first. A task that is dequeued is marked as running; if a cancel
-     * arrives in between, the task is dropped and never run.
-     */
-    private Scheduled nextDue() {
-        migrateInbox();
-        for (; ; ) {
-            Scheduled head = scheduled.peek();
-            if (head == null) {
-                return null;
-            }
-            if (!head.isPending()) {
-                scheduled.poll();
-                continue;
-            }
-            if (head.deadline <= clock.getAsLong()) {
-                scheduled.poll();
-                if (head.beginRun()) {
-                    return head;
-                }
-                continue;
-            }
-            return null;
-        }
+        return -1;
     }
 
     ReferenceQueue<Object> getReferenceQueue() {
@@ -405,49 +292,44 @@ public class TaskQueue {
         return finalizationEnabled;
     }
 
-    /** A handle to a scheduled task, as returned by the "schedule" and "post" methods. */
-    public static final class Task {
-        private final Cancelable cancelable;
-
-        private Task(Cancelable cancelable) {
-            this.cancelable = cancelable;
-        }
-
-        /**
-         * Cancel the task if it has not yet run. If this method returns true, the task will never
-         * run.
-         *
-         * @return true if the task was cancelled, false if it had already run or been cancelled
-         */
-        public boolean cancel() {
-            return cancelable.cancel();
-        }
-    }
-
-    /** A task that can be cancelled. */
-    private interface Cancelable {
-        boolean cancel();
-    }
-
-    /** The lifecycle state of a task. */
+    /** The lifecycle state of a scheduled task. */
     private enum State {
         PENDING,
         CANCELLED,
         RUNNING
     }
 
+    /** A handle to a scheduled task, as returned by the "schedule" method. */
+    public static final class Task {
+        private final Scheduled task;
+
+        private Task(Scheduled task) {
+            this.task = task;
+        }
+
+        /**
+         * Cancel the task if it has not yet run. If this method returns true, the task will never
+         * run.
+         *
+         * @return true if the task was cancelled, false if it was already cancelled or has already
+         *     been picked up to run
+         */
+        public boolean cancel() {
+            return task.cancel();
+        }
+    }
+
     /** A scheduled task, kept in deadline order. */
-    private static final class Scheduled implements Comparable<Scheduled>, Cancelable {
+    private static final class Scheduled implements Comparable<Scheduled> {
         final Consumer<Context> task;
         final long deadline;
         final long seq;
-        final AtomicReference<State> state;
+        State state = State.PENDING;
 
-        Scheduled(Consumer<Context> task, long deadline, long seq, AtomicReference<State> state) {
+        Scheduled(Consumer<Context> task, long deadline, long seq) {
             this.task = task;
             this.deadline = deadline;
             this.seq = seq;
-            this.state = state;
         }
 
         @Override
@@ -456,35 +338,25 @@ public class TaskQueue {
             return c != 0 ? c : Long.compare(seq, o.seq);
         }
 
-        @Override
-        public boolean cancel() {
-            return state.compareAndSet(State.PENDING, State.CANCELLED);
+        /** Cancel the task if it has not yet run. */
+        boolean cancel() {
+            if (state != State.PENDING) {
+                return false;
+            }
+            state = State.CANCELLED;
+            return true;
         }
 
-        /** Mark this task as running. Returns false if it was cancelled in the meantime. */
-        boolean beginRun() {
-            return state.compareAndSet(State.PENDING, State.RUNNING);
+        /**
+         * Mark this task as picked up to run so that a late cancel does not claim success. The task
+         * is still delivered through the microtask queue.
+         */
+        void beginRun() {
+            state = State.RUNNING;
         }
 
         boolean isPending() {
-            return state.get() == State.PENDING;
-        }
-    }
-
-    /** A task posted from another thread, waiting to be migrated to the local queue. */
-    private static final class InboxTask implements Cancelable {
-        final Consumer<Context> task;
-        final long deadline;
-        final AtomicReference<State> state = new AtomicReference<>(State.PENDING);
-
-        InboxTask(Consumer<Context> task, long deadline) {
-            this.task = task;
-            this.deadline = deadline;
-        }
-
-        @Override
-        public boolean cancel() {
-            return state.compareAndSet(State.PENDING, State.CANCELLED);
+            return state == State.PENDING;
         }
     }
 }

@@ -5,6 +5,7 @@
 package org.mozilla.javascript;
 
 import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Implements the "setTimeout", "clearTimeout", and "queueMicrotask" functions of the HTML standard,
@@ -12,8 +13,7 @@ import java.util.HashMap;
  *
  * <p>This is not installed by {@link Context#initStandardObjects()}; hosts that want timers must
  * call {@link #init(VarScope)} on the global scope. Tasks only run when the host pumps the
- * context's task queue, e.g. with {@link TaskQueue#processPending()} or {@link
- * TaskQueue#awaitNextTask(long)}.
+ * context's task queue, e.g. with {@link TaskQueue#runTasks()} or {@link TaskQueue#runAllTasks()}.
  */
 public class NativeTimers {
     private int lastId = 0;
@@ -62,7 +62,7 @@ public class NativeTimers {
         timers.put(
                 id,
                 cx.getTaskQueue()
-                        .post(
+                        .schedule(
                                 tcx -> {
                                     // Remove the entry when the timer fires so that a later
                                     // clearTimeout on the same id is a no-op and the map does not
@@ -73,7 +73,8 @@ public class NativeTimers {
                                                     .getGlobalThis();
                                     func.call(tcx, scope, thisObj, funcArgs);
                                 },
-                                delay));
+                                delay,
+                                TimeUnit.MILLISECONDS));
         return id;
     }
 

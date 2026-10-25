@@ -252,7 +252,7 @@ public class NativeTimersTest {
     private void runTest(String script) {
         cx.evaluateString(global, script, "test.js", 1, null);
         try {
-            cx.getTaskQueue().runUntilEmpty();
+            cx.getTaskQueue().runAllTasks();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }

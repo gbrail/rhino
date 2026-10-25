@@ -4,14 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -114,8 +113,8 @@ public class TaskQueueTest {
     @Test
     public void emptyQueue() {
         TaskQueue queue = cx.getTaskQueue();
-        assertEquals(Long.MAX_VALUE, queue.timeToNextTask());
-        assertFalse(queue.processPending());
+        assertEquals(-1, queue.runTasks());
+        assertEquals(-1, queue.runTasks());
     }
 
     @Test
@@ -124,19 +123,18 @@ public class TaskQueueTest {
         FakeClock clock = new FakeClock(1000);
         queue.setClock(clock);
         List<String> order = new ArrayList<>();
-        queue.schedule(c -> order.add("ten"), 10);
-        queue.schedule(c -> order.add("zero"));
-        queue.schedule(c -> order.add("five"), 5);
+        queue.schedule(c -> order.add("ten"), 10, TimeUnit.MILLISECONDS);
+        queue.schedule(c -> order.add("zero"), 0, TimeUnit.MILLISECONDS);
+        queue.schedule(c -> order.add("five"), 5, TimeUnit.MILLISECONDS);
+        assertEquals(5, queue.runTasks());
+        assertEquals(List.of("zero"), order);
         clock.advance(5);
-        queue.processPending();
+        assertEquals(5, queue.runTasks());
         assertEquals(List.of("zero", "five"), order);
         clock.advance(5);
-        queue.processPending();
+        assertEquals(-1, queue.runTasks());
         assertEquals(List.of("zero", "five", "ten"), order);
-        clock.advance(5);
-        queue.processPending();
-        assertEquals(List.of("zero", "five", "ten"), order);
-        assertEquals(Long.MAX_VALUE, queue.timeToNextTask());
+        assertEquals(-1, queue.runTasks());
     }
 
     @Test
@@ -145,11 +143,11 @@ public class TaskQueueTest {
         FakeClock clock = new FakeClock();
         queue.setClock(clock);
         List<String> order = new ArrayList<>();
-        queue.schedule(c -> order.add("first"), 10);
-        queue.schedule(c -> order.add("second"), 10);
-        queue.schedule(c -> order.add("third"), 10);
+        queue.schedule(c -> order.add("first"), 10, TimeUnit.MILLISECONDS);
+        queue.schedule(c -> order.add("second"), 10, TimeUnit.MILLISECONDS);
+        queue.schedule(c -> order.add("third"), 10, TimeUnit.MILLISECONDS);
         clock.advance(10);
-        queue.processPending();
+        assertEquals(-1, queue.runTasks());
         assertEquals(List.of("first", "second", "third"), order);
     }
 
@@ -159,14 +157,54 @@ public class TaskQueueTest {
         FakeClock clock = new FakeClock(0);
         queue.setClock(clock);
         AtomicBoolean ran = new AtomicBoolean();
-        queue.schedule(c -> ran.set(true), 100);
-        assertEquals(100, queue.timeToNextTask());
-        assertFalse(queue.processPending());
+        queue.schedule(c -> ran.set(true), 100, TimeUnit.MILLISECONDS);
+        assertEquals(100, queue.runTasks());
         assertFalse(ran.get());
         clock.advance(100);
-        assertEquals(0, queue.timeToNextTask());
-        assertTrue(queue.processPending());
+        assertEquals(-1, queue.runTasks());
         assertTrue(ran.get());
+    }
+
+    @Test
+    public void delayInOtherTimeUnits() {
+        TaskQueue queue = cx.getTaskQueue();
+        FakeClock clock = new FakeClock();
+        queue.setClock(clock);
+        AtomicBoolean ran = new AtomicBoolean();
+        queue.schedule(c -> ran.set(true), 1, TimeUnit.SECONDS);
+        assertEquals(1000, queue.runTasks());
+        clock.advance(999);
+        assertEquals(1, queue.runTasks());
+        clock.advance(1);
+        assertEquals(-1, queue.runTasks());
+        assertTrue(ran.get());
+    }
+
+    /**
+     * A delay whose conversion to milliseconds saturates (TimeUnit.toMillis returns Long.MAX_VALUE)
+     * is never due, and in particular does not run immediately.
+     */
+    @Test
+    public void saturatingDelayNeverRuns() {
+        TaskQueue queue = cx.getTaskQueue();
+        FakeClock clock = new FakeClock();
+        queue.setClock(clock);
+        AtomicBoolean ran = new AtomicBoolean();
+        queue.schedule(c -> ran.set(true), Long.MAX_VALUE, TimeUnit.DAYS);
+        assertEquals(Long.MAX_VALUE, queue.runTasks());
+        assertFalse(ran.get());
+    }
+
+    /** A delay whose deadline would overflow is clamped to Long.MAX_VALUE. */
+    @Test
+    public void overflowingDelayNeverRuns() {
+        TaskQueue queue = cx.getTaskQueue();
+        FakeClock clock = new FakeClock(Long.MAX_VALUE - 10);
+        queue.setClock(clock);
+        AtomicBoolean ran = new AtomicBoolean();
+        queue.schedule(c -> ran.set(true), 100, TimeUnit.MILLISECONDS);
+        assertEquals(10, queue.runTasks());
+        assertFalse(ran.get());
     }
 
     @Test
@@ -175,8 +213,8 @@ public class TaskQueueTest {
         FakeClock clock = new FakeClock();
         queue.setClock(clock);
         AtomicBoolean ran = new AtomicBoolean();
-        queue.schedule(c -> ran.set(true), -50);
-        assertTrue(queue.processPending());
+        queue.schedule(c -> ran.set(true), -50, TimeUnit.MILLISECONDS);
+        assertEquals(-1, queue.runTasks());
         assertTrue(ran.get());
     }
 
@@ -187,79 +225,99 @@ public class TaskQueueTest {
         queue.setClock(clock);
         AtomicBoolean first = new AtomicBoolean();
         AtomicBoolean second = new AtomicBoolean();
-        TaskQueue.Task t1 = queue.schedule(c -> first.set(true), 10);
-        queue.schedule(c -> second.set(true), 20);
-        assertEquals(10, queue.timeToNextTask());
+        TaskQueue.Task t1 = queue.schedule(c -> first.set(true), 10, TimeUnit.MILLISECONDS);
+        queue.schedule(c -> second.set(true), 20, TimeUnit.MILLISECONDS);
+        assertEquals(10, queue.runTasks());
         assertTrue(t1.cancel());
         assertFalse(t1.cancel());
         clock.advance(20);
-        queue.processPending();
+        assertEquals(-1, queue.runTasks());
         assertFalse(first.get());
         assertTrue(second.get());
-        assertEquals(Long.MAX_VALUE, queue.timeToNextTask());
+        assertEquals(-1, queue.runTasks());
     }
 
-    /**
-     * A positive timeout bounds the total wait: with an empty queue, return false in bounded time.
-     */
+    /** A task cancelled from a running task's callback does not run and is purged. */
     @Test
-    public void awaitNextTaskTimeoutWithEmptyQueue() throws InterruptedException {
+    public void cancelFromRunningTask() {
         TaskQueue queue = cx.getTaskQueue();
-        long start = System.nanoTime();
-        assertFalse(queue.awaitNextTask(100));
-        long elapsedMs = (System.nanoTime() - start) / 1000000;
-        assertTrue(elapsedMs < 1000, "elapsed=" + elapsedMs);
-    }
-
-    /**
-     * A task that is posted from another thread and then cancelled must not keep runUntilEmpty
-     * blocked indefinitely.
-     */
-    @Test
-    public void runUntilEmptyReturnsAfterCrossThreadCancel() throws Exception {
-        TaskQueue queue = cx.getTaskQueue();
-        CountDownLatch posted = new CountDownLatch(1);
-        Thread remote =
-                new Thread(
-                        () -> {
-                            TaskQueue.Task t = queue.post(c -> {}, 2000);
-                            posted.countDown();
-                            try {
-                                Thread.sleep(500);
-                            } catch (InterruptedException e) {
-                                return;
-                            }
-                            t.cancel();
-                        });
-        remote.start();
-        // Ensure the task is in the queue before the pump starts, so the pump's first
-        // read sees it as pending and the cancel lands while it is waiting.
-        posted.await();
-        long start = System.nanoTime();
-        queue.runUntilEmpty();
-        remote.join();
-        long elapsedMs = (System.nanoTime() - start) / 1000000;
-        assertTrue(elapsedMs < 5000, "elapsed=" + elapsedMs);
+        FakeClock clock = new FakeClock();
+        queue.setClock(clock);
+        AtomicBoolean first = new AtomicBoolean();
+        AtomicBoolean second = new AtomicBoolean();
+        TaskQueue.Task t2 = queue.schedule(c -> second.set(true), 20, TimeUnit.MILLISECONDS);
+        queue.schedule(
+                c -> {
+                    first.set(true);
+                    assertTrue(t2.cancel());
+                },
+                10,
+                TimeUnit.MILLISECONDS);
+        clock.advance(20);
+        assertEquals(-1, queue.runTasks());
+        assertTrue(first.get());
+        assertFalse(second.get());
+        assertEquals(-1, queue.runTasks());
     }
 
     /** A task that has already run can no longer be cancelled. */
     @Test
-    public void cancelAfterRunReturnsFalse() throws InterruptedException {
+    public void cancelAfterRunReturnsFalse() {
         TaskQueue queue = cx.getTaskQueue();
         FakeClock clock = new FakeClock();
         queue.setClock(clock);
         AtomicBoolean ran = new AtomicBoolean();
-        TaskQueue.Task task = queue.schedule(c -> ran.set(true), 10);
+        TaskQueue.Task task = queue.schedule(c -> ran.set(true), 10, TimeUnit.MILLISECONDS);
         clock.advance(10);
-        assertTrue(queue.processPending());
+        assertEquals(-1, queue.runTasks());
         assertTrue(ran.get());
         assertFalse(task.cancel());
-        // Same for a task run through awaitNextTask
-        TaskQueue.Task task2 = queue.schedule(c -> {}, 0);
-        assertTrue(queue.awaitNextTask(1000));
-        assertFalse(task2.cancel());
     }
 
+    /** A zero-delay timer scheduled by a timer runs in the same call to runTasks. */
+    @Test
+    public void rescheduledImmediateTimerRunsInSameCall() {
+        TaskQueue queue = cx.getTaskQueue();
+        FakeClock clock = new FakeClock();
+        queue.setClock(clock);
+        List<String> order = new ArrayList<>();
+        queue.schedule(
+                c -> {
+                    order.add("first");
+                    queue.schedule(c2 -> order.add("second"), 0, TimeUnit.MILLISECONDS);
+                },
+                0,
+                TimeUnit.MILLISECONDS);
+        assertEquals(-1, queue.runTasks());
+        assertEquals(List.of("first", "second"), order);
+    }
+
+    /** A timer scheduled during a run updates the returned delay if it is sooner. */
+    @Test
+    public void rescheduledTimerShortensNextDelay() {
+        TaskQueue queue = cx.getTaskQueue();
+        FakeClock clock = new FakeClock();
+        queue.setClock(clock);
+        List<String> order = new ArrayList<>();
+        queue.schedule(
+                c -> {
+                    order.add("first");
+                    queue.schedule(c2 -> order.add("second"), 5, TimeUnit.MILLISECONDS);
+                },
+                0,
+                TimeUnit.MILLISECONDS);
+        queue.schedule(c -> order.add("late"), 100, TimeUnit.MILLISECONDS);
+        assertEquals(5, queue.runTasks());
+        assertEquals(List.of("first"), order);
+        clock.advance(5);
+        assertEquals(95, queue.runTasks());
+        assertEquals(List.of("first", "second"), order);
+        clock.advance(95);
+        assertEquals(-1, queue.runTasks());
+        assertEquals(List.of("first", "second", "late"), order);
+    }
+
+    /** A microtask scheduled by a timer runs before the next timer, as in the browser. */
     @Test
     public void microtaskCheckpointBetweenTasks() {
         TaskQueue queue = cx.getTaskQueue();
@@ -271,15 +329,16 @@ public class TaskQueueTest {
                     order.add("task1");
                     queue.enqueueMicrotask(() -> order.add("microtask"));
                 },
-                1);
-        queue.schedule(c -> order.add("task2"), 2);
+                1,
+                TimeUnit.MILLISECONDS);
+        queue.schedule(c -> order.add("task2"), 2, TimeUnit.MILLISECONDS);
         clock.advance(2);
-        queue.processPending();
+        assertEquals(-1, queue.runTasks());
         assertEquals(List.of("task1", "microtask", "task2"), order);
     }
 
     @Test
-    public void processPendingWithSuspendedMicrotasks() {
+    public void runTasksWithSuspendedMicrotasks() {
         TaskQueue queue = cx.getTaskQueue();
         FakeClock clock = new FakeClock();
         queue.setClock(clock);
@@ -291,131 +350,38 @@ public class TaskQueueTest {
                     task.set(true);
                     queue.enqueueMicrotask(() -> microtask.set(true));
                 },
-                1);
+                1,
+                TimeUnit.MILLISECONDS);
         clock.advance(1);
-        queue.processPending();
-        assertTrue(task.get());
+        assertEquals(-1, queue.runTasks());
+        assertFalse(task.get());
         assertFalse(microtask.get());
         queue.resumeMicrotaskProcessing();
+        assertTrue(task.get());
         assertTrue(microtask.get());
     }
 
+    /** runAllTasks blocks in real time until pending timers have run. */
     @Test
-    public void awaitNextTask() throws InterruptedException {
-        TaskQueue queue = cx.getTaskQueue();
-        // Nothing scheduled: no wait, no task
-        assertFalse(queue.awaitNextTask(0));
-        // A task that is not due yet: timeout 0 returns without running it
-        AtomicBoolean ran = new AtomicBoolean();
-        queue.schedule(c -> ran.set(true), 100);
-        assertFalse(queue.awaitNextTask(0));
-        assertFalse(ran.get());
-        // A task due soon: the wait is bounded by the deadline
-        queue.schedule(c -> ran.set(true), 20);
-        assertTrue(queue.awaitNextTask(500));
-        assertTrue(ran.get());
-    }
-
-    @Test
-    public void postFromOtherThreadRunsOnOwnerThread() throws Exception {
-        TaskQueue queue = cx.getTaskQueue();
-        Thread owner = Thread.currentThread();
-        AtomicReference<Thread> ranOn = new AtomicReference<>();
-        AtomicReference<Context> receivedContext = new AtomicReference<>();
-        AtomicBoolean ran = new AtomicBoolean();
-        runOnOtherThread(
-                () ->
-                        queue.post(
-                                c -> {
-                                    ranOn.set(Thread.currentThread());
-                                    receivedContext.set(c);
-                                    ran.set(true);
-                                }));
-        assertTrue(queue.awaitNextTask(5000));
-        assertTrue(ran.get());
-        assertSame(owner, ranOn.get());
-        // The task receives the context, which is set on the thread when it runs
-        assertSame(cx, receivedContext.get());
-        assertSame(cx, Context.getCurrentContext());
-    }
-
-    @Test
-    public void postFromOtherThreadWakesAwait() throws Exception {
+    public void runAllTasksWaitsForTimer() throws InterruptedException {
         TaskQueue queue = cx.getTaskQueue();
         AtomicBoolean ran = new AtomicBoolean();
-        Thread poster =
-                new Thread(
-                        () -> {
-                            try {
-                                Thread.sleep(100);
-                            } catch (InterruptedException e) {
-                                return;
-                            }
-                            queue.post(c -> ran.set(true));
-                        });
-        poster.start();
+        queue.schedule(c -> ran.set(true), 20, TimeUnit.MILLISECONDS);
         long start = System.nanoTime();
-        assertTrue(queue.awaitNextTask(5000));
+        queue.runAllTasks();
         long elapsedMs = (System.nanoTime() - start) / 1000000;
-        poster.join();
         assertTrue(ran.get());
-        // Should have been woken by the post (~100ms), not by the 5000ms timeout
-        assertTrue(elapsedMs < 2500, "elapsed=" + elapsedMs);
+        assertTrue(elapsedMs >= 10, "elapsed=" + elapsedMs);
     }
 
+    /** runAllTasks propagates interrupts so that hosts can stop the pump. */
     @Test
-    public void crossThreadCancellation() throws Exception {
+    public void runAllTasksPropagatesInterrupt() {
         TaskQueue queue = cx.getTaskQueue();
-        AtomicBoolean ran = new AtomicBoolean();
-        AtomicReference<TaskQueue.Task> handle = new AtomicReference<>();
-        runOnOtherThread(() -> handle.set(queue.post(c -> ran.set(true), 60000)));
-        assertTrue(handle.get().cancel());
-        assertEquals(Long.MAX_VALUE, queue.timeToNextTask());
-        assertFalse(queue.processPending());
-        assertFalse(ran.get());
-    }
-
-    @Test
-    public void manyThreadsPost() throws Exception {
-        TaskQueue queue = cx.getTaskQueue();
-        int threads = 8;
-        int perThread = 25;
-        AtomicInteger count = new AtomicInteger();
-        AtomicBoolean allOnOwner = new AtomicBoolean(true);
-        Thread owner = Thread.currentThread();
-        List<Thread> posters = new ArrayList<>();
-        for (int i = 0; i < threads; i++) {
-            Thread t =
-                    new Thread(
-                            () -> {
-                                for (int j = 0; j < perThread; j++) {
-                                    queue.post(
-                                            c -> {
-                                                if (Thread.currentThread() != owner) {
-                                                    allOnOwner.set(false);
-                                                }
-                                                count.incrementAndGet();
-                                            });
-                                }
-                            });
-            posters.add(t);
-            t.start();
-        }
-        for (Thread t : posters) {
-            t.join();
-        }
-        // All posts are complete; drain until empty
-        while (queue.timeToNextTask() != Long.MAX_VALUE) {
-            queue.processPending();
-        }
-        assertEquals(threads * perThread, count.get());
-        assertTrue(allOnOwner.get());
-    }
-
-    private static void runOnOtherThread(Runnable r) throws InterruptedException {
-        Thread t = new Thread(r);
-        t.start();
-        t.join();
+        queue.schedule(c -> {}, 60_000, TimeUnit.MILLISECONDS);
+        Thread.currentThread().interrupt();
+        assertThrows(InterruptedException.class, queue::runAllTasks);
+        Thread.interrupted();
     }
 
     /** A virtual clock for deterministic testing of scheduled tasks. */

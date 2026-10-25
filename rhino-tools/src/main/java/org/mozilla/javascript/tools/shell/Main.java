@@ -109,7 +109,7 @@ public class Main {
             try {
                 // The shell's event loop policy: run until the queue is empty, so that scripts
                 // whose work is timer-driven complete before the process exits.
-                cx.getTaskQueue().runUntilEmpty();
+                cx.getTaskQueue().runAllTasks();
             } catch (JavaScriptException e) {
                 ToolErrorReporter.reportException(cx.getErrorReporter(), e);
                 exitCode = EXITCODE_RUNTIME_ERROR;
