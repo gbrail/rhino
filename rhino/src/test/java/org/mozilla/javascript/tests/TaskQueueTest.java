@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -196,6 +197,49 @@ public class TaskQueueTest {
         assertFalse(first.get());
         assertTrue(second.get());
         assertEquals(Long.MAX_VALUE, queue.timeToNextTask());
+    }
+
+    /**
+     * A positive timeout bounds the total wait: with an empty queue, return false in bounded time.
+     */
+    @Test
+    public void awaitNextTaskTimeoutWithEmptyQueue() throws InterruptedException {
+        TaskQueue queue = cx.getTaskQueue();
+        long start = System.nanoTime();
+        assertFalse(queue.awaitNextTask(100));
+        long elapsedMs = (System.nanoTime() - start) / 1000000;
+        assertTrue(elapsedMs < 1000, "elapsed=" + elapsedMs);
+    }
+
+    /**
+     * A task that is posted from another thread and then cancelled must not keep runUntilEmpty
+     * blocked indefinitely.
+     */
+    @Test
+    public void runUntilEmptyReturnsAfterCrossThreadCancel() throws Exception {
+        TaskQueue queue = cx.getTaskQueue();
+        CountDownLatch posted = new CountDownLatch(1);
+        Thread remote =
+                new Thread(
+                        () -> {
+                            TaskQueue.Task t = queue.post(c -> {}, 2000);
+                            posted.countDown();
+                            try {
+                                Thread.sleep(500);
+                            } catch (InterruptedException e) {
+                                return;
+                            }
+                            t.cancel();
+                        });
+        remote.start();
+        // Ensure the task is in the queue before the pump starts, so the pump's first
+        // read sees it as pending and the cancel lands while it is waiting.
+        posted.await();
+        long start = System.nanoTime();
+        queue.runUntilEmpty();
+        remote.join();
+        long elapsedMs = (System.nanoTime() - start) / 1000000;
+        assertTrue(elapsedMs < 5000, "elapsed=" + elapsedMs);
     }
 
     /** A task that has already run can no longer be cancelled. */

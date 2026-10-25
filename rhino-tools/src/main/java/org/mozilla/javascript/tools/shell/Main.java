@@ -39,7 +39,6 @@ import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.SecurityController;
-import org.mozilla.javascript.TaskQueue;
 import org.mozilla.javascript.VarScope;
 import org.mozilla.javascript.commonjs.module.ModuleScope;
 import org.mozilla.javascript.commonjs.module.Require;
@@ -95,7 +94,7 @@ public class Main {
         @Override
         public Object run(Context cx) {
             cx.setTrackUnhandledPromiseRejections(true);
-            NativeTimers.install(global);
+            NativeTimers.init(global);
             if (useRequire) {
                 require = global.installRequire(cx, modulePath, sandboxed);
             }
@@ -108,7 +107,9 @@ public class Main {
                 throw Kit.codeBug();
             }
             try {
-                runEventLoop(cx);
+                // The shell's event loop policy: run until the queue is empty, so that scripts
+                // whose work is timer-driven complete before the process exits.
+                cx.getTaskQueue().runUntilEmpty();
             } catch (JavaScriptException e) {
                 ToolErrorReporter.reportException(cx.getErrorReporter(), e);
                 exitCode = EXITCODE_RUNTIME_ERROR;
@@ -116,14 +117,6 @@ public class Main {
                 // Shell has no facility to handle interrupts so stop now
             }
             return null;
-        }
-
-        /** Run the context's task queue until there are no more pending tasks. */
-        private void runEventLoop(Context cx) throws InterruptedException {
-            TaskQueue queue = cx.getTaskQueue();
-            while (queue.timeToNextTask() != Long.MAX_VALUE) {
-                queue.awaitNextTask(queue.timeToNextTask());
-            }
         }
 
         @Override

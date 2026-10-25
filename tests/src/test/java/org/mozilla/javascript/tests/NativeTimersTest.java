@@ -11,7 +11,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.NativeTimers;
 import org.mozilla.javascript.ScriptRuntime;
-import org.mozilla.javascript.TaskQueue;
 import org.mozilla.javascript.testutils.TestSource;
 import org.mozilla.javascript.testutils.Utils;
 import org.mozilla.javascript.tools.shell.Global;
@@ -27,7 +26,7 @@ public class NativeTimersTest {
         cx.setLanguageVersion(Context.VERSION_ES6);
         global = new Global(cx);
         global.setFileLoadPrefix(TestSource.getPrefix());
-        NativeTimers.install(global);
+        NativeTimers.init(global);
         global.put("TestsComplete", global, false);
     }
 
@@ -253,18 +252,10 @@ public class NativeTimersTest {
     private void runTest(String script) {
         cx.evaluateString(global, script, "test.js", 1, null);
         try {
-            pump();
+            cx.getTaskQueue().runUntilEmpty();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
         assertTrue(ScriptRuntime.toBoolean(global.get("TestsComplete", global)));
-    }
-
-    /** Run the task queue until there are no more pending tasks. */
-    private void pump() throws InterruptedException {
-        TaskQueue queue = cx.getTaskQueue();
-        while (queue.timeToNextTask() != Long.MAX_VALUE) {
-            queue.awaitNextTask(queue.timeToNextTask());
-        }
     }
 }

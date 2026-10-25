@@ -151,8 +151,9 @@ public class TaskQueue {
      * @return a handle that can be used to cancel the task before it runs
      */
     public Task schedule(Consumer<Context> task, long delayMillis) {
-        long deadline = clock.getAsLong() + Math.max(0, delayMillis);
-        Scheduled s =
+        // Prevent a wraparound past Long.MAX_VALUE.
+        long deadline = Math.max(clock.getAsLong() + Math.max(0, delayMillis), 0);
+        var s =
                 new Scheduled(task, deadline, ++sequence, new AtomicReference<>(State.PENDING));
         scheduled.add(s);
         return new Task(s);
@@ -237,13 +238,23 @@ public class TaskQueue {
 
     /**
      * Block until the next scheduled task is due or "timeoutMillis" have elapsed, whichever happens
-     * first, and run one task if one is then due, draining the microtask queue after it. A task
-     * posted from another thread wakes this method. Must be called from the context's thread.
+     * first, and run one task if one is then due, draining the microtask queue after it. The total
+     * time this method may block is bounded by "timeoutMillis"; pass {@link Long#MAX_VALUE} to wait
+     * indefinitely for the next task. A task posted from another thread wakes this method. Must be
+     * called from the context's thread.
      *
-     * @return true if a task was run, false if the timeout expired with no task due
+     * @return true if a task was run, false if the total timeout expired with no task due
      * @throws InterruptedException if the thread is interrupted while waiting
      */
     public boolean awaitNextTask(long timeoutMillis) throws InterruptedException {
+        // A real-time bound on the total wait. The (overridable) clock is only used for task
+        // deadlines, so the timeout must be measured against wall time.
+        final long limitNanos;
+        if (timeoutMillis >= Long.MAX_VALUE / 1000000) {
+            limitNanos = Long.MAX_VALUE;
+        } else {
+            limitNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+        }
         while (true) {
             Scheduled next = null;
             lock.lock();
@@ -251,12 +262,18 @@ public class TaskQueue {
                 next = nextDue();
                 if (next == null) {
                     long wait = timeToNextTaskLocked();
-                    long sleepMillis =
-                            wait == Long.MAX_VALUE ? timeoutMillis : Math.min(wait, timeoutMillis);
-                    if (sleepMillis <= 0) {
+                    long remainingNanos =
+                            limitNanos == Long.MAX_VALUE
+                                    ? Long.MAX_VALUE
+                                    : limitNanos - System.nanoTime();
+                    if (remainingNanos <= 0) {
                         return false;
                     }
-                    signalled.awaitNanos(TimeUnit.MILLISECONDS.toNanos(sleepMillis));
+                    long sleepNanos =
+                            wait == Long.MAX_VALUE
+                                    ? remainingNanos
+                                    : Math.min(TimeUnit.MILLISECONDS.toNanos(wait), remainingNanos);
+                    signalled.awaitNanos(sleepNanos);
                 }
             } finally {
                 lock.unlock();
@@ -267,6 +284,29 @@ public class TaskQueue {
                 return true;
             }
             // Woken by a signal, a timeout, or spuriously: loop and re-check
+        }
+    }
+
+    /**
+     * Run tasks until the queue is empty, blocking as needed. This implements the host policy "stay
+     * alive while work is pending"; it is what the shell and test harnesses use after a script
+     * finishes. A task that schedules more work keeps the queue non-empty, so a self-scheduling
+     * program (for example, a script that calls {@code setTimeout(() => setTimeout(f, 1), 1)}) runs
+     * forever by design, the same way a pending timer keeps a Node.js process or a browser page
+     * alive. If a pending task is cancelled from another thread, this method may notice up to the
+     * cancelled task's remaining delay later, but it never blocks indefinitely once the queue is
+     * empty. Hosts that want a different termination policy (an idle timeout, a wall-clock cap,
+     * ...) should pump with the individual methods instead.
+     *
+     * @throws InterruptedException if the thread is interrupted while waiting
+     */
+    public void runUntilEmpty() throws InterruptedException {
+        while (true) {
+            long wait = timeToNextTask();
+            if (wait == Long.MAX_VALUE) {
+                return;
+            }
+            awaitNextTask(wait);
         }
     }
 

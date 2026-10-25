@@ -11,11 +11,14 @@ import java.util.HashMap;
  * backed by the {@link TaskQueue} of the context on which they are called.
  *
  * <p>This is not installed by {@link Context#initStandardObjects()}; hosts that want timers must
- * call {@link #install(VarScope)} on the global scope. Tasks only run when the host pumps the
+ * call {@link #init(VarScope)} on the global scope. Tasks only run when the host pumps the
  * context's task queue, e.g. with {@link TaskQueue#processPending()} or {@link
  * TaskQueue#awaitNextTask(long)}.
  */
 public class NativeTimers {
+    private int lastId = 0;
+    private final HashMap<Integer, TaskQueue.Task> timers = new HashMap<>();
+
     private NativeTimers() {}
 
     /**
@@ -24,42 +27,27 @@ public class NativeTimers {
      *
      * @param scope the scope (usually the global scope) where the functions should be defined
      */
-    public static void install(VarScope scope) {
-        TimerState state = new TimerState();
-        LambdaFunction setTimeout =
-                new LambdaFunction(
-                        scope,
-                        "setTimeout",
-                        1,
-                        (lcx, lscope, thisObj, args) -> setTimeout(lcx, lscope, state, args));
+    public static void init(VarScope scope) {
+        NativeTimers self = new NativeTimers();
+        var setTimeout = new LambdaFunction(scope, "setTimeout", 1, self::setTimeout);
         ScriptableObject.defineProperty(scope, "setTimeout", setTimeout, ScriptableObject.DONTENUM);
-        LambdaFunction clearTimeout =
-                new LambdaFunction(
-                        scope,
-                        "clearTimeout",
-                        1,
-                        (lcx, lscope, thisObj, args) -> clearTimeout(state, args));
+        var clearTimeout = new LambdaFunction(scope, "clearTimeout", 1, self::clearTimeout);
         ScriptableObject.defineProperty(
                 scope, "clearTimeout", clearTimeout, ScriptableObject.DONTENUM);
-        LambdaFunction queueMicrotask =
-                new LambdaFunction(
-                        scope,
-                        "queueMicrotask",
-                        1,
-                        (lcx, lscope, thisObj, args) -> queueMicrotask(lcx, lscope, args));
+        var queueMicrotask = new LambdaFunction(scope, "queueMicrotask", 1, self::queueMicrotask);
         ScriptableObject.defineProperty(
                 scope, "queueMicrotask", queueMicrotask, ScriptableObject.DONTENUM);
     }
 
-    private static Object setTimeout(Context cx, VarScope scope, TimerState state, Object[] args) {
+    private Object setTimeout(Context cx, VarScope scope, Object to, Object[] args) {
         if (args.length == 0) {
-            throw ScriptRuntime.typeError("Expected function parameter");
+            throw ScriptRuntime.typeErrorById(
+                    "msg.method.missing.parameter", "setTimeout", 1, args.length);
         }
-        if (!(args[0] instanceof Function)) {
-            throw ScriptRuntime.typeError("Expected first argument to be a function");
+        if (!(args[0] instanceof Callable func)) {
+            throw ScriptRuntime.typeErrorById("msg.function.expected");
         }
-        int id = state.nextId();
-        Function func = (Function) args[0];
+        int id = ++lastId;
         int delay = 0;
         if (args.length > 1) {
             delay = ScriptRuntime.toInt32(args[1]);
@@ -71,64 +59,53 @@ public class NativeTimers {
         } else {
             funcArgs = ScriptRuntime.emptyArgs;
         }
-        state.timers.put(
+        timers.put(
                 id,
                 cx.getTaskQueue()
                         .post(
-                                timer -> {
+                                tcx -> {
                                     // Remove the entry when the timer fires so that a later
                                     // clearTimeout on the same id is a no-op and the map does not
                                     // hold on to the callback.
-                                    state.timers.remove(id);
-                                    runTimer(timer, scope, func, funcArgs);
+                                    timers.remove(id);
+                                    Object thisObj =
+                                            ScriptableObject.getTopLevelScope(scope)
+                                                    .getGlobalThis();
+                                    func.call(tcx, scope, thisObj, funcArgs);
                                 },
                                 delay));
         return id;
     }
 
-    private static void runTimer(Context cx, VarScope scope, Function func, Object[] funcArgs) {
-        Object thisObj = ScriptableObject.getTopLevelScope(scope).getGlobalThis();
-        func.call(cx, scope, thisObj, funcArgs);
-    }
-
-    private static Object clearTimeout(TimerState state, Object[] args) {
+    private Object clearTimeout(Context cx, VarScope scope, Object to, Object[] args) {
         if (args.length == 0) {
-            throw ScriptRuntime.typeError("Expected function parameter");
+            throw ScriptRuntime.typeErrorById(
+                    "msg.method.missing.parameter", "clearTimeout", 1, args.length);
         }
         int id = ScriptRuntime.toInt32(args[0]);
-        TaskQueue.Task timer = state.timers.remove(id);
+        TaskQueue.Task timer = timers.remove(id);
         if (timer != null) {
             timer.cancel();
         }
         return Undefined.instance;
     }
 
-    private static Object queueMicrotask(Context cx, VarScope scope, Object[] args) {
+    private Object queueMicrotask(Context cx, VarScope scope, Object to, Object[] args) {
         if (args.length == 0) {
-            throw ScriptRuntime.typeError("Expected function parameter");
+            throw ScriptRuntime.typeErrorById(
+                    "msg.method.missing.parameter", "queueMicrotask", 1, args.length);
         }
-        if (!(args[0] instanceof Function)) {
-            throw ScriptRuntime.typeError("Expected first argument to be a function");
+        if (!(args[0] instanceof Callable func)) {
+            throw ScriptRuntime.typeErrorById("msg.function.expected");
         }
-        Function func = (Function) args[0];
         cx.getTaskQueue()
                 .enqueueMicrotask(
                         () ->
                                 func.call(
-                                        Context.getContext(),
+                                        cx,
                                         scope,
                                         Undefined.SCRIPTABLE_UNDEFINED,
                                         ScriptRuntime.emptyArgs));
         return Undefined.instance;
-    }
-
-    /** The per-install state: timer IDs and the tasks they refer to. */
-    private static final class TimerState {
-        private int lastId = 0;
-        private final HashMap<Integer, TaskQueue.Task> timers = new HashMap<>();
-
-        int nextId() {
-            return ++lastId;
-        }
     }
 }
