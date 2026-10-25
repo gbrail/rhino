@@ -385,9 +385,8 @@ public class NativeArrayBuffer extends ScriptableObject {
         ccx.remember(this, target);
 
         if (ccx.getTransferSet().contains(this)) {
-            // Transfer: move the byte array, source will be detached after clone
+            // Transfer: move the byte array; the source is detached after the clone succeeds
             target.buffer = this.buffer;
-            detach();
         } else {
             // Clone: copy the byte array
             var tmp = buffer.duplicate();

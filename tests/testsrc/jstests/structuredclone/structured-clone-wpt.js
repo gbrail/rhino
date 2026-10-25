@@ -619,6 +619,67 @@ load("testsrc/assert.js");
   }, DataCloneError);
 })();
 
+(function TestTransferBufferListedBeforeViews() {
+  var ab = new ArrayBuffer(8);
+  var v1 = new Int32Array(ab);
+  var v2 = new Int32Array(ab, 4);
+  v1[0] = 0x11223344;
+  v2[0] = 0x55667788;
+  // The buffer is serialized before its views, so the views are created on the
+  // buffer that was moved by the transfer
+  var copy = structuredClone({ab: ab, v1: v1, v2: v2}, {transfer: [ab]});
+  assertEquals(8, copy.ab.byteLength, "Transferred buffer byteLength");
+  assertEquals(0x11223344, copy.v1[0], "First view data preserved");
+  assertEquals(0x55667788, copy.v2[0], "Second view data preserved");
+  assertTrue(copy.v1.buffer === copy.ab, "First view shares moved buffer");
+  assertTrue(copy.v2.buffer === copy.ab, "Second view shares moved buffer");
+  assertEquals(0, ab.byteLength, "Source buffer detached");
+  assertEquals(0, v1.byteLength, "Source view zero length");
+  assertEquals(0, v2.byteLength, "Second source view zero length");
+})();
+
+(function TestTransferDataViewListedAfterBuffer() {
+  var ab = new ArrayBuffer(8);
+  var dv = new DataView(ab, 2, 4);
+  dv.setInt32(0, 0xAABBCCDD, true);
+  var copy = structuredClone({ab: ab, dv: dv}, {transfer: [ab]});
+  assertEquals(4, copy.dv.byteLength, "DataView byteLength preserved");
+  assertEquals(2, copy.dv.byteOffset, "DataView byteOffset preserved");
+  assertEquals(0xAABBCCDD, copy.dv.getUint32(0, true), "DataView data preserved");
+  assertTrue(copy.dv.buffer === copy.ab, "DataView shares moved buffer");
+  assertEquals(0, ab.byteLength, "Source buffer detached");
+})();
+
+(function TestViewOnPreviouslyDetachedBufferThrows() {
+  var ab = new ArrayBuffer(4);
+  var v = new Int32Array(ab);
+  structuredClone(ab, {transfer: [ab]});
+  // v now views a detached buffer; cloning it must fail with DataCloneError
+  assertThrows(function() {
+    structuredClone(v);
+  }, DataCloneError);
+})();
+
+(function TestPlainCloneAutoLengthTypedArray() {
+  var ab = new ArrayBuffer(16, {maxByteLength: 1024});
+  var ta = new Uint8Array(ab);
+  var copy = structuredClone(ta);
+  assertTrue(copy.buffer.resizable, "Cloned buffer is resizable");
+  copy.buffer.resize(32);
+  assertEquals(32, copy.byteLength, "Cloned auto-length view tracks resize");
+})();
+
+(function TestPlainCloneAutoLengthDataView() {
+  var ab = new ArrayBuffer(16, {maxByteLength: 1024});
+  var dv = new DataView(ab);
+  dv.setUint8(0, 7);
+  var copy = structuredClone(dv);
+  assertTrue(copy.buffer.resizable, "Cloned buffer is resizable");
+  assertEquals(7, copy.getUint8(0), "DataView data preserved");
+  copy.buffer.resize(32);
+  assertEquals(32, copy.byteLength, "Cloned auto-length DataView tracks resize");
+})();
+
 (function TestNonCloneableFunction() {
   assertThrows(function() {
     structuredClone(function() {});

@@ -528,34 +528,29 @@ public class NativeDataView extends NativeArrayBufferView {
 
     @Override
     public Object structuredClone(Context cx, VarScope scope, StructuredCloneContext ccx) {
-        // Check if the view is out of range (buffer may have been resized)
-        int bufferLen = arrayBuffer.getLength();
-        if (offset > bufferLen || offset + byteLength > bufferLen) {
-            throw ccx.dataCloneErrorById("msg.clone.view.outofrange");
-        }
-
-        // Check if the backing buffer is being transferred
-        boolean transferring = ccx.getTransferSet().contains(arrayBuffer);
-
-        if (transferring) {
-            // For transfer, preserve auto-length behavior for resizable buffers
-            Object clonedBuffer = ccx.clone(arrayBuffer);
-            Object[] args;
-            if (isAutoLength()) {
-                args = new Object[] {clonedBuffer, offset};
-            } else {
-                args = new Object[] {clonedBuffer, offset, byteLength};
+        // Check if the view is out of range (buffer may have been resized). A detached buffer is
+        // skipped: it may have been transferred earlier in this clone, in which case the view is
+        // created on the moved buffer, or it was detached before the clone, in which case the
+        // buffer's own clone throws.
+        if (!arrayBuffer.isDetached()) {
+            int bufferLen = arrayBuffer.getLength();
+            if (offset > bufferLen || offset + byteLength > bufferLen) {
+                throw ccx.dataCloneErrorById("msg.clone.view.outofrange");
             }
-            Object target = cx.newObject(scope, CLASS_NAME, args);
-            ccx.remember(this, target);
-            return target;
         }
 
-        // Clone: use ccx.clone to handle shared buffers correctly
+        // Clone the backing buffer (or reuse it if it was already cloned, e.g. by another view
+        // that shares it); the buffer's own clone handles the transfer set.
         NativeArrayBuffer clonedBuffer = (NativeArrayBuffer) ccx.clone(arrayBuffer);
 
-        // Use the original offset in the cloned buffer
-        Object[] args = new Object[] {clonedBuffer, offset, byteLength};
+        // Rebuild the view on the cloned buffer with the original offset, preserving
+        // auto-length behavior
+        Object[] args;
+        if (isAutoLength()) {
+            args = new Object[] {clonedBuffer, offset};
+        } else {
+            args = new Object[] {clonedBuffer, offset, byteLength};
+        }
         Object target = cx.newObject(scope, CLASS_NAME, args);
         ccx.remember(this, target);
         return target;
