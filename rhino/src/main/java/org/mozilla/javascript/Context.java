@@ -16,12 +16,10 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayDeque;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -526,7 +524,7 @@ public class Context implements Closeable {
 
     private void releaseContext() {
         // Drain the reference queue to prevent memory leaks
-        cleanUpReferences();
+        taskQueue.cleanUpReferences();
         // do not use contextLocal.remove() here, as this might be much slower, when the same thread
         // creates a new context. See ContextThreadLocalBenchmark.
         currentContext.set(null);
@@ -2521,122 +2519,87 @@ public class Context implements Closeable {
     }
 
     /**
-     * Add a task that will be executed at the end of the current operation. The various "evaluate"
-     * functions will all call this before exiting to ensure that all microtasks run to completion.
-     * Otherwise, callers should call "processMicrotasks" to run them all. This feature is primarily
-     * used to implement Promises. The microtask queue is not thread-safe.
+     * Return the task queue associated with this context. There is one task queue for each context.
+     * It owns the microtask queue, the unhandled promise rejection tracker, and the
+     * FinalizationRegistry reference queue. The microtask, unhandled promise, and finalization
+     * methods of this class are convenience delegates to the task queue.
+     */
+    public TaskQueue getTaskQueue() {
+        return taskQueue;
+    }
+
+    /**
+     * Add a task that will be executed at the end of the current operation.
+     *
+     * @see TaskQueue#enqueueMicrotask(Runnable)
      */
     public void enqueueMicrotask(Runnable task) {
-        microtasks.add(task);
+        taskQueue.enqueueMicrotask(task);
     }
 
     /**
-     * Run all the microtasks for the current context to completion. This is called by the various
-     * "evaluate" functions. Frameworks that call Function objects directly should call this
-     * function to ensure that everything completes if they want all Promises to eventually resolve.
-     * This function is idempotent, but the microtask queue is not thread-safe. If references are
-     * registered using a FinalizationRegistry, finalization callbacks will be called in this method
-     * as well.
+     * Run all the microtasks for the current context to completion.
      *
-     * <p>Nothing will happen if suspendMicrotaskProcessing was called.
-     *
-     * @see #suspendMicrotaskProcessing()
+     * @see TaskQueue#processMicrotasks()
      */
     public void processMicrotasks() {
-        if (microtaskSuspendCount > 0) {
-            return;
-        }
-        // Clean up references in a microtask in case a finalization call
-        // registers a microtask
-        microtasks.add(this::cleanUpReferences);
-        Runnable head;
-        while ((head = microtasks.poll()) != null) {
-            head.run();
-        }
+        taskQueue.processMicrotasks();
     }
 
     /**
-     * Clean up an item that has been removed from the reference queue and check if there are more.
-     */
-    private void cleanUpReferences() {
-        Reference<?> ref;
-        while ((ref = referenceQueue.poll()) != null) {
-            if (ref instanceof NativeFinalizationRegistry.Registration registration) {
-                var registry = registration.getRegistry();
-                if (registry != null) {
-                    registry.cleanup(this, registration);
-                }
-            }
-        }
-    }
-
-    /**
-     * Temporarily suspend microtask processing. Tasks will be resumed again when
-     * resumeMicrotaskProcessing() is called. Suspensions are cumulative -- each call to this method
-     * increases the suspend count, and microtasks will resume when the count again reaches zero.
-     * This can be used in complex frameworks that wish to execute multiple individual scripts
-     * before promises are resolved to emulate the behavior of some web browsers and other
-     * frameworks. The suspend count is not thread safe.
+     * Temporarily suspend microtask processing.
      *
-     * @see #resumeMicrotaskProcessing()
+     * @see TaskQueue#suspendMicrotaskProcessing()
      */
     public void suspendMicrotaskProcessing() {
-        microtaskSuspendCount++;
+        taskQueue.suspendMicrotaskProcessing();
     }
 
     /**
-     * Resume microtask processing after a suspend. Each call to suspendMicrotaskProcessing() must
-     * be matched with a call to this function in order for processing to resume.
+     * Resume microtask processing after a suspend.
      *
-     * @see #suspendMicrotaskProcessing()
+     * @see TaskQueue#resumeMicrotaskProcessing()
      */
     public void resumeMicrotaskProcessing() {
-        assert microtaskSuspendCount > 0;
-        microtaskSuspendCount--;
-        if (microtaskSuspendCount == 0) {
-            processMicrotasks();
-        }
+        taskQueue.resumeMicrotaskProcessing();
     }
 
     ReferenceQueue<Object> getReferenceQueue() {
-        return referenceQueue;
+        return taskQueue.getReferenceQueue();
     }
 
     /**
-     * Control whether to track unhandled promise rejections. If "track" is set to true, then the
-     * tracker returned by "getUnhandledPromiseTracker" must be periodically used to process the
-     * queue of unhandled promise rejections, or a memory leak may result.
+     * Control whether to track unhandled promise rejections.
      *
      * @param track if true, then track unhandled promise rejections
+     * @see TaskQueue#setTrackUnhandledPromiseRejections(boolean)
      */
     public void setTrackUnhandledPromiseRejections(boolean track) {
-        unhandledPromises.enable(track);
+        taskQueue.setTrackUnhandledPromiseRejections(track);
     }
 
     /**
      * Return the object used to track unhandled promise rejections.
      *
-     * @return the tracker object
+     * @see TaskQueue#getUnhandledPromiseTracker()
      */
     public UnhandledRejectionTracker getUnhandledPromiseTracker() {
-        return unhandledPromises;
+        return taskQueue.getUnhandledPromiseTracker();
     }
 
     /**
      * Control whether finalization callbacks are dispatched when registered targets are garbage
-     * collected. Defaults to false. If set to true, then "processMicrotasks" must periodically be
-     * called to ensure that finalization callbacks are fired, or a memory leak may result.
-     * (Microtasks are always processed before scripts exit and as a normal part of handling
-     * Promises.) It set to false (the default) then the FinalizationRegistry API will still work as
-     * the spec describes but callbacks will never fire.
+     * collected.
+     *
+     * @see TaskQueue#setFinalizationEnabled(boolean)
      */
     public void setFinalizationEnabled(boolean enabled) {
-        finalizationEnabled = enabled;
+        taskQueue.setFinalizationEnabled(enabled);
     }
 
     /** Returns whether cleanup callbacks will be dispatched at microtask checkpoints. */
     public boolean isFinalizationEnabled() {
-        return finalizationEnabled;
+        return taskQueue.isFinalizationEnabled();
     }
 
     /* ******** end of API ********* */
@@ -3070,11 +3033,7 @@ public class Context implements Closeable {
     private Map<Object, Object> threadLocalMap;
     private ClassLoader applicationClassLoader;
     private UnaryOperator<Object> javaToJSONConverter;
-    private final ArrayDeque<Runnable> microtasks = new ArrayDeque<>();
-    private final ReferenceQueue<Object> referenceQueue = new ReferenceQueue<>();
-    private int microtaskSuspendCount;
-    private final UnhandledRejectionTracker unhandledPromises = new UnhandledRejectionTracker();
-    private boolean finalizationEnabled = false;
+    private final TaskQueue taskQueue = new TaskQueue(this);
 
     /** This is the list of names of objects forcing the creation of function activation records. */
     Set<String> activationNames;
