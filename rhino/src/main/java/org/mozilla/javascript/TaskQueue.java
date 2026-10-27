@@ -8,6 +8,7 @@ import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.util.ArrayDeque;
 import java.util.PriorityQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
@@ -20,10 +21,11 @@ import java.util.function.LongSupplier;
  * the FinalizationRegistry reference queue. It also supports timed tasks: tasks that are run a
  * given time after they are scheduled.
  *
- * <p>The queue is not thread-safe and must be used from a single thread, the thread associated with
- * the context, which is also the thread on which tasks run. If an event on another thread must
- * result in a task running, it is the application's responsibility to wake the thread that pumps
- * the queue, for example by interrupting it, and to schedule the task once it runs.
+ * <p>With the exception of {@link #post}, the queue is not thread-safe and must be used from a
+ * single thread, the thread associated with the context, which is also the thread on which tasks
+ * run. Work offered from another thread via {@link #post} is executed on the queue's thread at the
+ * next microtask checkpoint, in the order it was offered; if the queue's thread is blocked in
+ * {@link #runAllTasks}, it is woken so the work can run.
  *
  * <p>Applications that use timers or need integration with an event loop must call {@link
  * #runTasks} to ensure that all tasks are executed. A simple application may simply call {@link
@@ -32,6 +34,13 @@ import java.util.function.LongSupplier;
  * another mechanism in order to incorporate events from other event loops.
  */
 public class TaskQueue {
+    /**
+     * The largest timeout that can be passed to {@link #inbox poll} without overflowing its
+     * internal conversion to nanoseconds.
+     */
+    private static final long MAX_POLL_TIMEOUT_MS =
+            Long.MAX_VALUE / 2 / TimeUnit.MILLISECONDS.toNanos(1);
+
     private final Context context;
     private final ArrayDeque<Runnable> microtasks = new ArrayDeque<>();
     private final ReferenceQueue<Object> referenceQueue = new ReferenceQueue<>();
@@ -42,6 +51,7 @@ public class TaskQueue {
     private final PriorityQueue<Scheduled> scheduled = new PriorityQueue<>();
     private long sequence = 0;
     private LongSupplier clock = System::currentTimeMillis;
+    private final LinkedBlockingDeque<Consumer<Context>> inbox = new LinkedBlockingDeque<>();
 
     TaskQueue(Context context) {
         this.context = context;
@@ -62,7 +72,8 @@ public class TaskQueue {
      * that call Function objects directly should call this function to ensure that everything
      * completes if they want all Promises to eventually resolve. This function is idempotent, but
      * the microtask queue is not thread-safe. If references are registered using a
-     * FinalizationRegistry, finalization callbacks will be called in this method as well.
+     * FinalizationRegistry, finalization callbacks will be called in this method as well. Tasks
+     * offered via {@link #post} are drained and run as part of this checkpoint.
      *
      * <p>This method does not run scheduled timers; call {@link #runTasks} for that.
      *
@@ -73,6 +84,13 @@ public class TaskQueue {
     public void processMicrotasks() {
         if (microtaskSuspendCount > 0) {
             return;
+        }
+        // Drain work offered from other threads so that it interleaves with the rest of the
+        // microtask queue.
+        Consumer<Context> offered;
+        while ((offered = inbox.poll()) != null) {
+            Consumer<Context> task = offered;
+            microtasks.add(() -> task.accept(context));
         }
         // Clean up references in a microtask in case a finalization call
         // registers a microtask
@@ -170,13 +188,30 @@ public class TaskQueue {
     }
 
     /**
-     * Run all tasks that are due without blocking: timers whose deadline has arrived, microtasks,
-     * and finalization callbacks. Timers run in order of their deadlines, with a microtask
-     * checkpoint after each one, so a microtask scheduled by a timer runs before the next timer. A
-     * timer that schedules another timer that is already due, for example with a zero delay, is
-     * also run by this call.
+     * Offer a task to run on the queue's thread, from any thread. The task runs in the order it was
+     * offered, at the next microtask checkpoint, interleaved with timers and other posted tasks. If
+     * the queue's thread is blocked in {@link #runAllTasks}, it is woken so the task can run;
+     * otherwise the task runs the next time {@link #runTasks} or {@link #processMicrotasks} is
+     * called on the queue's thread.
      *
-     * <p>If microtask processing is suspended, due timers are held in the microtask queue until
+     * <p>This is the thread-safe counterpart of {@link #enqueueMicrotask}: both deliver work that
+     * runs as a microtask, but a posted task may be offered from another thread and wakes a thread
+     * blocked in {@link #runAllTasks}. If microtask processing is suspended, posted tasks are held
+     * until it resumes.
+     */
+    public void post(Consumer<Context> task) {
+        inbox.add(task);
+    }
+
+    /**
+     * Run all tasks that are due without blocking: timers whose deadline has arrived, microtasks,
+     * tasks posted via {@link #post}, and finalization callbacks. Timers run in order of their
+     * deadlines, with a microtask checkpoint after each one, so a microtask scheduled by a timer
+     * runs before the next timer. A timer that schedules another timer that is already due, for
+     * example with a zero delay, is also run by this call, as is work posted while a task is
+     * running.
+     *
+     * <p>If microtask processing is suspended, due timers and posted tasks are held until
      * processing resumes.
      *
      * @return the number of milliseconds, according to the current clock, until the next scheduled
@@ -194,26 +229,37 @@ public class TaskQueue {
             }
             processMicrotasks();
             long nextDelay = timeToNextTask();
-            if (nextDelay != 0) {
+            // Posted work is drained by processMicrotasks; while it is suspended the inbox is
+            // held, so do not wait for it here either.
+            if (nextDelay != 0 && (inbox.isEmpty() || microtaskSuspendCount > 0)) {
                 return nextDelay;
             }
-            // A task scheduled while running is already due: run it in the next iteration.
+            // A task scheduled or posted while running is already due: run it in the next
+            // iteration.
         }
     }
 
     /**
      * Run tasks until there are no scheduled tasks, blocking the current thread as needed. This is
-     * the equivalent of looping on {@link #runTasks} and sleeping in between. It sleeps in real
+     * the equivalent of looping on {@link #runTasks} and sleeping in between. It waits in real
      * time, so it must not be used together with a clock set by {@link #setClock}. A task that
      * schedules more work keeps the queue non-empty, so a self-scheduling program runs forever by
-     * design.
+     * design. A task posted from another thread via {@link #post} ends the current wait early.
      *
      * @throws InterruptedException if the thread is interrupted while waiting
      */
     public void runAllTasks() throws InterruptedException {
         long nextDelay;
         while ((nextDelay = runTasks()) >= 0) {
-            Thread.sleep(nextDelay);
+            // Wait until the next timer is due or a task is posted. Put a posted task back at
+            // the head of the inbox, where it was, so that it runs in the order it was offered.
+            // A never-due timer would overflow poll's nanosecond conversion, so cap the wait;
+            // such timers are never due in any meaningful horizon, and the loop re-checks.
+            Consumer<Context> woken =
+                    inbox.poll(Math.min(nextDelay, MAX_POLL_TIMEOUT_MS), TimeUnit.MILLISECONDS);
+            if (woken != null) {
+                inbox.offerFirst(woken);
+            }
         }
     }
 

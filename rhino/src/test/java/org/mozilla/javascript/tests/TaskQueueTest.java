@@ -3,6 +3,7 @@ package org.mozilla.javascript.tests;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -11,6 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -361,6 +365,75 @@ public class TaskQueueTest {
         assertTrue(microtask.get());
     }
 
+    /** A posted task runs at the next microtask checkpoint, without runTasks. */
+    @Test
+    public void postedTaskRunsOnProcessMicrotasks() {
+        TaskQueue queue = cx.getTaskQueue();
+        AtomicBoolean done = new AtomicBoolean();
+        queue.post(c -> done.set(true));
+        queue.processMicrotasks();
+        assertTrue(done.get());
+    }
+
+    /** A posted task runs with the queue's context. */
+    @Test
+    public void postedTaskGetsQueueContext() {
+        TaskQueue queue = cx.getTaskQueue();
+        AtomicReference<Context> seen = new AtomicReference<>();
+        queue.post(seen::set);
+        assertEquals(-1, queue.runTasks());
+        assertSame(cx, seen.get());
+    }
+
+    /** Posted tasks run in the order they were offered. */
+    @Test
+    public void postedTasksRunInOrder() {
+        TaskQueue queue = cx.getTaskQueue();
+        List<String> order = new ArrayList<>();
+        queue.post(c -> order.add("first"));
+        queue.post(c -> order.add("second"));
+        queue.post(c -> order.add("third"));
+        assertEquals(-1, queue.runTasks());
+        assertEquals(List.of("first", "second", "third"), order);
+    }
+
+    /** A posted task runs before a later timer, and work posted by a timer runs after it. */
+    @Test
+    public void postedTaskInterleavesWithTimer() {
+        TaskQueue queue = cx.getTaskQueue();
+        FakeClock clock = new FakeClock();
+        queue.setClock(clock);
+        List<String> order = new ArrayList<>();
+        queue.post(c -> order.add("posted"));
+        queue.schedule(
+                c -> {
+                    order.add("timer");
+                    queue.post(c2 -> order.add("posted-later"));
+                },
+                5,
+                TimeUnit.MILLISECONDS);
+        assertEquals(5, queue.runTasks());
+        assertEquals(List.of("posted"), order);
+        clock.advance(5);
+        assertEquals(-1, queue.runTasks());
+        assertEquals(List.of("posted", "timer", "posted-later"), order);
+    }
+
+    /** A posted task is held, without spinning, while microtask processing is suspended. */
+    @Test
+    public void postedTaskRespectsSuspend() {
+        TaskQueue queue = cx.getTaskQueue();
+        queue.suspendMicrotaskProcessing();
+        AtomicBoolean done = new AtomicBoolean();
+        queue.post(c -> done.set(true));
+        queue.processMicrotasks();
+        assertFalse(done.get());
+        assertEquals(-1, queue.runTasks());
+        assertFalse(done.get());
+        queue.resumeMicrotaskProcessing();
+        assertTrue(done.get());
+    }
+
     /** runAllTasks blocks in real time until pending timers have run. */
     @Test
     public void runAllTasksWaitsForTimer() throws InterruptedException {
@@ -382,6 +455,102 @@ public class TaskQueueTest {
         Thread.currentThread().interrupt();
         assertThrows(InterruptedException.class, queue::runAllTasks);
         Thread.interrupted();
+    }
+
+    /** A post from another thread wakes a thread blocked in runAllTasks. */
+    @Test
+    public void postWakesRunAllTasks() throws InterruptedException {
+        TaskQueue queue = cx.getTaskQueue();
+        AtomicBoolean postedRan = new AtomicBoolean();
+        AtomicBoolean timerRan = new AtomicBoolean();
+        AtomicLong postedAt = new AtomicLong();
+        queue.schedule(c -> timerRan.set(true), 800, TimeUnit.MILLISECONDS);
+        Thread pump =
+                new Thread(
+                        () -> {
+                            try {
+                                queue.runAllTasks();
+                            } catch (InterruptedException e) {
+                                throw new AssertionError(e);
+                            }
+                        },
+                        "pump");
+        long start = System.nanoTime();
+        pump.start();
+        Thread.sleep(100);
+        queue.post(
+                c -> {
+                    postedAt.set(System.nanoTime());
+                    postedRan.set(true);
+                });
+        pump.join(2000);
+        assertFalse(pump.isAlive());
+        assertTrue(postedRan.get());
+        assertTrue(timerRan.get());
+        // The post must be picked up promptly, long before the 800 ms timer would fire.
+        long postedLatencyMs = (postedAt.get() - start) / 1000000;
+        assertTrue(postedLatencyMs < 500, "latency=" + postedLatencyMs);
+    }
+
+    /** Posting from another thread is safe while the queue is being pumped. */
+    @Test
+    public void postFromOtherThreadWhilePumping() throws InterruptedException {
+        TaskQueue queue = cx.getTaskQueue();
+        int count = 10_000;
+        AtomicInteger ran = new AtomicInteger();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        // A long timer keeps the pump alive while the posts arrive.
+        queue.schedule(c -> {}, 500, TimeUnit.MILLISECONDS);
+        Thread pump =
+                new Thread(
+                        () -> {
+                            try {
+                                queue.runAllTasks();
+                            } catch (Throwable t) {
+                                failure.set(t);
+                            }
+                        },
+                        "pump");
+        pump.start();
+        for (int i = 0; i < count; i++) {
+            queue.post(c -> ran.incrementAndGet());
+        }
+        pump.join(5000);
+        assertNull(failure.get());
+        assertFalse(pump.isAlive());
+        assertEquals(count, ran.get());
+    }
+
+    /** A never-due timer does not block posts, and the pump can still be interrupted. */
+    @Test
+    public void runAllTasksSaturatingTimer() throws InterruptedException {
+        TaskQueue queue = cx.getTaskQueue();
+        queue.schedule(c -> {}, Long.MAX_VALUE, TimeUnit.DAYS);
+        AtomicBoolean postedRan = new AtomicBoolean();
+        Thread pump =
+                new Thread(
+                        () -> {
+                            try {
+                                queue.runAllTasks();
+                            } catch (InterruptedException e) {
+                                // Expected at the end of the test.
+                            }
+                        },
+                        "pump");
+        pump.start();
+        // The pump must block in its wait, not spin on a timer that is never due.
+        long deadline = System.currentTimeMillis() + 2000;
+        while (pump.getState() != Thread.State.TIMED_WAITING
+                && System.currentTimeMillis() < deadline) {
+            Thread.sleep(5);
+        }
+        assertEquals(Thread.State.TIMED_WAITING, pump.getState(), "state=" + pump.getState());
+        queue.post(c -> postedRan.set(true));
+        Thread.sleep(50);
+        assertTrue(postedRan.get());
+        pump.interrupt();
+        pump.join(2000);
+        assertFalse(pump.isAlive());
     }
 
     /** A virtual clock for deterministic testing of scheduled tasks. */
