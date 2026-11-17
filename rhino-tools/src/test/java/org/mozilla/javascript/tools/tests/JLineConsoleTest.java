@@ -1,11 +1,15 @@
 package org.mozilla.javascript.tools.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.nio.charset.StandardCharsets;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 import org.junit.jupiter.api.Test;
@@ -80,6 +84,36 @@ public class JLineConsoleTest {
             assertEquals("ab", out.toString());
             console.flush();
             assertEquals("ab", out.toString());
+        }
+    }
+
+    @Test
+    public void printWhileReadingUsesPrintAbove() throws Exception {
+        PipedOutputStream inWrite = new PipedOutputStream();
+        PipedInputStream inRead = new PipedInputStream(inWrite);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        Terminal terminal =
+                TerminalBuilder.builder().system(false).dumb(true).streams(inRead, out).build();
+        try (JLineConsole console = new JLineConsole(terminal)) {
+            Thread t = new Thread(() -> console.readLine("prompt> "));
+            t.start();
+
+            // Wait until the reader is actively reading
+            while (!out.toString().contains("prompt> ")) {
+                Thread.sleep(10);
+            }
+
+            console.println("async-msg");
+
+            // Complete readLine
+            inWrite.write("line\n".getBytes(StandardCharsets.UTF_8));
+            inWrite.flush();
+            t.join(2000);
+            assertFalse(t.isAlive());
+
+            assertTrue(out.toString().contains("async-msg"));
+            assertTrue(out.toString().contains("prompt> "));
         }
     }
 }

@@ -25,6 +25,8 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Context.EvaluationMethod;
 import org.mozilla.javascript.ContextAction;
@@ -39,6 +41,7 @@ import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.SecurityController;
+import org.mozilla.javascript.TaskQueue;
 import org.mozilla.javascript.VarScope;
 import org.mozilla.javascript.commonjs.module.ModuleScope;
 import org.mozilla.javascript.commonjs.module.Require;
@@ -158,6 +161,9 @@ public class Main {
 
     /** Execute the given arguments, but don't System.exit at the end. */
     public static int exec(String[] origArgs) {
+        fileList.clear();
+        processStdin = true;
+        exitCode = 0;
         errorReporter = new ToolErrorReporter(false, global.getConsole().getErr());
         shellContextFactory.setErrorReporter(errorReporter);
         String[] args = processOptions(origArgs);
@@ -445,90 +451,171 @@ public class Main {
      */
     public static void processSource(Context cx, String filename) throws IOException {
         if (filename == null || filename.equals("-")) {
-            VarScope scope = getShellScope();
-            Charset cs;
-            String charEnc = shellContextFactory.getCharacterEncoding();
-            if (charEnc != null) {
-                cs = Charset.forName(charEnc);
-            } else {
-                cs = Charset.defaultCharset();
-            }
-            Console console = global.getConsole(cs);
-            if (filename == null) {
-                // print implementation version
-                console.println(
-                        cx.getImplementationVersion() + " (" + console.getImplementation() + ')');
-            }
-
-            int lineno = 1;
-            boolean hitEOF = false;
-            while (!hitEOF) {
-                String[] prompts = global.getPrompts(cx);
-                String prompt = null;
-                if (filename == null) prompt = prompts[0];
-                console.flush();
-                StringBuilder source = new StringBuilder();
-
-                // Collect lines of source to compile.
-                while (true) {
-                    String newline;
-                    try {
-                        newline = console.readLine(prompt);
-                    } catch (IOException ioe) {
-                        console.println(ioe.toString());
-                        break;
-                    }
-                    if (newline == null) {
-                        hitEOF = true;
-                        break;
-                    }
-                    source.append(newline).append('\n');
-                    lineno++;
-                    if (cx.stringIsCompilableUnit(source.toString())) break;
-                    prompt = prompts[1];
-                }
-                try {
-                    String finalSource = source.toString();
-                    Script script = cx.compileString(finalSource, "<stdin>", lineno, null);
-                    if (script != null) {
-                        Object result =
-                                script.exec(
-                                        cx,
-                                        scope,
-                                        ScriptableObject.getTopLevelScope(scope).getGlobalThis());
-                        // Avoid printing out undefined or function definitions.
-                        if (result != Context.getUndefinedValue()
-                                && !(result instanceof Function
-                                        && finalSource.trim().startsWith("function"))) {
-                            try {
-                                console.println(Context.toString(result));
-                            } catch (RhinoException rex) {
-                                ToolErrorReporter.reportException(cx.getErrorReporter(), rex);
-                            }
-                        }
-                        NativeArray h = global.history;
-                        h.put((int) h.getLength(), h, source);
-                    }
-                    printPromiseWarnings(cx, false);
-                } catch (RhinoException rex) {
-                    ToolErrorReporter.reportException(cx.getErrorReporter(), rex);
-                    exitCode = EXITCODE_RUNTIME_ERROR;
-                } catch (VirtualMachineError ex) {
-                    // Treat StackOverflow and OutOfMemory as runtime errors
-                    ex.printStackTrace();
-                    String msg =
-                            ToolErrorReporter.getMessage("msg.uncaughtJSException", ex.toString());
-                    Context.reportError(msg);
-                    exitCode = EXITCODE_RUNTIME_ERROR;
-                }
-            }
-            console.println();
-            console.flush();
+            processStdin(cx, filename);
         } else if (useRequire && filename.equals(mainModule)) {
             require.requireMain(cx, filename);
         } else {
             processFile(cx, getScope(filename), filename);
         }
+    }
+
+    private static void processStdin(Context cx, String filename) {
+        boolean interactive = (filename == null);
+        VarScope scope = getShellScope();
+        Charset cs;
+        String charEnc = shellContextFactory.getCharacterEncoding();
+        if (charEnc != null) {
+            cs = Charset.forName(charEnc);
+        } else {
+            cs = Charset.defaultCharset();
+        }
+        Console console = global.getConsole(cs);
+        if (interactive) {
+            // print implementation version
+            console.println(
+                    cx.getImplementationVersion() + " (" + console.getImplementation() + ')');
+        }
+
+        TaskQueue taskQueue = cx.getTaskQueue();
+        taskQueue.pin();
+
+        AtomicReference<String[]> currentPrompts =
+                new AtomicReference<>(interactive ? global.getPrompts(cx) : null);
+
+        Thread readerThread =
+                new Thread(
+                        () -> {
+                            Context readerCx = shellContextFactory.enterContext();
+                            try {
+                                int lineno = 1;
+                                while (true) {
+                                    String[] prompts = currentPrompts.get();
+                                    String prompt =
+                                            interactive && prompts != null ? prompts[0] : null;
+                                    console.flush();
+                                    StringBuilder source = new StringBuilder();
+
+                                    boolean hitEOF = false;
+                                    while (true) {
+                                        String newline;
+                                        try {
+                                            newline = console.readLine(prompt);
+                                        } catch (IOException ioe) {
+                                            console.println(ioe.toString());
+                                            hitEOF = true;
+                                            break;
+                                        }
+                                        if (newline == null) {
+                                            hitEOF = true;
+                                            break;
+                                        }
+                                        source.append(newline).append('\n');
+                                        lineno++;
+                                        if (readerCx.stringIsCompilableUnit(source.toString())) {
+                                            break;
+                                        }
+                                        if (interactive && prompts != null) {
+                                            prompt = prompts[1];
+                                        }
+                                    }
+
+                                    if (hitEOF) {
+                                        taskQueue.post(
+                                                c -> {
+                                                    taskQueue.unpin();
+                                                    if (interactive) {
+                                                        taskQueue.cancelAllTasks();
+                                                    }
+                                                });
+                                        break;
+                                    }
+
+                                    String finalSource = source.toString();
+                                    int finalLineno = lineno;
+                                    CountDownLatch evalDone = new CountDownLatch(1);
+
+                                    taskQueue.post(
+                                            c -> {
+                                                try {
+                                                    Script script =
+                                                            c.compileString(
+                                                                    finalSource,
+                                                                    "<stdin>",
+                                                                    finalLineno,
+                                                                    null);
+                                                    if (script != null) {
+                                                        Object result =
+                                                                script.exec(
+                                                                        c,
+                                                                        scope,
+                                                                        ScriptableObject
+                                                                                .getTopLevelScope(
+                                                                                        scope)
+                                                                                .getGlobalThis());
+                                                        // Avoid printing out undefined or function
+                                                        // definitions.
+                                                        if (result != Context.getUndefinedValue()
+                                                                && !(result instanceof Function
+                                                                        && finalSource
+                                                                                .trim()
+                                                                                .startsWith(
+                                                                                        "function"))) {
+                                                            try {
+                                                                console.println(
+                                                                        Context.toString(result));
+                                                            } catch (RhinoException rex) {
+                                                                ToolErrorReporter.reportException(
+                                                                        c.getErrorReporter(), rex);
+                                                            }
+                                                        }
+                                                        NativeArray h = global.history;
+                                                        h.put((int) h.getLength(), h, finalSource);
+                                                    }
+                                                    printPromiseWarnings(c, false);
+                                                } catch (RhinoException rex) {
+                                                    ToolErrorReporter.reportException(
+                                                            c.getErrorReporter(), rex);
+                                                    exitCode = EXITCODE_RUNTIME_ERROR;
+                                                } catch (VirtualMachineError ex) {
+                                                    // Treat StackOverflow and OutOfMemory as
+                                                    // runtime errors
+                                                    ex.printStackTrace();
+                                                    String msg =
+                                                            ToolErrorReporter.getMessage(
+                                                                    "msg.uncaughtJSException",
+                                                                    ex.toString());
+                                                    Context.reportError(msg);
+                                                    exitCode = EXITCODE_RUNTIME_ERROR;
+                                                } finally {
+                                                    if (interactive) {
+                                                        currentPrompts.set(global.getPrompts(c));
+                                                    }
+                                                    evalDone.countDown();
+                                                }
+                                            });
+
+                                    try {
+                                        evalDone.await();
+                                    } catch (InterruptedException e) {
+                                        break;
+                                    }
+                                }
+                            } finally {
+                                Context.exit();
+                            }
+                        },
+                        "Rhino Shell Input Reader");
+        readerThread.setDaemon(true);
+        readerThread.start();
+
+        try {
+            taskQueue.runAllTasks();
+        } catch (InterruptedException ie) {
+            // Shell has no facility to handle interrupts so stop now
+        }
+
+        console.println();
+        console.flush();
     }
 
     public static void processFileNoThrow(Context cx, VarScope scope, String filename) {

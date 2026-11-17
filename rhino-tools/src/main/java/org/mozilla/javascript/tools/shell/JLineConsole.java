@@ -14,6 +14,7 @@ import org.mozilla.javascript.tools.Console;
 public class JLineConsole implements Console {
     private final Terminal terminal;
     private final LineReader reader;
+    private final StringBuilder lineBuffer = new StringBuilder();
 
     public JLineConsole(Terminal t) {
         this.terminal = t;
@@ -55,29 +56,63 @@ public class JLineConsole implements Console {
     // interactive readLine), so flush explicitly or output is lost in script mode.
 
     @Override
-    public void print(String msg) {
-        PrintWriter w = terminal.writer();
-        w.print(msg);
-        w.flush();
+    public synchronized void print(String msg) {
+        if (reader.isReading()) {
+            lineBuffer.append(msg);
+            int newlineIdx;
+            while ((newlineIdx = lineBuffer.indexOf("\n")) != -1) {
+                String line = lineBuffer.substring(0, newlineIdx);
+                if (line.endsWith("\r")) {
+                    line = line.substring(0, line.length() - 1);
+                }
+                lineBuffer.delete(0, newlineIdx + 1);
+                reader.printAbove(line);
+            }
+        } else {
+            PrintWriter w = terminal.writer();
+            w.print(msg);
+            w.flush();
+        }
     }
 
     @Override
-    public void println(String msg) {
-        PrintWriter w = terminal.writer();
-        w.println(msg);
-        w.flush();
+    public synchronized void println(String msg) {
+        if (reader.isReading()) {
+            lineBuffer.append(msg);
+            String full = lineBuffer.toString();
+            lineBuffer.setLength(0);
+            reader.printAbove(full);
+        } else {
+            PrintWriter w = terminal.writer();
+            w.println(msg);
+            w.flush();
+        }
     }
 
     @Override
-    public void println() {
-        PrintWriter w = terminal.writer();
-        w.println();
-        w.flush();
+    public synchronized void println() {
+        if (reader.isReading()) {
+            String full = lineBuffer.toString();
+            lineBuffer.setLength(0);
+            reader.printAbove(full);
+        } else {
+            PrintWriter w = terminal.writer();
+            w.println();
+            w.flush();
+        }
     }
 
     @Override
-    public void flush() {
-        terminal.writer().flush();
+    public synchronized void flush() {
+        if (reader.isReading()) {
+            if (lineBuffer.length() > 0) {
+                String full = lineBuffer.toString();
+                lineBuffer.setLength(0);
+                reader.printAbove(full);
+            }
+        } else {
+            terminal.writer().flush();
+        }
     }
 
     @Override
