@@ -324,6 +324,7 @@ public class ScriptRuntime {
             new LazilyLoadedCtor<>(scope, "WeakRef", sealed, true, NativeWeakRef::init);
             new LazilyLoadedCtor<>(
                     scope, "FinalizationRegistry", sealed, true, NativeFinalizationRegistry::init);
+            new LazilyLoadedCtor<>(scope, "Atomics", sealed, true, NativeAtomics::init);
         }
 
         scope.cacheBuiltins(sealed);

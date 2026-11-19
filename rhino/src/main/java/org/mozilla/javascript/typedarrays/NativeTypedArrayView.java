@@ -46,6 +46,7 @@ import org.mozilla.javascript.TopLevel;
 import org.mozilla.javascript.Undefined;
 import org.mozilla.javascript.VarScope;
 import org.mozilla.javascript.Wrapper;
+import org.mozilla.javascript.v8dtoa.DoubleConversion;
 
 /**
  * This class is the abstract parent for all of the various typed arrays. Each one shows a view of a
@@ -367,7 +368,7 @@ public abstract class NativeTypedArrayView<T> extends NativeArrayBufferView
     }
 
     /**
-     * Enusres that the index is in the given range
+     * Ensures that the index is in the given range
      *
      * @throws IndexOutOfBoundsException when index is out of range
      */
@@ -649,6 +650,28 @@ public abstract class NativeTypedArrayView<T> extends NativeArrayBufferView
             Object value = source.get(k, source);
             js_set(k + targetOffset, value);
         }
+    }
+
+    /** Throws RangeError if out of spec, as required for atomic operations */
+    protected void checkAtomicIndex(int index) {
+        if (checkIndex(index)) {
+            throw ScriptRuntime.rangeErrorById("msg.out.of.range.index", index);
+        }
+        if (arrayBuffer.isDetached()) {
+            throw ScriptRuntime.typeErrorById("msg.arraybuf.detached");
+        }
+    }
+
+    /** Used by atomic operations to coerce "toIntegerToInfinity" in a particular way */
+    protected double coerceNumber(Object o) {
+        double val = ScriptRuntime.toNumber(o);
+        if (Double.isNaN(val) || val == -0.0) {
+            return 0.0;
+        }
+        if (!Double.isFinite(val)) {
+            return val;
+        }
+        return DoubleConversion.truncate(val);
     }
 
     /**

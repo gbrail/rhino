@@ -11,6 +11,7 @@ import static org.mozilla.javascript.ClassDescriptor.Destination.CTOR;
 import static org.mozilla.javascript.ClassDescriptor.Destination.PROTO;
 
 import java.io.Serial;
+import java.util.function.BiFunction;
 import org.mozilla.javascript.ClassDescriptor;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.JSFunction;
@@ -25,7 +26,7 @@ import org.mozilla.javascript.VarScope;
  * An array view that stores 32-bit quantities and implements the JavaScript "Int32Array" interface.
  * It also implements List&lt;Integer&gt; for direct manipulation in Java.
  */
-public class NativeInt32Array extends NativeTypedArrayView<Integer> {
+public class NativeInt32Array extends NativeTypedArrayView<Integer> implements AtomicSupport {
     @Serial private static final long serialVersionUID = 2090724894289667699L;
 
     private static final String CLASS_NAME = "Int32Array";
@@ -112,5 +113,88 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer> {
     public Integer set(int i, Integer aByte) {
         ensureIndex(i);
         return (Integer) js_set(i, aByte);
+    }
+
+    @Override
+    public Object atomicLoad(int index) {
+        checkAtomicIndex(index);
+        synchronized (arrayBuffer) {
+            return arrayBuffer.buffer.getInt((index * BYTES_PER_ELEMENT) + offset);
+        }
+    }
+
+    @Override
+    public Object atomicStore(int index, Object v) {
+        double num = coerceNumber(v);
+        int val = ScriptRuntime.toInt32(num);
+        checkAtomicIndex(index);
+        synchronized (arrayBuffer) {
+            arrayBuffer.buffer.putInt((index * BYTES_PER_ELEMENT) + offset, val);
+        }
+        return num;
+    }
+
+    private Object mathOp(int index, Object v, BiFunction<Integer, Integer, Integer> f) {
+        int val = Conversions.toInt32(v);
+        checkAtomicIndex(index);
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        synchronized (arrayBuffer) {
+            int old = arrayBuffer.buffer.getInt(addr);
+            int r = f.apply(old, val);
+            arrayBuffer.buffer.putInt(addr, r);
+            return old;
+        }
+    }
+
+    @Override
+    public Object atomicAdd(int index, Object v) {
+        return mathOp(index, v, Integer::sum);
+    }
+
+    @Override
+    public Object atomicSub(int index, Object v) {
+        return mathOp(index, v, (a, b) -> a - b);
+    }
+
+    @Override
+    public Object atomicAnd(int index, Object v) {
+        return mathOp(index, v, (a, b) -> a & b);
+    }
+
+    @Override
+    public Object atomicOr(int index, Object v) {
+        return mathOp(index, v, (a, b) -> a | b);
+    }
+
+    @Override
+    public Object atomicXor(int index, Object v) {
+        return mathOp(index, v, (a, b) -> a ^ b);
+    }
+
+    @Override
+    public Object atomicExchange(int index, Object v) {
+        int val = Conversions.toInt32(v);
+        checkAtomicIndex(index);
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        synchronized (arrayBuffer) {
+            int old = arrayBuffer.buffer.getInt(addr);
+            arrayBuffer.buffer.putInt(addr, val);
+            return old;
+        }
+    }
+
+    @Override
+    public Object atomicCompareAndExchange(int index, Object e, Object r) {
+        int expected = Conversions.toInt32(e);
+        int replacement = Conversions.toInt32(r);
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        checkAtomicIndex(index);
+        synchronized (arrayBuffer) {
+            int old = arrayBuffer.buffer.getInt(addr);
+            if (old == expected) {
+                arrayBuffer.buffer.putInt(addr, replacement);
+            }
+            return old;
+        }
     }
 }

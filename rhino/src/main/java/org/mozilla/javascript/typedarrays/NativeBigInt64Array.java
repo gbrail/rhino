@@ -12,6 +12,7 @@ import static org.mozilla.javascript.ClassDescriptor.Destination.PROTO;
 
 import java.io.Serial;
 import java.math.BigInteger;
+import java.util.function.BiFunction;
 import org.mozilla.javascript.ClassDescriptor;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.JSFunction;
@@ -26,7 +27,7 @@ import org.mozilla.javascript.VarScope;
  * An array view that stores 64-bit quantities and implements the JavaScript "Float64Array"
  * interface. It also implements List&lt;Double&gt; for direct manipulation in Java.
  */
-public class NativeBigInt64Array extends NativeBigIntArrayView {
+public class NativeBigInt64Array extends NativeBigIntArrayView implements AtomicSupport {
     @Serial private static final long serialVersionUID = 3291575517061505304L;
 
     private static final String CLASS_NAME = "BigInt64Array";
@@ -120,5 +121,91 @@ public class NativeBigInt64Array extends NativeBigIntArrayView {
             throw new IndexOutOfBoundsException();
         }
         return (BigInteger) js_set(i, aByte);
+    }
+
+    @Override
+    public Object atomicLoad(int index) {
+        checkAtomicIndex(index);
+        long base;
+        synchronized (arrayBuffer) {
+            base = arrayBuffer.buffer.getLong((index * BYTES_PER_ELEMENT) + offset);
+        }
+        return BigInteger.valueOf(base);
+    }
+
+    @Override
+    public Object atomicStore(int index, Object v) {
+        var val = ScriptRuntime.toBigInt(v);
+        long base = val.longValue();
+        checkAtomicIndex(index);
+        synchronized (arrayBuffer) {
+            arrayBuffer.buffer.putLong((index * BYTES_PER_ELEMENT) + offset, base);
+        }
+        return val;
+    }
+
+    private Object mathOp(int index, Object v, BiFunction<Long, Long, Long> f) {
+        var bVal = ScriptRuntime.toBigInt(v);
+        long val = bVal.longValue();
+        checkAtomicIndex(index);
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        synchronized (arrayBuffer) {
+            long old = arrayBuffer.buffer.getLong(addr);
+            long r = f.apply(old, val);
+            arrayBuffer.buffer.putLong(addr, r);
+            return BigInteger.valueOf(old);
+        }
+    }
+
+    @Override
+    public Object atomicAdd(int index, Object v) {
+        return mathOp(index, v, Long::sum);
+    }
+
+    @Override
+    public Object atomicSub(int index, Object v) {
+        return mathOp(index, v, (a, b) -> a - b);
+    }
+
+    @Override
+    public Object atomicAnd(int index, Object v) {
+        return mathOp(index, v, (a, b) -> a & b);
+    }
+
+    @Override
+    public Object atomicOr(int index, Object v) {
+        return mathOp(index, v, (a, b) -> a | b);
+    }
+
+    @Override
+    public Object atomicXor(int index, Object v) {
+        return mathOp(index, v, (a, b) -> a ^ b);
+    }
+
+    @Override
+    public Object atomicExchange(int index, Object v) {
+        long val = ScriptRuntime.toBigInt(v).longValue();
+        checkAtomicIndex(index);
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        synchronized (arrayBuffer) {
+            long old = arrayBuffer.buffer.getLong(addr);
+            arrayBuffer.buffer.putLong(addr, val);
+            return BigInteger.valueOf(old);
+        }
+    }
+
+    @Override
+    public Object atomicCompareAndExchange(int index, Object e, Object r) {
+        long expected = ScriptRuntime.toBigInt(e).longValue();
+        long replacement = ScriptRuntime.toBigInt(r).longValue();
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        checkAtomicIndex(index);
+        synchronized (arrayBuffer) {
+            long old = arrayBuffer.buffer.getLong(addr);
+            if (old == expected) {
+                arrayBuffer.buffer.putLong(addr, replacement);
+            }
+            return BigInteger.valueOf(old);
+        }
     }
 }

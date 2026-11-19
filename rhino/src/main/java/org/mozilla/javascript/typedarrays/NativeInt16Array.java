@@ -11,9 +11,11 @@ import static org.mozilla.javascript.ClassDescriptor.Destination.CTOR;
 import static org.mozilla.javascript.ClassDescriptor.Destination.PROTO;
 
 import java.io.Serial;
+import java.util.function.BiFunction;
 import org.mozilla.javascript.ClassDescriptor;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.JSFunction;
+import org.mozilla.javascript.ScriptRuntime;
 import org.mozilla.javascript.ScriptRuntimeES6;
 import org.mozilla.javascript.SymbolKey;
 import org.mozilla.javascript.TopLevel;
@@ -24,7 +26,7 @@ import org.mozilla.javascript.VarScope;
  * An array view that stores 16-bit quantities and implements the JavaScript "Int16Array" interface.
  * It also implements List&lt;Short&gt; for direct manipulation in Java.
  */
-public class NativeInt16Array extends NativeTypedArrayView<Short> {
+public class NativeInt16Array extends NativeTypedArrayView<Short> implements AtomicSupport {
     @Serial private static final long serialVersionUID = -8592870435287581398L;
 
     private static final String CLASS_NAME = "Int16Array";
@@ -111,5 +113,88 @@ public class NativeInt16Array extends NativeTypedArrayView<Short> {
     public Short set(int i, Short aByte) {
         ensureIndex(i);
         return (Short) js_set(i, aByte);
+    }
+
+    @Override
+    public Object atomicLoad(int index) {
+        checkAtomicIndex(index);
+        synchronized (arrayBuffer) {
+            return arrayBuffer.buffer.getShort((index * BYTES_PER_ELEMENT) + offset);
+        }
+    }
+
+    @Override
+    public Object atomicStore(int index, Object v) {
+        double num = coerceNumber(v);
+        short val = (short) ScriptRuntime.toInt32(num);
+        checkAtomicIndex(index);
+        synchronized (arrayBuffer) {
+            arrayBuffer.buffer.putShort((index * BYTES_PER_ELEMENT) + offset, val);
+        }
+        return num;
+    }
+
+    protected Object mathOp(int index, Object v, BiFunction<Short, Short, Short> f) {
+        short val = Conversions.toInt16(v);
+        checkAtomicIndex(index);
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        synchronized (arrayBuffer) {
+            short old = arrayBuffer.buffer.getShort(addr);
+            short r = f.apply(old, val);
+            arrayBuffer.buffer.putShort(addr, r);
+            return old;
+        }
+    }
+
+    @Override
+    public Object atomicAdd(int index, Object v) {
+        return mathOp(index, v, (a, b) -> (short) (a + b));
+    }
+
+    @Override
+    public Object atomicSub(int index, Object v) {
+        return mathOp(index, v, (a, b) -> (short) (a - b));
+    }
+
+    @Override
+    public Object atomicAnd(int index, Object v) {
+        return mathOp(index, v, (a, b) -> (short) (a & b));
+    }
+
+    @Override
+    public Object atomicOr(int index, Object v) {
+        return mathOp(index, v, (a, b) -> (short) (a | b));
+    }
+
+    @Override
+    public Object atomicXor(int index, Object v) {
+        return mathOp(index, v, (a, b) -> (short) (a ^ b));
+    }
+
+    @Override
+    public Object atomicExchange(int index, Object v) {
+        short val = Conversions.toInt16(v);
+        checkAtomicIndex(index);
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        synchronized (arrayBuffer) {
+            short old = arrayBuffer.buffer.getShort(addr);
+            arrayBuffer.buffer.putShort(addr, val);
+            return old;
+        }
+    }
+
+    @Override
+    public Object atomicCompareAndExchange(int index, Object e, Object r) {
+        short expected = Conversions.toInt16(e);
+        short replacement = Conversions.toInt16(r);
+        int addr = (index * BYTES_PER_ELEMENT) + offset;
+        checkAtomicIndex(index);
+        synchronized (arrayBuffer) {
+            short old = arrayBuffer.buffer.getShort(addr);
+            if (old == expected) {
+                arrayBuffer.buffer.putShort(addr, replacement);
+            }
+            return old;
+        }
     }
 }

@@ -65,4 +65,12 @@ public abstract class NativeArrayBufferView extends ScriptableObject {
     protected static boolean isArg(Object[] args, int i) {
         return ((args.length > i) && !Undefined.instance.equals(args[i]));
     }
+
+    public boolean isShared() {
+        return arrayBuffer.isShared();
+    }
+
+    public boolean isDetached() {
+        return arrayBuffer.isDetached();
+    }
 }
