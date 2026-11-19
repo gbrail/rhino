@@ -31,7 +31,7 @@ public class NativeBigUint64Array extends NativeBigIntArrayView implements Atomi
     @Serial private static final long serialVersionUID = 6278562787625694949L;
 
     private static final String CLASS_NAME = "BigUint64Array";
-    private static final int BYTES_PER_ELEMENT = 8;
+    protected static final int BYTES_PER_ELEMENT = 8;
 
     private static final ClassDescriptor DESCRIPTOR;
 
@@ -74,6 +74,9 @@ public class NativeBigUint64Array extends NativeBigIntArrayView implements Atomi
 
     private static Object js_constructor(
             Context cx, JSFunction f, Object nt, VarScope s, Object thisObj, Object[] args) {
+        // Pre-inspect the array buffer and see if it's shared
+        boolean shared =
+                (args.length > 0 && args[0] instanceof NativeArrayBuffer ab && ab.isShared());
         return NativeTypedArrayView.js_constructor(
                 cx,
                 f,
@@ -81,7 +84,7 @@ public class NativeBigUint64Array extends NativeBigIntArrayView implements Atomi
                 s,
                 thisObj,
                 args,
-                NativeBigUint64Array::new,
+                shared ? NativeSharedBigUint64Array::new : NativeBigUint64Array::new,
                 8,
                 TopLevel.Builtins.BigUint64Array);
     }

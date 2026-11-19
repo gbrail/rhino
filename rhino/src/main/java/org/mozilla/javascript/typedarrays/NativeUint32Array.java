@@ -29,7 +29,7 @@ public class NativeUint32Array extends NativeTypedArrayView<Long> implements Ato
     @Serial private static final long serialVersionUID = -7987831421954144244L;
 
     private static final String CLASS_NAME = "Uint32Array";
-    private static final int BYTES_PER_ELEMENT = 4;
+    protected static final int BYTES_PER_ELEMENT = 4;
 
     private static final ClassDescriptor DESCRIPTOR;
 
@@ -72,6 +72,9 @@ public class NativeUint32Array extends NativeTypedArrayView<Long> implements Ato
 
     private static Object js_constructor(
             Context cx, JSFunction f, Object nt, VarScope s, Object thisObj, Object[] args) {
+        // Pre-inspect the array buffer and see if it's shared
+        boolean shared =
+                (args.length > 0 && args[0] instanceof NativeArrayBuffer ab && ab.isShared());
         return NativeTypedArrayView.js_constructor(
                 cx,
                 f,
@@ -79,7 +82,7 @@ public class NativeUint32Array extends NativeTypedArrayView<Long> implements Ato
                 s,
                 thisObj,
                 args,
-                NativeUint32Array::new,
+                shared ? NativeSharedUint32Array::new : NativeUint32Array::new,
                 4,
                 TopLevel.Builtins.Uint32Array);
     }

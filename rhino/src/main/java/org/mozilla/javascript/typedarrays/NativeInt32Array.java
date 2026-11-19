@@ -30,7 +30,7 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer> implements A
     @Serial private static final long serialVersionUID = 2090724894289667699L;
 
     private static final String CLASS_NAME = "Int32Array";
-    private static final int BYTES_PER_ELEMENT = 4;
+    protected static final int BYTES_PER_ELEMENT = 4;
 
     private static final ClassDescriptor DESCRIPTOR;
 
@@ -73,6 +73,9 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer> implements A
 
     private static Object js_constructor(
             Context cx, JSFunction f, Object nt, VarScope s, Object thisObj, Object[] args) {
+        // Pre-inspect the array buffer and see if it's shared
+        boolean shared =
+                (args.length > 0 && args[0] instanceof NativeArrayBuffer ab && ab.isShared());
         return NativeTypedArrayView.js_constructor(
                 cx,
                 f,
@@ -80,7 +83,7 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer> implements A
                 s,
                 thisObj,
                 args,
-                NativeInt32Array::new,
+                shared ? NativeSharedInt32Array::new : NativeInt32Array::new,
                 4,
                 TopLevel.Builtins.Int32Array);
     }
