@@ -3,14 +3,22 @@ package org.mozilla.javascript.typedarrays;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.NativePromise;
 import org.mozilla.javascript.ScriptRuntime;
+import org.mozilla.javascript.TaskQueue;
+import org.mozilla.javascript.VarScope;
 
 /** This class implements the wait / notify capability of Atomics. */
 class Waiters {
+    private static final String OK = "ok";
+    private static final String NOT_EQUAL = "not-equal";
+    private static final String TIMED_OUT = "timed-out";
+
     enum Result {
         OK,
         NOT_EQUAL,
@@ -18,11 +26,65 @@ class Waiters {
     };
 
     private static class Wtr {
-        private final Thread thread;
-        private boolean notified;
+        private final NativePromise promise;
+        private final TaskQueue taskQueue;
+        private final long expiration;
 
-        Wtr(Thread thread) {
-            this.thread = thread;
+        private TaskQueue.Task timerTask;
+        private boolean notified;
+        private VarScope wakeScope;
+
+        Wtr(int timeout) {
+            this.promise = null;
+            this.taskQueue = null;
+            // TODO infinite timeout?
+            this.expiration = System.currentTimeMillis() + timeout;
+        }
+
+        Wtr(Context cx, NativePromise p, int timeout) {
+            this.promise = p;
+            this.taskQueue = cx.getTaskQueue();
+            this.expiration = System.currentTimeMillis() + timeout;
+        }
+
+        void wake(Result r) {
+            setNotified();
+            if (promise != null) {
+                // We might be on a different thread -- we need to get to the right one
+                final var origResult = r;
+                taskQueue.post(
+                        (lcx) -> {
+                            var result = origResult;
+                            // Check for timeout even on a normal notification, as per spec
+                            if (System.currentTimeMillis() >= expiration) {
+                                result = Result.TIMED_OUT;
+                            }
+                            // OK to cancel even if it may have timed out
+                            timerTask.cancel();
+                            promise.resolve(lcx, wakeScope, resultToString(result));
+                        });
+            }
+        }
+
+        synchronized void setNotified() {
+            notified = true;
+            notify();
+        }
+
+        synchronized boolean waitUntilNotified() {
+            while (!notified) {
+                long toWait = expiration - System.currentTimeMillis();
+                if (toWait <= 0) {
+                    return false;
+                }
+                try {
+                    wait(toWait);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+            return true;
         }
     }
 
@@ -30,7 +92,7 @@ class Waiters {
 
     public Result waitSync(int index, int timeout, Supplier<Boolean> eq) {
         var r = new AtomicReference<>(Result.OK);
-        var w = new Wtr(Thread.currentThread());
+        var w = new Wtr(timeout);
 
         waiters.compute(
                 index,
@@ -52,10 +114,7 @@ class Waiters {
             return Result.NOT_EQUAL;
         }
 
-        // Park outside the critical section!
-        LockSupport.parkNanos(timeout * 1000000L);
-
-        if (w.notified) {
+        if (w.waitUntilNotified()) {
             return Result.OK;
         }
 
@@ -74,6 +133,77 @@ class Waiters {
         return Result.TIMED_OUT;
     }
 
+    public Object waitAsync(Context cx, VarScope s, int index, int timeout, Supplier<Boolean> eq) {
+        var w = new AtomicReference<Wtr>();
+        var r = new AtomicReference<>(Result.OK);
+
+        waiters.compute(
+                index,
+                (i, l) -> {
+                    // Critical section for "index".
+                    if (!eq.get()) {
+                        // Not equal -- bail out early
+                        r.set(Result.NOT_EQUAL);
+                        return l;
+                    }
+                    if (timeout == 0) {
+                        // Also bail out early on zero timeout
+                        r.set(Result.TIMED_OUT);
+                        return l;
+                    }
+                    if (l == null) {
+                        l = new ArrayDeque<>();
+                    }
+
+                    var p = NativePromise.create(s);
+                    var wt = new Wtr(cx, p, timeout);
+                    wt.wakeScope = s;
+                    wt.timerTask =
+                            cx.getTaskQueue()
+                                    .schedule(
+                                            (lcx) -> timedOut(index, wt),
+                                            timeout,
+                                            TimeUnit.MILLISECONDS);
+                    l.offer(wt);
+                    w.set(wt);
+
+                    return l;
+                });
+
+        var result = cx.newObject(s);
+
+        if (r.get() != Result.OK) {
+            result.put("async", result, false);
+            result.put("value", result, resultToString(r.get()));
+        } else {
+            var wt = w.get();
+            assert wt != null;
+            result.put("async", result, true);
+            result.put("value", result, wt.promise);
+        }
+
+        return result;
+    }
+
+    private void timedOut(int index, Wtr w) {
+        waiters.compute(
+                index,
+                (i, l) -> {
+                    // Critical section for "index"
+                    if (l != null) {
+                        // Linear-time removal, maybe not great
+                        if (l.remove(w)) {
+                            w.wake(Result.TIMED_OUT);
+                        }
+                        if (l.isEmpty()) {
+                            // Be sure to clean up when done
+                            return null;
+                        }
+                    }
+                    return l;
+                });
+    }
+
     public int notify(int index, int count) {
         var removed = new AtomicInteger(0);
 
@@ -85,8 +215,7 @@ class Waiters {
                         int toRemove = Math.min(count, l.size());
                         for (int c = 0; c < toRemove; c++) {
                             var waiter = l.remove();
-                            waiter.notified = true;
-                            LockSupport.unpark(waiter.thread);
+                            waiter.wake(Result.OK);
                         }
                         removed.set(toRemove);
                         if (l.isEmpty()) {
@@ -119,11 +248,11 @@ class Waiters {
     public static String resultToString(Result r) {
         switch (r) {
             case OK:
-                return "ok";
+                return OK;
             case NOT_EQUAL:
-                return "not-equal";
+                return NOT_EQUAL;
             case TIMED_OUT:
-                return "timed-out";
+                return TIMED_OUT;
             default:
                 throw new AssertionError();
         }

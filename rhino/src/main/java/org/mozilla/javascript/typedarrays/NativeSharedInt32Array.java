@@ -143,8 +143,13 @@ public class NativeSharedInt32Array extends NativeInt32Array implements WaitSupp
     }
 
     @Override
-    public Object waitAsync(int index, Object val, Object timeout) {
-        throw ScriptRuntime.typeError("Not implemented yet");
+    public Object waitAsync(int index, Object v, Object t) {
+        checkAtomicIndex(index);
+        int val = ScriptRuntime.toInt32(v);
+        int timeout = Waiters.getTimeout(t);
+        var w = getWaiters();
+        var r = w.waitSync(index, timeout, () -> readCurrent(index) == val);
+        return Waiters.resultToString(r);
     }
 
     @Override

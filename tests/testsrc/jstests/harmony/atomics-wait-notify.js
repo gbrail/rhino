@@ -177,13 +177,6 @@ load('testsrc/assert.js');
   assertEquals(0, Atomics.notify(a, 2, 1));
 })();
 
-(function TestWaitAsyncNotImplemented() {
-  var sab = new SharedArrayBuffer(8);
-  var a = new Int32Array(sab);
-
-  assertThrows(function() { Atomics.waitAsync(a, 0, 0, 0); }, TypeError);
-})();
-
 (function TestWaitSmallPositiveTimeout() {
   var sab = new SharedArrayBuffer(8);
   var a = new Int32Array(sab);
