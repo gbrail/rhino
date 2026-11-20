@@ -71,6 +71,11 @@ public class NativeInt32Array extends NativeTypedArrayView<Integer> implements A
         return BYTES_PER_ELEMENT;
     }
 
+    @Override
+    public boolean isWaitCapable() {
+        return true;
+    }
+
     private static Object js_constructor(
             Context cx, JSFunction f, Object nt, VarScope s, Object thisObj, Object[] args) {
         // Pre-inspect the array buffer and see if it's shared
